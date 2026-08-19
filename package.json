@@ -10,7 +10,8 @@
     "verify:rls": "node scripts/verify-rls.mjs",
     "typecheck": "tsc --noEmit",
     "db:export": "node scripts/db-export.mjs",
-    "db:import": "node scripts/db-import.mjs"
+    "db:import": "node scripts/db-import.mjs",
+    "bootstrap:admin": "node scripts/bootstrap-admin.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

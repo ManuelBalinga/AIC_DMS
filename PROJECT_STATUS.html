@@ -194,25 +194,25 @@
 <h2>Overall progress</h2>
 
 <div class="stats">
-  <div class="stat"><div class="n">29 / 34</div><div class="l">Deliverables built</div></div>
+  <div class="stat"><div class="n">31 / 36</div><div class="l">Deliverables built</div></div>
   <div class="stat"><div class="n">12 / 14</div><div class="l">Acceptance criteria met</div></div>
   <div class="stat"><div class="n">0</div><div class="l">Verified against a live database</div></div>
   <div class="stat"><div class="n">4</div><div class="l">Open questions for Bishop</div></div>
 </div>
 
 <div class="card">
-  <div class="progress-shell" role="img" aria-label="29 of 34 deliverables built, 3 in progress, 1 not started, 1 waiting on Bishop">
-    <span style="width:85.3%;background:var(--built-dot)"></span>
-    <span style="width:8.8%;background:var(--progress-dot)"></span>
-    <span style="width:2.9%;background:var(--todo-dot)"></span>
-    <span style="width:3%;background:var(--blocked-dot)"></span>
+  <div class="progress-shell" role="img" aria-label="31 of 36 deliverables built, 3 in progress, 1 not started, 1 waiting on Bishop">
+    <span style="width:86.1%;background:var(--built-dot)"></span>
+    <span style="width:8.3%;background:var(--progress-dot)"></span>
+    <span style="width:2.8%;background:var(--todo-dot)"></span>
+    <span style="width:2.8%;background:var(--blocked-dot)"></span>
   </div>
   <div class="progress-legend">
-    <span><b>29</b> Built</span>
+    <span><b>31</b> Built</span>
     <span><b>3</b> In progress</span>
     <span><b>1</b> Not started</span>
     <span><b>1</b> Needs Bishop</span>
-    <span><b>34</b> total tracked deliverables</span>
+    <span><b>36</b> total tracked deliverables</span>
   </div>
   <p style="margin:14px 0 0; font-size:13.5px; color:var(--text-muted)">
     <b>Read that number carefully.</b> “Built” means code-complete,
@@ -456,6 +456,8 @@ text layer indexes to zero passages and reports as much.</p>
     <tr class="group-head"><td colspan="3">Follow-up from Bishop's recommendations (18 Aug)</td></tr>
     <tr><td class="item">Conversation memory for Ask</td><td class="status"><span class="pill built">Built</span></td><td class="note">Ask was stateless — a question in, an answer out, nothing kept — so follow-ups were impossible. Threads, turns and citations are now stored (migration <code>0005</code>), with a replayed window of recent turns and a rolling summary for what ages out. Threads are owner-only under RLS, with no administrator exception: an admin can already read any document, and being able to read what a colleague privately asked about one is a different power.</td></tr>
     <tr><td class="item">Follow-up question resolution</td><td class="status"><span class="pill built">Built</span></td><td class="note">The part that is easy to miss. Retrieval matches by meaning, and “what about the fees?” has almost none on its own — so a naive follow-up retrieves noise and the model then answers from noise, fluently. Follow-ups are rewritten into standalone queries <em>before</em> retrieval, because by the time the generator sees anything the wrong passages have already been chosen.</td></tr>
+    <tr><td class="item">First-administrator bootstrap</td><td class="status"><span class="pill built">Built</span></td><td class="note">The one account that cannot be made through the app: there is no public sign-up, and inviting requires an administrator. <code>npm run bootstrap:admin</code> replaces three manual steps across two consoles, and verifies the profile row was actually written by the <code>on_auth_user_created</code> trigger — catching a half-applied migration <code>0001</code> at setup rather than days later. Idempotent, so a re-run promotes rather than duplicates.</td></tr>
+    <tr><td class="item">Database provider decision (Supabase vs Neon)</td><td class="status"><span class="pill built">Built</span></td><td class="note">Bishop likes Neon, and Neon is good Postgres — but it is <em>only</em> a database: no auth service, no object storage. Storing accounts there means Neon + Clerk + S3, three vendors against today's one, and a rewrite of the two subsystems already finished. Recommendation recorded in <code>Documentation/DATABASE_DECISION.md</code>: Supabase now, Neon as a proven exit. Includes the step-by-step setup and what does and does not survive a move.</td></tr>
     <tr><td class="item">Provider-portable schema &amp; migration scripts</td><td class="status"><span class="pill built">Built</span></td><td class="note">Bishop's “port records in a modular way from one database to the next”. Four things normally lock a schema to its provider — <code>auth.users</code>, <code>auth.uid()</code>, <code>storage.*</code>, the <code>authenticated</code> role — and each is now isolated to one place, so the ~20 RLS policies are identical across providers. <code>db/portable-schema.sql</code> plus export/import scripts; the Neon move is three commands.</td></tr>
 
   </tbody>
@@ -523,14 +525,17 @@ Every remaining item needs either a live database or an answer from Bishop —
 which is why the order below starts with standing one up.</p>
 
 <ul class="clean">
-  <li><strong>Commit the work.</strong> Everything past the initial Create-Next-App commit
-    is still untracked in git. The cheapest risk on this list to remove.</li>
   <li><strong>Connect a Supabase project</strong> and run all five migrations in order.
     <code>npm run build</code>, <code>npm run typecheck</code> and <code>npm run lint</code>
     all pass clean, so the TypeScript half is verified — but no SQL has ever
     executed, so every <em>runtime</em> claim marked Built is still unproven. Migration
     <code>0004</code> is the one to watch: it needs <code>pgvector</code> to support HNSW
     indexes.</li>
+  <li><strong>Create the first administrator</strong> with
+    <code>npm run bootstrap:admin -- you@aic.example</code>. There is no public sign-up and
+    inviting requires an administrator, so this one account has to come from outside the
+    app. The script also verifies the profile trigger fired, which is the cheapest moment
+    to discover a half-applied migration <code>0001</code>.</li>
   <li><strong>Run <code>npm run verify:rls</code></strong> against that project. This is the
     single highest-value command on the list — it is the only thing that turns
     the security model from a claim into a result.</li>
@@ -549,7 +554,9 @@ which is why the order below starts with standing one up.</p>
 
 <footer>
   Reflects <em>AIC Intelligent Knowledge Management System — Revised Project Plan</em> and the
-  internal-tool discussion of 17 August 2026. Last updated 18 August 2026, after Phases 1–3.
+  internal-tool discussion of 17 August 2026, and Bishop's recommendations of 18 August.
+  Last updated 19 August 2026, after the database-provider decision and administrator
+  bootstrap.
   Update this page whenever a deliverable status changes.
 </footer>
 
