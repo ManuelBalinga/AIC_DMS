@@ -44,6 +44,9 @@ export type DocumentRecord = {
   indexed_at: string | null;
   index_error: string | null;
   chunk_count: number;
+  summary: string | null;
+  summary_generated_at: string | null;
+  suggested_tags: string[];
   created_at: string;
   updated_at: string;
 }
@@ -74,6 +77,14 @@ export type RetrievedChunk = {
   chunk_index: number;
   page_number: number | null;
   content: string;
+}
+
+/** One row of `related_documents`. */
+export type RelatedDocument = {
+  document_id: string;
+  title: string;
+  tags: string[];
+  similarity: number;
 }
 
 export type Conversation = {
@@ -228,6 +239,14 @@ export type Database = {
       search_document_chunks: {
         Args: { query_text: string; match_count?: number };
         Returns: (RetrievedChunk & { rank: number })[];
+      };
+      related_documents: {
+        Args: {
+          source_document_id: string;
+          match_count?: number;
+          min_similarity?: number;
+        };
+        Returns: RelatedDocument[];
       };
       next_message_seq: {
         Args: { target_conversation_id: string };

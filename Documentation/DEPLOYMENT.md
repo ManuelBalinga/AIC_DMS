@@ -27,6 +27,7 @@ because a bad migration in development would then take production with it.
    supabase/migrations/0003_organization.sql
    supabase/migrations/0004_rag.sql
    supabase/migrations/0005_memory.sql
+   supabase/migrations/0006_intelligence.sql
    ```
 
    Run them one at a time and read the result of each. `0001` enables the

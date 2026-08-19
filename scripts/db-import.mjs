@@ -21,32 +21,43 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 /* -------------------------------------------------------------------------- */
 /* Arguments                                                                  */
+/*                                                                            */
+/* Resolved inside `main` rather than at module scope so this file can be      */
+/* imported — by the tests, or by any other script — without reading a         */
+/* manifest, parsing argv, or calling process.exit as a side effect of the     */
+/* import itself.                                                             */
 /* -------------------------------------------------------------------------- */
+
+let fromDir = "db/export";
+let target = "neon";
+let manifest = null;
 
 function flag(name, fallback) {
   const index = process.argv.indexOf(`--${name}`);
   return index === -1 ? fallback : process.argv[index + 1];
 }
 
-const fromDir = flag("from", "db/export");
-const target = flag("target", "neon");
+function loadContext() {
+  fromDir = flag("from", "db/export");
+  target = flag("target", "neon");
 
-if (!["neon", "supabase"].includes(target)) {
-  console.error(`Unknown --target "${target}". Use "neon" or "supabase".`);
-  process.exit(1);
-}
+  if (!["neon", "supabase"].includes(target)) {
+    console.error(`Unknown --target "${target}". Use "neon" or "supabase".`);
+    process.exit(1);
+  }
 
-let manifest;
-try {
-  manifest = JSON.parse(readFileSync(join(fromDir, "manifest.json"), "utf8"));
-} catch {
-  console.error(
-    `No manifest at ${fromDir}/manifest.json. Run scripts/db-export.mjs first.`,
-  );
-  process.exit(1);
+  try {
+    manifest = JSON.parse(readFileSync(join(fromDir, "manifest.json"), "utf8"));
+  } catch {
+    console.error(
+      `No manifest at ${fromDir}/manifest.json. Run scripts/db-export.mjs first.`,
+    );
+    process.exit(1);
+  }
 }
 
 function readRows(tableName) {
@@ -67,7 +78,7 @@ function readRows(tableName) {
 /* SQL literals                                                               */
 /* -------------------------------------------------------------------------- */
 
-function quote(value) {
+export function quote(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
@@ -77,7 +88,7 @@ function quote(value) {
  * Not JSON: `["a","b"]` is a valid JSON array and an invalid Postgres one.
  * Elements are double-quoted so a tag containing a comma or a brace survives.
  */
-function arrayLiteral(values) {
+export function arrayLiteral(values) {
   const elements = values.map(
     (value) => `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`,
   );
@@ -96,7 +107,7 @@ function arrayLiteral(values) {
  * pgvector reads back as the string "[0.1,0.2,…]", which is already its own
  * input format, so embeddings need no special handling beyond quoting.
  */
-function literal(value) {
+export function literal(value) {
   if (value === null || value === undefined) return "NULL";
   if (typeof value === "number") return String(value);
   if (typeof value === "boolean") return value ? "true" : "false";
@@ -272,6 +283,8 @@ async function writeSupabaseTarget() {
 /* -------------------------------------------------------------------------- */
 
 async function main() {
+  loadContext();
+
   if (target === "neon") {
     writeSqlTarget();
   } else {
@@ -284,7 +297,10 @@ async function main() {
   );
 }
 
-main().catch((cause) => {
-  console.error(`\nImport failed: ${cause.message}`);
-  process.exit(1);
-});
+// Only run when invoked directly; a plain import gets the helpers alone.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  main().catch((cause) => {
+    console.error(`\nImport failed: ${cause.message}`);
+    process.exit(1);
+  });
+}

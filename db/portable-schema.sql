@@ -152,6 +152,11 @@ create table if not exists public.documents (
   indexed_at    timestamptz,
   index_error   text,
   chunk_count   integer not null default 0,
+  -- Phase 4 enrichment. `suggested_tags` is kept apart from `tags` so a model
+  -- proposal never counts as a person's filing decision.
+  summary       text,
+  summary_generated_at timestamptz,
+  suggested_tags text[] not null default '{}',
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -433,6 +438,58 @@ as $fn$
   where to_tsvector('english', c.content) @@ websearch_to_tsquery('english', query_text)
   order by 7 desc
   limit least(greatest(match_count, 1), 50);
+$fn$;
+
+-- ---------------------------------------------------------------------------
+-- Phase 4: document-level embeddings and related documents
+--
+-- A document's vector is the mean of its chunks'. Chunk-to-chunk similarity
+-- answers a different question: two documents can share one boilerplate
+-- paragraph and be about nothing alike.
+-- ---------------------------------------------------------------------------
+create or replace view public.document_embeddings as
+  select
+    c.document_id,
+    avg(c.embedding)::vector(1536) as embedding,
+    count(*)                       as chunk_count
+  from public.document_chunks c
+  where c.embedding is not null
+  group by c.document_id;
+
+alter view public.document_embeddings set (security_invoker = true);
+
+create or replace function public.related_documents(
+  source_document_id uuid,
+  match_count integer default 5,
+  min_similarity double precision default 0.5
+)
+returns table (
+  document_id uuid,
+  title       text,
+  tags        text[],
+  similarity  double precision
+)
+language sql
+stable
+set search_path = public
+as $fn$
+  with source as (
+    select e.embedding
+    from public.document_embeddings e
+    where e.document_id = source_document_id
+  )
+  select
+    d.id,
+    d.title,
+    d.tags,
+    1 - (e.embedding <=> s.embedding) as similarity
+  from public.document_embeddings e
+  join public.documents d on d.id = e.document_id
+  cross join source s
+  where e.document_id <> source_document_id
+    and 1 - (e.embedding <=> s.embedding) >= min_similarity
+  order by e.embedding <=> s.embedding
+  limit least(greatest(match_count, 1), 20);
 $fn$;
 
 -- ---------------------------------------------------------------------------

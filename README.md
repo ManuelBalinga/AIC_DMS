@@ -28,6 +28,22 @@ policies, not by application code. Week 2's RAG retrieval reads
 retrieve an answer grounded in a document they cannot open, even if the
 retrieval code forgets to filter.
 
+## Tests
+
+```bash
+npm test
+```
+
+72 unit tests on `node:test`, with no test-framework dependency: Node 22 strips
+the TypeScript natively, and a small resolve hook in `tests/` teaches it the
+`@/*` alias so the tests exercise the real source files rather than a copy.
+
+They cover the logic where a bug is silent — chunking (including that a chunk
+never spans two pages, which is what makes a page citation honest), memory
+windowing and citation stripping, filename sanitisation, and the migration
+script's SQL escaping. Anything needing a database is covered by
+`npm run verify:rls` instead, which needs a live project.
+
 ## Conversation memory
 
 Ask is a thread, not a one-shot box. Each question is answered with the recent
@@ -69,6 +85,7 @@ migrations in order from the SQL Editor:
 3. `supabase/migrations/0003_organization.sql` — tags and keyword search
 4. `supabase/migrations/0004_rag.sql` — retrieval functions and the vector index
 5. `supabase/migrations/0005_memory.sql` — conversation threads, turns and citations
+6. `supabase/migrations/0006_intelligence.sql` — summaries, tag suggestions, related documents
 
 ### 2. Configure environment
 

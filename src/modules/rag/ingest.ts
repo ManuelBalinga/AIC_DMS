@@ -5,6 +5,7 @@ import { STORAGE_BUCKET } from "@/modules/documents/constants";
 import { chunkPages } from "@/modules/rag/chunk";
 import { embedAll, embeddingsConfigured } from "@/modules/rag/embed";
 import { extractText } from "@/modules/rag/extract";
+import { summariseDocument, suggestTags } from "@/modules/intelligence/summarise";
 import type { DocumentIndexStatus } from "@/lib/types/database";
 
 /**
@@ -39,12 +40,50 @@ async function setStatus(
     .eq("id", documentId);
 }
 
+/**
+ * Writes the Phase 4 enrichments: a summary and suggested tags.
+ *
+ * Takes the already-extracted pages rather than re-reading the file, so this
+ * costs one model call each and no additional storage round trip.
+ *
+ * Swallows its own failures on purpose. The document is indexed by the time
+ * this runs; a null summary is a missing nicety, while a thrown error here
+ * would mark a perfectly searchable document as failed.
+ */
+async function enrichDocument(
+  documentId: string,
+  title: string,
+  existingTags: string[],
+  pages: { text: string }[],
+): Promise<void> {
+  try {
+    const text = pages.map((page) => page.text).join("\n\n");
+
+    const [summary, suggested] = await Promise.all([
+      summariseDocument(title, text),
+      suggestTags(title, text, existingTags),
+    ]);
+
+    if (!summary && suggested.length === 0) return;
+
+    await createAdminClient()
+      .from("documents")
+      .update({
+        ...(summary ? { summary, summary_generated_at: new Date().toISOString() } : {}),
+        ...(suggested.length > 0 ? { suggested_tags: suggested } : {}),
+      })
+      .eq("id", documentId);
+  } catch {
+    // Enrichment is optional by design; the document is already indexed.
+  }
+}
+
 export async function ingestDocument(documentId: string): Promise<IngestResult> {
   const admin = createAdminClient();
 
   const { data: document, error: lookupError } = await admin
     .from("documents")
-    .select("id, storage_path, mime_type, file_name")
+    .select("id, storage_path, mime_type, file_name, title, tags")
     .eq("id", documentId)
     .maybeSingle();
 
@@ -109,6 +148,12 @@ export async function ingestDocument(documentId: string): Promise<IngestResult> 
     if (insertError) throw new Error(insertError.message);
 
     await setStatus(documentId, "indexed", { chunkCount: chunks.length });
+
+    // Phase 4 enrichment, after the document is already searchable. Deliberately
+    // last and deliberately non-fatal: indexing is what makes a document useful,
+    // and a summariser outage must not cost the corpus its retrieval.
+    await enrichDocument(documentId, document.title, document.tags ?? [], extracted.pages);
+
     return { ok: true, chunkCount: chunks.length };
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause);

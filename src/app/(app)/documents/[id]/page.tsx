@@ -10,11 +10,14 @@ import {
 import { deleteDocument } from "@/modules/documents/actions";
 import { listDocumentGrants } from "@/modules/access/queries";
 import { listTeamMembers } from "@/modules/users/queries";
+import { getRelatedDocuments } from "@/modules/intelligence/queries";
 import { Badge, Button, Card } from "@/components/ui";
 import { DocumentPreview, isPreviewable } from "./document-preview";
 import { EditForm } from "./edit-form";
 import { ReindexForm } from "./reindex-form";
 import { SharePanel } from "./share-panel";
+import { SuggestedTags } from "./suggested-tags";
+import { RelatedDocuments } from "./related-documents";
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString("en-GB", {
@@ -53,6 +56,10 @@ export default async function DocumentPage({
     ? await Promise.all([listDocumentGrants(document.id), listTeamMembers()])
     : [[], []];
 
+  // Permission-aware through RLS on the underlying chunks, so this runs for
+  // every viewer rather than only for managers.
+  const related = await getRelatedDocuments(document.id);
+
   const grantedIds = new Set(grants.map((grant) => grant.user_id));
   const shareableMembers = teamMembers.filter(
     (member) => member.id !== document.owner_id && !grantedIds.has(member.id),
@@ -86,6 +93,16 @@ export default async function DocumentPage({
               {document.description}
             </p>
           ) : null}
+          {document.summary ? (
+            <div className="mt-3 max-w-2xl border-l-2 border-neutral-200 pl-3 dark:border-neutral-800">
+              <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                Summary
+              </p>
+              <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                {document.summary}
+              </p>
+            </div>
+          ) : null}
           {document.tags.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {document.tags.map((tag) => (
@@ -114,6 +131,15 @@ export default async function DocumentPage({
           title={document.title}
         />
       ) : null}
+
+      {canManage && document.suggested_tags.length > 0 ? (
+        <SuggestedTags
+          documentId={document.id}
+          suggestions={document.suggested_tags}
+        />
+      ) : null}
+
+      <RelatedDocuments related={related} />
 
       <Card className="p-5">
         <h2 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">

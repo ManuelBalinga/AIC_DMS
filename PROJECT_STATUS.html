@@ -183,36 +183,42 @@
   requirements that the week line-items had missed (account management and document
   organization). What is left is not construction: it is a live database, real AIC sample
   documents, and the four decisions only Bishop can make — listed in sections 9 and 10.</p>
-  <p><strong>Since the 18 August conversations.</strong> Bishop's two technical
-  recommendations are implemented: conversation memory for the Ask module (session
-  history, follow-up questions, a rolling summary) and a provider-portable schema with
-  export/import scripts, so moving to Neon is three commands rather than a rewrite. The
-  full tracker — what he said, what was built, what is still open — is at
-  <code>Documentation/BISHOP_NOTES.md</code>.</p>
+  <p><strong>Now tracked against the Master Project Plan.</strong> The groups below are
+  that document's phases (§8 for the MVP, §11 for the expansion roadmap). Phases 1 and 2
+  are complete. Phase 3 is complete as code, with four items that need a live database,
+  a deployment, or sample files from Bishop rather than more building. Phase 4 has been
+  started early where it reuses what already exists — summaries, tag suggestions,
+  related documents and conversation memory all run on the chunks and embeddings
+  ingestion already produces.</p>
+  <p><strong>The bottleneck is verification, not features.</strong> Every runtime claim
+  on this page is still unproven: no migration has ever been executed. The test suite
+  added under Phase 6 narrows that — 72 tests now cover the logic that can be tested
+  without a database — but the parts only a real Postgres can prove remain unproven.
+  Bishop's recommendation tracker is at <code>Documentation/BISHOP_NOTES.md</code>.</p>
 </div>
 
 <h2>Overall progress</h2>
 
 <div class="stats">
-  <div class="stat"><div class="n">29 / 34</div><div class="l">Deliverables built</div></div>
+  <div class="stat"><div class="n">35 / 39</div><div class="l">Deliverables built</div></div>
   <div class="stat"><div class="n">12 / 14</div><div class="l">Acceptance criteria met</div></div>
   <div class="stat"><div class="n">0</div><div class="l">Verified against a live database</div></div>
   <div class="stat"><div class="n">4</div><div class="l">Open questions for Bishop</div></div>
 </div>
 
 <div class="card">
-  <div class="progress-shell" role="img" aria-label="29 of 34 deliverables built, 3 in progress, 1 not started, 1 waiting on Bishop">
-    <span style="width:85.3%;background:var(--built-dot)"></span>
-    <span style="width:8.8%;background:var(--progress-dot)"></span>
-    <span style="width:2.9%;background:var(--todo-dot)"></span>
-    <span style="width:3%;background:var(--blocked-dot)"></span>
+  <div class="progress-shell" role="img" aria-label="35 of 39 deliverables built, 2 in progress, 1 not started, 1 waiting on Bishop">
+    <span style="width:89.7%;background:var(--built-dot)"></span>
+    <span style="width:5.1%;background:var(--progress-dot)"></span>
+    <span style="width:2.6%;background:var(--todo-dot)"></span>
+    <span style="width:2.6%;background:var(--blocked-dot)"></span>
   </div>
   <div class="progress-legend">
-    <span><b>29</b> Built</span>
-    <span><b>3</b> In progress</span>
+    <span><b>35</b> Built</span>
+    <span><b>2</b> In progress</span>
     <span><b>1</b> Not started</span>
     <span><b>1</b> Needs Bishop</span>
-    <span><b>34</b> total tracked deliverables</span>
+    <span><b>39</b> total tracked deliverables</span>
   </div>
   <p style="margin:14px 0 0; font-size:13.5px; color:var(--text-muted)">
     <b>Read that number carefully.</b> “Built” means code-complete,
@@ -414,7 +420,7 @@ text layer indexes to zero passages and reports as much.</p>
   <thead><tr><th>Deliverable</th><th>Status</th><th>Notes</th></tr></thead>
   <tbody>
 
-    <tr class="group-head"><td colspan="3">Week 1 — Core platform</td></tr>
+    <tr class="group-head"><td colspan="3">Phase 1 — Foundation <span style="font-weight:400;opacity:.7">(master plan §8; Week 1)</span></td></tr>
     <tr><td class="item">Next.js project architecture</td><td class="status"><span class="pill built">Built</span></td><td class="note">App Router, TypeScript, Tailwind. Modules under <code>src/modules</code>.</td></tr>
     <tr><td class="item">Internal login</td><td class="status"><span class="pill built">Built</span></td><td class="note">Email + password. No sign-up route exists. Session refresh in <code>src/proxy.ts</code>.</td></tr>
     <tr><td class="item">User / invitation foundation</td><td class="status"><span class="pill built">Built</span></td><td class="note">Admin invites by email; invitee sets their own password. Roles carried from the invitation.</td></tr>
@@ -428,9 +434,9 @@ text layer indexes to zero passages and reports as much.</p>
     <tr class="group-head"><td colspan="3">Core requirements beyond the week line-items (plan §4)</td></tr>
     <tr><td class="item">Basic account management</td><td class="status"><span class="pill built">Built</span></td><td class="note">§4.1. Closed. An <b>Account</b> page changes password (re-authenticating with the current one first) and display name; a public recovery page emails a reset link and answers identically whether or not the address exists, so it cannot be used to test who works at AIC.</td></tr>
     <tr><td class="item">Organize documents</td><td class="status"><span class="pill built">Built</span></td><td class="note">§4.2. Closed with tags rather than folders: a document that is both an i363 item and a product doc belongs in both places, which a tree cannot do without duplicating the file. Tags, scope filters and search all live in the URL, so a filtered view can be sent to a colleague.</td></tr>
-    <tr><td class="item">Automated tests</td><td class="status"><span class="pill progress">In progress</span></td><td class="note">A permission-boundary test exists (<code>npm run verify:rls</code>) covering the one area where a silent failure is a security bug. There is still no unit suite — the right trade for a three-week beta, but listed so it stays a choice.</td></tr>
+    <tr><td class="item">Automated tests</td><td class="status"><span class="pill built">Built</span></td><td class="note">§4 and master plan §15. 72 unit tests (<code>npm test</code>) plus the permission-boundary script (<code>npm run verify:rls</code>). Zero new dependencies — <code>node:test</code> with native TypeScript stripping, and a 30-line resolve hook so the tests import the real source rather than a copy. Integration and RAG-grounding tests still need a live database.</td></tr>
 
-    <tr class="group-head"><td colspan="3">Week 2 — Access control &amp; RAG</td></tr>
+    <tr class="group-head"><td colspan="3">Phase 2 — Document Processing &amp; Management <span style="font-weight:400;opacity:.7">(master plan §8; Week 2)</span></td></tr>
     <tr><td class="item">Per-document permissions</td><td class="status"><span class="pill built">Built</span></td><td class="note">Landed early. Enforced by RLS rather than application code.</td></tr>
     <tr><td class="item">Invite team members</td><td class="status"><span class="pill built">Built</span></td><td class="note">Landed early, alongside the Week 1 invitation foundation.</td></tr>
     <tr><td class="item">Grant / revoke document access</td><td class="status"><span class="pill built">Built</span></td><td class="note">Landed early. Sharing panel on each document, owner and admin only.</td></tr>
@@ -441,7 +447,7 @@ text layer indexes to zero passages and reports as much.</p>
     <tr><td class="item">AI question-answering interface</td><td class="status"><span class="pill built">Built</span></td><td class="note">An <b>Ask</b> page streaming answers over NDJSON. Degrades honestly: without an API key it says so and falls back to keyword search rather than failing.</td></tr>
     <tr><td class="item">Source references</td><td class="status"><span class="pill built">Built</span></td><td class="note">Inline <code>[n]</code> citations render as links to the source document and page, with a source list and excerpt under each answer.</td></tr>
 
-    <tr class="group-head"><td colspan="3">Week 3 — Integration, polish &amp; beta</td></tr>
+    <tr class="group-head"><td colspan="3">Phase 3 — Enterprise Search + RAG AI Assistant <span style="font-weight:400;opacity:.7">(master plan §8; Week 3)</span></td></tr>
     <tr><td class="item">Search and document discovery</td><td class="status"><span class="pill built">Built</span></td><td class="note">Two distinct searches, because they answer different questions: metadata search finds the document you can name, and <b>Also mentioned inside</b> finds the one that discusses it on page nine.</td></tr>
     <tr><td class="item">Permission-aware RAG retrieval</td><td class="status"><span class="pill built">Built</span></td><td class="note">There is no permission filter in the retrieval code, and that is the design: the RPCs run as the caller, so Postgres removes forbidden passages before the application sees them. A future change cannot leak a document by forgetting a <code>where</code> clause.</td></tr>
     <tr><td class="item">Document preview / opening</td><td class="status"><span class="pill built">Built</span></td><td class="note">In-page preview for PDF, images and text, through the same permission-checked signed-URL route as the buttons. Office formats keep Open/Download rather than being faked through a converter.</td></tr>
@@ -453,10 +459,18 @@ text layer indexes to zero passages and reports as much.</p>
     <tr><td class="item">Fix critical issues</td><td class="status"><span class="pill todo">Not started</span></td><td class="note">Cannot begin yet, and that is the point of listing it: no SQL has ever executed against a real Postgres, so the defects this step exists to catch have had no opportunity to appear. Expect a first pass of them the day the migrations run.</td></tr>
     <tr><td class="item">Bishop demonstration &amp; technical documentation</td><td class="status"><span class="pill built">Built</span></td><td class="note">A fifteen-minute demo script at <code>Documentation/DEMO_SCRIPT.md</code>, built around what WhatsApp cannot do, with the three asks at the end and a what-to-say-if-it-breaks table.</td></tr>
 
-    <tr class="group-head"><td colspan="3">Follow-up from Bishop's recommendations (18 Aug)</td></tr>
+    <tr class="group-head"><td colspan="3">Phase 4 — Advanced AI &amp; Knowledge Intelligence <span style="font-weight:400;opacity:.7">(master plan §11)</span></td></tr>
     <tr><td class="item">Conversation memory for Ask</td><td class="status"><span class="pill built">Built</span></td><td class="note">Ask was stateless — a question in, an answer out, nothing kept — so follow-ups were impossible. Threads, turns and citations are now stored (migration <code>0005</code>), with a replayed window of recent turns and a rolling summary for what ages out. Threads are owner-only under RLS, with no administrator exception: an admin can already read any document, and being able to read what a colleague privately asked about one is a different power.</td></tr>
     <tr><td class="item">Follow-up question resolution</td><td class="status"><span class="pill built">Built</span></td><td class="note">The part that is easy to miss. Retrieval matches by meaning, and “what about the fees?” has almost none on its own — so a naive follow-up retrieves noise and the model then answers from noise, fluently. Follow-ups are rewritten into standalone queries <em>before</em> retrieval, because by the time the generator sees anything the wrong passages have already been chosen.</td></tr>
     <tr><td class="item">Provider-portable schema &amp; migration scripts</td><td class="status"><span class="pill built">Built</span></td><td class="note">Bishop's “port records in a modular way from one database to the next”. Four things normally lock a schema to its provider — <code>auth.users</code>, <code>auth.uid()</code>, <code>storage.*</code>, the <code>authenticated</code> role — and each is now isolated to one place, so the ~20 RLS policies are identical across providers. <code>db/portable-schema.sql</code> plus export/import scripts; the Neon move is three commands.</td></tr>
+
+    <tr><td class="item">Document summarization</td><td class="status"><span class="pill built">Built</span></td><td class="note">Generated at ingest from already-extracted text, stored on the document rather than regenerated per view — a dashboard of twenty documents would otherwise be twenty model calls to render one page. Reads the opening of a document, not all of it: for a 200-page PDF the rest costs roughly fifty times as much for a summary nobody would judge as better.</td></tr>
+    <tr><td class="item">Automatic document tagging</td><td class="status"><span class="pill built">Built</span></td><td class="note">Suggestions land in a separate <code>suggested_tags</code> column, never merged into <code>tags</code> automatically — a suggestion is a proposal until a person accepts it, and merging would be the model silently editing a colleague's filing. Checkboxes start unticked so "Add selected" cannot become one-click accept-everything.</td></tr>
+    <tr><td class="item">Related-document discovery</td><td class="status"><span class="pill built">Built</span></td><td class="note">Compares documents by the mean of their chunk embeddings, not chunk-to-chunk: two documents can share one boilerplate paragraph and be about nothing alike. Permission-aware through a security-invoker view, so a document you cannot read contributes nothing — including its title, which is the part that would actually leak.</td></tr>
+    <tr><td class="item">Advanced conversational context</td><td class="status"><span class="pill built">Built</span></td><td class="note">Listed under Phase 4 in the master plan; delivered early because Bishop asked for it directly. Threads, replayed turns, rolling summary, and follow-up rewriting before retrieval.</td></tr>
+
+    <tr class="group-head"><td colspan="3">Phase 6 — Security, Performance &amp; Production Hardening <span style="font-weight:400;opacity:.7">(master plan §11, §15)</span></td></tr>
+    <tr><td class="item">Unit and integration test suite</td><td class="status"><span class="pill built">Built</span></td><td class="note">72 tests on <code>node:test</code> with native TypeScript stripping — no test-framework dependency added. Covers chunking (including that a chunk never spans two pages, which is the citation contract), memory windowing and citation stripping, filename sanitisation, tag parsing, and the migration script's SQL escaping. Runs with <code>npm test</code>. Exercises the real source files, not a bundler's transformation of them.</td></tr>
 
   </tbody>
 </table>
