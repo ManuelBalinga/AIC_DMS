@@ -79,8 +79,17 @@ answer for both — is in [`db/README.md`](./db/README.md).
 
 ### 1. Create the Supabase project
 
-Create a project at [supabase.com](https://supabase.com), then run the
-migrations in order from the SQL Editor:
+Create a project at [supabase.com](https://supabase.com), add `SUPABASE_DB_URL`
+to `.env.local` (Project Settings — Database — Connection string), then apply
+the schema:
+
+```bash
+npm run db:migrate          # or --dry to see what would run
+```
+
+That applies the migrations below in order, once each, tracked in an
+`applied_migrations` ledger. To run them by hand instead, paste them into the
+SQL Editor in this order:
 
 1. `supabase/migrations/0001_init.sql` — schema, helper functions, RLS policies
 2. `supabase/migrations/0002_storage.sql` — private `documents` bucket

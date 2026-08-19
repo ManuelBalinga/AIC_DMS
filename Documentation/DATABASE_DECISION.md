@@ -129,9 +129,22 @@ nearest option to Accra, and noticeably faster from Ghana than a US region.
 Name it `aic-dms-dev`. You want a second, separate project for production later;
 one database with two front ends means a bad migration takes production with it.
 
-### Step 2 — Run the migrations, in order, one at a time
+### Step 2 — Apply the schema
 
-SQL Editor, and **read the result of each before running the next**:
+Once `SUPABASE_DB_URL` is in `.env.local` (Step 4 covers where to find it):
+
+```bash
+npm run db:migrate --dry    # what would run
+npm run db:migrate          # run it
+```
+
+Each migration runs in its own transaction and is recorded, so a failure rolls
+back cleanly and a re-run skips what already applied. This is worth automating
+because it is the step everything else depends on and the easiest to get half
+right.
+
+To do it by hand instead, paste each into the SQL Editor in this order, reading
+the result of each before the next:
 
 ```
 supabase/migrations/0001_init.sql          schema, RLS policies, the profile trigger

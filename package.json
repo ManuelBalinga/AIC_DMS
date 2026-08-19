@@ -11,6 +11,7 @@
     "test": "node --conditions=react-server --import ./tests/register.mjs --test tests/*.test.ts",
     "test:watch": "node --conditions=react-server --import ./tests/register.mjs --test --watch tests/*.test.ts",
     "verify:rls": "node scripts/verify-rls.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs",
     "db:export": "node scripts/db-export.mjs",
     "db:import": "node scripts/db-import.mjs",
     "bootstrap:admin": "node scripts/bootstrap-admin.mjs"
@@ -22,6 +23,7 @@
     "fflate": "^0.8.3",
     "mammoth": "^1.12.1",
     "next": "16.3.1",
+    "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
@@ -30,6 +32,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
