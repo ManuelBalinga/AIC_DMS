@@ -109,8 +109,16 @@ portable schema — so it gets updated in the same commit as any migration.
 > Neon. Generous features for basic projects, and it can be managed by CLI
 > directly from the coding environment."*
 
-Status: **Ready for the account.** Nothing to do until it exists; the move is
-three commands, in `db/README.md`.
+Status: **Considered and declined, 19 August — Manuel's decision.** Staying on
+Supabase for database, auth and storage. Neon remains a proven exit rather than
+a starting point; the move is three commands, in `db/README.md`.
+
+The reasoning is recorded in `PROJECT_STATUS.html` §4 and in
+`Documentation/DATABASE_DECISION.md`. In short: Neon is only a database, so
+adopting it means Neon + Clerk + an object store replacing one vendor, and
+replacing the two subsystems that are already finished. Both are PostgreSQL, so
+nothing Bishop pointed at — Postgres, pgvector — is given up. And the substance
+of his advice was portability, which is built rather than deferred.
 
 Two things worth knowing before switching:
 

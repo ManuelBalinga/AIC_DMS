@@ -305,10 +305,50 @@ without coupling every feature to the document platform.</p>
     <tr><td class="item">File storage</td><td class="note">Supabase Storage, private bucket. Browsers never address it directly; downloads use 60-second server-signed URLs.</td></tr>
     <tr><td class="item">Permissions</td><td class="note">Postgres Row Level Security. Access rules live in the database, not in application code.</td></tr>
     <tr><td class="item">Vector storage</td><td class="note">Postgres + pgvector. <code>document_chunks</code> table exists and already inherits document permissions.</td></tr>
-    <tr><td class="item">LLM</td><td class="note">Not yet selected — pending a privacy decision from Bishop.</td></tr>
+    <tr><td class="item">LLM</td><td class="note">Claude Opus 5 for answers, Haiku for summaries, tag suggestions and follow-up rewriting. Built and configurable, but <b>not switched on</b>: it stays keyless until Bishop answers the privacy question, and the platform runs without it.</td></tr>
   </tbody>
 </table>
 </div>
+
+<h3>Why Supabase rather than Neon + Clerk</h3>
+
+<p class="lead">
+  Bishop recommended Neon, and specifically said he likes it. The decision taken — by
+  Manuel, 19 August — is to stay on Supabase for the database, authentication and file
+  storage. The reasoning, since it runs against a direct recommendation:
+</p>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>Consideration</th><th>Why it points to Supabase</th></tr></thead>
+  <tbody>
+    <tr>
+      <td class="item">Neon is only a database</td>
+      <td class="note">Neon hosts Postgres and nothing else — no authentication, no object storage. Adopting it means Neon <em>and</em> Clerk <em>and</em> an object store: three vendors, three bills and three outage modes replacing one. The two subsystems it would replace, auth and storage, are the two that are already finished and working.</td>
+    </tr>
+    <tr>
+      <td class="item">Both are the same database</td>
+      <td class="note">Neon and Supabase are both PostgreSQL. Same engine, same SQL, same <code>pgvector</code>. Choosing Supabase gives up none of what Bishop was pointing at — the Postgres-plus-pgvector direction he described is exactly what is running.</td>
+    </tr>
+    <tr>
+      <td class="item">The substance of his advice is already implemented</td>
+      <td class="note">Bishop's actual instruction was that records should port "in a modular or dynamic way from one database to the next." That is built: <code>db/portable-schema.sql</code> runs on Neon unchanged, and the export/import scripts move every record in three commands. His advice was about not being trapped, and honouring it means keeping the exit proven — not taking it immediately.</td>
+    </tr>
+    <tr>
+      <td class="item">Timing</td>
+      <td class="note">Nothing on this page has been verified against a live database. Migrating first would spend roughly three days rewriting the data and auth layers <em>before</em> knowing whether the platform works at all — and those three days cost the same whenever they are spent.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p class="lead">
+  <b>What would reverse this.</b> An AIC policy against storing company documents with a
+  US-hosted vendor outranks everything above, and would also decide the open LLM question.
+  Outgrowing the free tier would prompt a re-pricing, not a re-architecture. Neither has
+  happened; if either does, the move is the three commands in <code>db/README.md</code>
+  rather than a rewrite — which is the whole point of having built it that way.
+</p>
 
 <h3>Why permissions sit in the database</h3>
 <p class="lead">
