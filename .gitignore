@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the template, which documents every variable the app needs
+# and holds only placeholders. README and DEPLOYMENT.md both point at it.
+!.env.example
 
 # vercel
 .vercel

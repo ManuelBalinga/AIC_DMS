@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIC Internal Document Platform — Project Status</title>
+<style>
+  :root {
+    --bg: #f7f7f6;
+    --surface: #ffffff;
+    --border: #e3e3e0;
+    --border-strong: #d0d0cc;
+    --text: #1a1a18;
+    --text-muted: #6b6b66;
+    --text-faint: #93938d;
+    --accent: #1a1a18;
+
+    --built-bg: #e7f6ec;      --built-fg: #14663a;      --built-dot: #1f9d55;
+    --progress-bg: #fdf1dc;   --progress-fg: #8a5a06;   --progress-dot: #d99114;
+    --todo-bg: #eeeeec;       --todo-fg: #5f5f5a;       --todo-dot: #a3a39c;
+    --blocked-bg: #e8eefb;    --blocked-fg: #234b8f;    --blocked-dot: #3b76d1;
+    --out-bg: #f3eef7;        --out-fg: #6a4a86;        --out-dot: #9b74bd;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111110;
+      --surface: #1a1a19;
+      --border: #2c2c2a;
+      --border-strong: #3a3a37;
+      --text: #ededea;
+      --text-muted: #a3a39c;
+      --text-faint: #7a7a73;
+      --accent: #ededea;
+
+      --built-bg: #102b1c;      --built-fg: #6fd39b;      --built-dot: #35b46a;
+      --progress-bg: #322412;   --progress-fg: #e5ae55;   --progress-dot: #d99114;
+      --todo-bg: #262624;       --todo-fg: #9c9c95;       --todo-dot: #6b6b64;
+      --blocked-bg: #16223c;    --blocked-fg: #85aef0;    --blocked-dot: #3b76d1;
+      --out-bg: #271e2f;        --out-fg: #bb96d6;        --out-dot: #9b74bd;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 940px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  header.masthead { margin-bottom: 40px; }
+  .eyebrow {
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--text-faint); font-weight: 600; margin: 0 0 10px;
+  }
+  h1 { font-size: 30px; line-height: 1.2; letter-spacing: -.02em; margin: 0 0 12px; font-weight: 650; }
+  .positioning {
+    margin: 0; max-width: 62ch; color: var(--text-muted); font-size: 16px;
+    border-left: 3px solid var(--border-strong); padding-left: 16px;
+  }
+  .meta { margin-top: 18px; font-size: 13px; color: var(--text-faint); }
+
+  h2 {
+    font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--text-faint); font-weight: 650;
+    margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  h3 { font-size: 15px; margin: 28px 0 10px; font-weight: 620; }
+
+  p { margin: 0 0 14px; }
+  .lead { max-width: 68ch; color: var(--text-muted); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 22px;
+  }
+
+  .banner {
+    background: var(--progress-bg); border: 1px solid var(--progress-dot);
+    border-radius: 12px; padding: 16px 18px; margin-bottom: 32px;
+  }
+  .banner strong { color: var(--progress-fg); }
+  .banner p { margin: 0; color: var(--text); font-size: 14px; }
+  .banner p + p { margin-top: 8px; }
+
+  /* progress bar */
+  .progress-shell {
+    display: flex; height: 10px; border-radius: 99px; overflow: hidden;
+    background: var(--todo-bg); border: 1px solid var(--border);
+  }
+  .progress-shell span { display: block; height: 100%; }
+  .progress-legend {
+    display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px;
+    font-size: 13px; color: var(--text-muted);
+  }
+  .progress-legend b { color: var(--text); font-weight: 600; }
+
+  /* stat row */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .stat .n { font-size: 26px; font-weight: 650; letter-spacing: -.02em; line-height: 1.1; }
+  .stat .l { font-size: 12px; color: var(--text-faint); margin-top: 4px; }
+
+  /* status pills */
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    padding: 3px 9px 3px 7px; border-radius: 99px;
+    font-size: 12px; font-weight: 600; line-height: 1.5;
+  }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: currentColor; opacity: .9; }
+  .pill.built     { background: var(--built-bg);    color: var(--built-fg); }
+  .pill.progress  { background: var(--progress-bg); color: var(--progress-fg); }
+  .pill.todo      { background: var(--todo-bg);     color: var(--todo-fg); }
+  .pill.blocked   { background: var(--blocked-bg);  color: var(--blocked-fg); }
+  .pill.out       { background: var(--out-bg);      color: var(--out-fg); }
+
+  /* tables */
+  .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 560px; }
+  th {
+    text-align: left; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--text-faint); font-weight: 650;
+    padding: 12px 18px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  td { padding: 13px 18px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.item { font-weight: 550; width: 34%; }
+  td.note { color: var(--text-muted); font-size: 13.5px; }
+  td.status { width: 1%; white-space: nowrap; }
+
+  .group-head td {
+    background: var(--bg); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--text-faint); font-weight: 650; padding: 10px 18px;
+  }
+
+  ul.clean { margin: 0 0 14px; padding-left: 20px; color: var(--text-muted); }
+  ul.clean li { margin-bottom: 6px; }
+  ul.clean li strong { color: var(--text); font-weight: 600; }
+
+  .flow {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; overflow-x: auto; color: var(--text-muted); white-space: nowrap;
+  }
+
+  .two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+         background: var(--todo-bg); padding: 1px 5px; border-radius: 4px; }
+
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border);
+           font-size: 13px; color: var(--text-faint); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">Accra Innovation Center · Internal Project</p>
+  <h1>AIC Internal Document Platform</h1>
+  <p class="positioning">
+    A modular internal document platform for AIC that replaces WhatsApp-based document
+    sharing with secure document storage, organization, controlled team access, and an
+    AI-powered RAG layer for querying company documents.
+  </p>
+  <p class="meta">Status as of <strong>18 August 2026</strong> · All three weeks built, awaiting live verification · Three-week beta target</p>
+</header>
+
+<div class="banner">
+  <p><strong>Verification note.</strong> Everything marked <em>Built</em> is code-complete and passes
+  typecheck, lint and a production build. None of it has yet been exercised against a live
+  Supabase project — no project has been connected. The migrations have never been executed,
+  so the SQL, the <code>auth.users</code> trigger and the RLS policies are all unproven.</p>
+  <p>End-to-end runtime verification (invite → sign in → upload → index → share → ask
+  → revoke) is the first task of the next working session, once Supabase credentials
+  exist. <code>npm run verify:rls</code> automates the permission half of it.</p>
+  <p><strong>Scope note.</strong> Weeks 1, 2 and 3 are all built, including the two plan §4
+  requirements that the week line-items had missed (account management and document
+  organization). What is left is not construction: it is a live database, real AIC sample
+  documents, and the four decisions only Bishop can make — listed in sections 9 and 10.</p>
+</div>
+
+<h2>Overall progress</h2>
+
+<div class="stats">
+  <div class="stat"><div class="n">26 / 30</div><div class="l">Deliverables built</div></div>
+  <div class="stat"><div class="n">12 / 14</div><div class="l">Acceptance criteria met</div></div>
+  <div class="stat"><div class="n">0</div><div class="l">Verified against a live database</div></div>
+  <div class="stat"><div class="n">4</div><div class="l">Open questions for Bishop</div></div>
+</div>
+
+<div class="card">
+  <div class="progress-shell" role="img" aria-label="26 of 30 deliverables built, 3 in progress, 1 waiting on Bishop">
+    <span style="width:86.7%;background:var(--built-dot)"></span>
+    <span style="width:10%;background:var(--progress-dot)"></span>
+    <span style="width:3.3%;background:var(--blocked-dot)"></span>
+  </div>
+  <div class="progress-legend">
+    <span><b>26</b> Built</span>
+    <span><b>3</b> In progress</span>
+    <span><b>1</b> Needs Bishop</span>
+    <span><b>30</b> total tracked deliverables</span>
+  </div>
+  <p style="margin:14px 0 0; font-size:13.5px; color:var(--text-muted)">
+    <b>Read that number carefully.</b> “Built” means code-complete,
+    type-checked, linting clean and building clean — it does not mean proven.
+    No migration has been run and <code>.env.local</code> still holds placeholders, so every
+    runtime claim below is unverified. Standing up a Supabase project is what converts this
+    page from a plan into a status.
+  </p>
+</div>
+
+<h2>1 · What this project is</h2>
+
+<p class="lead">
+  The immediate objective is not to replace or redesign every company information system.
+  It is to replace the current practice of sharing company documents through WhatsApp with a
+  structured internal document platform.
+</p>
+<p class="lead">
+  The first version gives authorized team members a clean, minimalist internal environment
+  where they can log in, upload and store documents, organize and view their own documents,
+  invite team members, and grant access to individual documents. Product documents, updates
+  and i363 materials are expected to be among the initial document types.
+</p>
+<p class="lead">
+  RAG remains an important part of the broader vision. The platform is modular so that
+  document management, AI/RAG and future features can be added as pluggable modules rather
+  than requiring the whole application to be rebuilt.
+</p>
+
+<h3>The change being made</h3>
+<div class="flow">Today:&nbsp;&nbsp;&nbsp;Document → WhatsApp → Person / Group</div>
+<div style="height:8px"></div>
+<div class="flow">Proposed: Document → AIC Internal Platform → Authorized Team Members</div>
+
+<h2>2 · How the scope was narrowed</h2>
+
+<p class="lead">The original plan assumed a full enterprise knowledge-management platform.
+The discussion with Bishop narrowed it to a specific, provable product.</p>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>Area</th><th>Revised direction</th></tr></thead>
+  <tbody>
+    <tr><td class="item">Primary problem</td><td class="note">Replace WhatsApp-based document sharing with a structured internal platform.</td></tr>
+    <tr><td class="item">Initial priority</td><td class="note">Upload, storage, organization, viewing, login, team invitations, per-document access control.</td></tr>
+    <tr><td class="item">AI / RAG</td><td class="note">Researched and implemented where practical — but it is not the sole definition of the product.</td></tr>
+    <tr><td class="item">Authentication</td><td class="note">Internal login only. No public sign-up.</td></tr>
+    <tr><td class="item">Architecture</td><td class="note">Next.js, with a modular / pluggable architecture for future product modules.</td></tr>
+    <tr><td class="item">User access</td><td class="note">Users are invited by the company rather than registering freely.</td></tr>
+    <tr><td class="item">Permissions</td><td class="note">Per-document permissions are a core requirement.</td></tr>
+    <tr><td class="item">UI</td><td class="note">Clean and minimalist. Visual polish matters, but the builder has discretion.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>3 · Roles</h2>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>Role</th><th>Core responsibility</th></tr></thead>
+  <tbody>
+    <tr><td class="item">Administrator</td><td class="note">Invites and manages users, manages access, holds elevated platform controls.</td></tr>
+    <tr><td class="item">Document Owner</td><td class="note">Uploads and manages owned documents; grants and revokes access to them.</td></tr>
+    <tr><td class="item">Team Member</td><td class="note">Views and queries documents that have been made available to them.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>4 · Architecture</h2>
+
+<p class="lead">The system is one module of a broader AIC product. Future capabilities attach
+without coupling every feature to the document platform.</p>
+
+<div class="flow">Core Application Shell → Authentication · User/Team · Document · Access Control · Search · RAG/AI · Future Modules</div>
+
+<h3>Technical direction as built</h3>
+<div class="table-scroll">
+<table>
+  <thead><tr><th>Layer</th><th>Decision</th></tr></thead>
+  <tbody>
+    <tr><td class="item">Framework</td><td class="note">Next.js 16, App Router, TypeScript, Tailwind v4.</td></tr>
+    <tr><td class="item">Database</td><td class="note">Supabase Postgres. <code>pgvector</code> enabled ready for Week 2.</td></tr>
+    <tr><td class="item">Authentication</td><td class="note">Supabase Auth, invitation-only. Public sign-up disabled at the provider and absent from the app.</td></tr>
+    <tr><td class="item">File storage</td><td class="note">Supabase Storage, private bucket. Browsers never address it directly; downloads use 60-second server-signed URLs.</td></tr>
+    <tr><td class="item">Permissions</td><td class="note">Postgres Row Level Security. Access rules live in the database, not in application code.</td></tr>
+    <tr><td class="item">Vector storage</td><td class="note">Postgres + pgvector. <code>document_chunks</code> table exists and already inherits document permissions.</td></tr>
+    <tr><td class="item">LLM</td><td class="note">Not yet selected — pending a privacy decision from Bishop.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Why permissions sit in the database</h3>
+<p class="lead">
+  The <code>document_chunks</code> table — which Week 2's RAG will read — carries a policy calling
+  <code>can_read_document</code>. A user therefore cannot receive an answer grounded in a document
+  they are not allowed to open, even if the retrieval code forgets to filter. Plan §6.4 is
+  satisfied by construction rather than by discipline.
+</p>
+
+<h2>5 · RAG pipeline</h2>
+
+<div class="flow">Document → Extract → Clean → Chunk → Embed → Store → Retrieve → Generate → Cite</div>
+
+<div class="table-scroll" style="margin-top:14px">
+<table>
+  <thead><tr><th>Stage</th><th>Decision taken</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td class="item">Extract</td>
+      <td class="note"><code>unpdf</code> for PDF, <code>mammoth</code> for DOCX, a small
+        OOXML reader over <code>fflate</code> for XLSX and PPTX, native for text formats.</td>
+      <td class="note">All run in-process with no external binaries, so the parser set
+        deploys anywhere Node does. PDF extraction is per page, which is what lets a
+        citation name a page.</td>
+    </tr>
+    <tr>
+      <td class="item">Chunk</td>
+      <td class="note">~3200 characters, 400 of overlap, split paragraph &rarr; sentence
+        &rarr; hard, never spanning a page.</td>
+      <td class="note">Characters rather than tokens: tokenising during ingestion would mean
+        a network round trip per document. A chunk spanning two pages could not honestly
+        cite either of them.</td>
+    </tr>
+    <tr>
+      <td class="item">Embed</td>
+      <td class="note"><code>text-embedding-3-small</code>, behind a provider interface.</td>
+      <td class="note">Its native 1536 width matches the column the schema already commits
+        to. A provider with a different width needs a migration and a full re-index, not a
+        config change.</td>
+    </tr>
+    <tr>
+      <td class="item">Store</td>
+      <td class="note">pgvector with an HNSW index, in the same database.</td>
+      <td class="note">A separate vector store would add an operational component
+        <em>and a second permission model</em> &mdash; which is exactly the risk this design
+        exists to avoid.</td>
+    </tr>
+    <tr>
+      <td class="item">Retrieve</td>
+      <td class="note">Hybrid: vector similarity plus a keyword arm, both through
+        <code>SECURITY INVOKER</code> functions.</td>
+      <td class="note">Vector search alone misses exact identifiers like &ldquo;i363&rdquo;,
+        whose embedding neighbourhood carries no signal about the literal string.</td>
+    </tr>
+    <tr>
+      <td class="item">Generate</td>
+      <td class="note">Claude Opus 5, streamed, with a server-side refusal fallback.</td>
+      <td class="note"><span class="pill blocked">Needs Bishop</span> The one point at which
+        document content leaves AIC's control.</td>
+    </tr>
+    <tr>
+      <td class="item">Cite</td>
+      <td class="note">Numbered <code>[n]</code> citations rendered as links to the source
+        document and page, plus a source list under each answer.</td>
+      <td class="note">An answer that cannot be checked is worth less than one that can. When
+        nothing relevant is retrieved, the system says so rather than guessing.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p class="lead" style="margin-top:14px">Full reasoning, including what is still open, is in
+<code>src/modules/rag/README.md</code>. The largest gap is OCR: a scanned document with no
+text layer indexes to zero passages and reports as much.</p>
+
+<h2>6 · Explicitly outside the beta</h2>
+
+<div class="card">
+  <p style="margin:0 0 10px; font-size:13.5px; color:var(--text-muted)">
+    Named here so scope stays honest. None of this is in the three-week target:
+  </p>
+  <p style="margin:0; display:flex; flex-wrap:wrap; gap:8px">
+    <span class="pill out">Enterprise knowledge graph</span>
+    <span class="pill out">Large-scale integrations</span>
+    <span class="pill out">Workflow automation</span>
+    <span class="pill out">Advanced analytics</span>
+    <span class="pill out">Approval workflows</span>
+    <span class="pill out">Mobile application</span>
+    <span class="pill out">Custom model training</span>
+    <span class="pill out">Granular enterprise RBAC</span>
+    <span class="pill out">Compliance certification</span>
+    <span class="pill out">Performance optimization at scale</span>
+    <span class="pill out">Every document format</span>
+  </p>
+</div>
+
+<h2>7 · Deliverables</h2>
+
+<p class="lead">
+  Colour tells you where each item stands.
+  <span class="pill built">Built</span> code-complete.
+  <span class="pill progress">In progress</span> partially done.
+  <span class="pill todo">Not started</span> not begun.
+  <span class="pill blocked">Needs Bishop</span> waiting on a decision or input.
+</p>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>Deliverable</th><th>Status</th><th>Notes</th></tr></thead>
+  <tbody>
+
+    <tr class="group-head"><td colspan="3">Week 1 — Core platform</td></tr>
+    <tr><td class="item">Next.js project architecture</td><td class="status"><span class="pill built">Built</span></td><td class="note">App Router, TypeScript, Tailwind. Modules under <code>src/modules</code>.</td></tr>
+    <tr><td class="item">Internal login</td><td class="status"><span class="pill built">Built</span></td><td class="note">Email + password. No sign-up route exists. Session refresh in <code>src/proxy.ts</code>.</td></tr>
+    <tr><td class="item">User / invitation foundation</td><td class="status"><span class="pill built">Built</span></td><td class="note">Admin invites by email; invitee sets their own password. Roles carried from the invitation.</td></tr>
+    <tr><td class="item">Database schema</td><td class="status"><span class="pill built">Built</span></td><td class="note">Profiles, invitations, documents, document_access, document_chunks — plus RLS policies.</td></tr>
+    <tr><td class="item">Secure document storage</td><td class="status"><span class="pill built">Built</span></td><td class="note">Private bucket, no client-facing policies, 50 MB cap.</td></tr>
+    <tr><td class="item">Document upload</td><td class="status"><span class="pill built">Built</span></td><td class="note">Streaming route handler with type and size validation; orphaned files cleaned up on failure.</td></tr>
+    <tr><td class="item">Document listing / dashboard</td><td class="status"><span class="pill built">Built</span></td><td class="note">Shows only what the user owns or has been granted, split owned vs. shared.</td></tr>
+    <tr><td class="item">Basic document metadata</td><td class="status"><span class="pill built">Built</span></td><td class="note">Title, description, file name, size, type, owner, upload time, index status.</td></tr>
+    <tr><td class="item">Document ownership model</td><td class="status"><span class="pill built">Built</span></td><td class="note">Owner distinct from granted users; only owners and admins can manage or delete.</td></tr>
+
+    <tr class="group-head"><td colspan="3">Core requirements beyond the week line-items (plan §4)</td></tr>
+    <tr><td class="item">Basic account management</td><td class="status"><span class="pill built">Built</span></td><td class="note">§4.1. Closed. An <b>Account</b> page changes password (re-authenticating with the current one first) and display name; a public recovery page emails a reset link and answers identically whether or not the address exists, so it cannot be used to test who works at AIC.</td></tr>
+    <tr><td class="item">Organize documents</td><td class="status"><span class="pill built">Built</span></td><td class="note">§4.2. Closed with tags rather than folders: a document that is both an i363 item and a product doc belongs in both places, which a tree cannot do without duplicating the file. Tags, scope filters and search all live in the URL, so a filtered view can be sent to a colleague.</td></tr>
+    <tr><td class="item">Automated tests</td><td class="status"><span class="pill progress">In progress</span></td><td class="note">A permission-boundary test exists (<code>npm run verify:rls</code>) covering the one area where a silent failure is a security bug. There is still no unit suite — the right trade for a three-week beta, but listed so it stays a choice.</td></tr>
+
+    <tr class="group-head"><td colspan="3">Week 2 — Access control &amp; RAG</td></tr>
+    <tr><td class="item">Per-document permissions</td><td class="status"><span class="pill built">Built</span></td><td class="note">Landed early. Enforced by RLS rather than application code.</td></tr>
+    <tr><td class="item">Invite team members</td><td class="status"><span class="pill built">Built</span></td><td class="note">Landed early, alongside the Week 1 invitation foundation.</td></tr>
+    <tr><td class="item">Grant / revoke document access</td><td class="status"><span class="pill built">Built</span></td><td class="note">Landed early. Sharing panel on each document, owner and admin only.</td></tr>
+    <tr><td class="item">Document parsing</td><td class="status"><span class="pill built">Built</span></td><td class="note">PDF, DOCX, XLSX, PPTX, TXT, MD and CSV, all parsed in-process with no external binaries. Images are stored but not indexed, and say so on the document page — OCR still needs real AIC scans to choose a tool against.</td></tr>
+    <tr><td class="item">Chunking and embeddings</td><td class="status"><span class="pill built">Built</span></td><td class="note">Boundary-respecting overlapping chunks that never span a page, embedded in batches behind a provider interface. Ingestion is triggered on upload and retryable from the document page.</td></tr>
+    <tr><td class="item">Vector storage</td><td class="status"><span class="pill built">Built</span></td><td class="note">HNSW index over the existing <code>vector(1536)</code> column — HNSW rather than IVFFlat because it needs no training pass, so it behaves correctly on an empty table and stays accurate as the corpus grows.</td></tr>
+    <tr><td class="item">RAG retrieval</td><td class="status"><span class="pill built">Built</span></td><td class="note">Hybrid semantic + keyword retrieval through two <code>SECURITY INVOKER</code> functions. The keyword arm exists because vector search cannot reliably find an exact string like an invoice number.</td></tr>
+    <tr><td class="item">AI question-answering interface</td><td class="status"><span class="pill built">Built</span></td><td class="note">An <b>Ask</b> page streaming answers over NDJSON. Degrades honestly: without an API key it says so and falls back to keyword search rather than failing.</td></tr>
+    <tr><td class="item">Source references</td><td class="status"><span class="pill built">Built</span></td><td class="note">Inline <code>[n]</code> citations render as links to the source document and page, with a source list and excerpt under each answer.</td></tr>
+
+    <tr class="group-head"><td colspan="3">Week 3 — Integration, polish &amp; beta</td></tr>
+    <tr><td class="item">Search and document discovery</td><td class="status"><span class="pill built">Built</span></td><td class="note">Two distinct searches, because they answer different questions: metadata search finds the document you can name, and <b>Also mentioned inside</b> finds the one that discusses it on page nine.</td></tr>
+    <tr><td class="item">Permission-aware RAG retrieval</td><td class="status"><span class="pill built">Built</span></td><td class="note">There is no permission filter in the retrieval code, and that is the design: the RPCs run as the caller, so Postgres removes forbidden passages before the application sees them. A future change cannot leak a document by forgetting a <code>where</code> clause.</td></tr>
+    <tr><td class="item">Document preview / opening</td><td class="status"><span class="pill built">Built</span></td><td class="note">In-page preview for PDF, images and text, through the same permission-checked signed-URL route as the buttons. Office formats keep Open/Download rather than being faked through a converter.</td></tr>
+    <tr><td class="item">Clean minimalist UI</td><td class="status"><span class="pill built">Built</span></td><td class="note">All eight screens done, light and dark, with loading skeletons on the authenticated shell so navigation never looks stalled.</td></tr>
+    <tr><td class="item">Error handling</td><td class="status"><span class="pill built">Built</span></td><td class="note">Global error boundary and not-found page added. The boundary shows a digest rather than the message on purpose — an unhandled error here can carry a storage path or a database detail.</td></tr>
+    <tr><td class="item">Security checks</td><td class="status"><span class="pill progress">In progress</span></td><td class="note"><code>npm run verify:rls</code> is written: it signs in as a user with no grant and asserts they cannot reach the document, its chunks, its keyword hits or its stored bytes. <b>It has never been run</b> — that needs a live project.</td></tr>
+    <tr><td class="item">Test with representative AIC documents</td><td class="status"><span class="pill blocked">Needs Bishop</span></td><td class="note">Requires real sample files.</td></tr>
+    <tr><td class="item">Deploy beta</td><td class="status"><span class="pill progress">In progress</span></td><td class="note">A deployment guide covering both environments, the migration order, every variable and the known limits is at <code>Documentation/DEPLOYMENT.md</code>. Neither environment has been stood up.</td></tr>
+    <tr><td class="item">Bishop demonstration &amp; technical documentation</td><td class="status"><span class="pill built">Built</span></td><td class="note">A fifteen-minute demo script at <code>Documentation/DEMO_SCRIPT.md</code>, built around what WhatsApp cannot do, with the three asks at the end and a what-to-say-if-it-breaks table.</td></tr>
+
+  </tbody>
+</table>
+</div>
+
+<h2>8 · Beta acceptance criteria</h2>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>Criterion</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td class="item">An authorized user can log in</td><td class="status"><span class="pill built">Built</span></td></tr>
+    <tr><td class="item">An administrator can invite / create internal users</td><td class="status"><span class="pill built">Built</span></td></tr>
+    <tr><td class="item">An authorized user can upload a document</td><td class="status"><span class="pill built">Built</span></td></tr>
+    <tr><td class="item">The system stores it and shows it in the user's document area</td><td class="status"><span class="pill built">Built</span></td></tr>
+    <tr><td class="item">A document owner can grant access to selected team members</td><td class="status"><span class="pill built">Built</span></td></tr>
+    <tr><td class="item">A document owner can revoke access</td><td class="status"><span class="pill built">Built</span></td></tr>
+    <tr><td class="item">Unauthorized users cannot open restricted documents<br><span style="font-size:12.5px;color:var(--text-muted)">Policies written and a test written for them; the test has not been run against a live database.</span></td><td class="status"><span class="pill progress">In progress</span></td></tr>
+    <tr><td class="item">The system can process selected supported formats</td><td class="status"><span class="pill built">Built</span></td></tr>
+    <tr><td class="item">The system can index document content for retrieval</td><td class="status"><span class="pill built">Built</span></td></tr>
+    <tr><td class="item">An authorized user can ask a question about accessible documents</td><td class="status"><span class="pill built">Built</span></td></tr>
+    <tr><td class="item">RAG returns a grounded answer when relevant information exists</td><td class="status"><span class="pill built">Built</span></td></tr>
+    <tr><td class="item">The system provides source references where practical</td><td class="status"><span class="pill built">Built</span></td></tr>
+    <tr><td class="item">The application has a clean, usable interface</td><td class="status"><span class="pill built">Built</span></td></tr>
+    <tr><td class="item">The beta can be deployed and demonstrated with real AIC documents</td><td class="status"><span class="pill blocked">Needs Bishop</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>9 · Open questions for Bishop</h2>
+
+<div class="table-scroll">
+<table>
+  <thead><tr><th>Question</th><th>Status</th><th>Why it matters</th></tr></thead>
+  <tbody>
+    <tr>
+      <td class="item">Which document types does AIC actually circulate, with sample files?</td>
+      <td class="status"><span class="pill blocked">Needs Bishop</span></td>
+      <td class="note">Sets the accepted upload list and determines which parsers Week 2 must support.</td>
+    </tr>
+    <tr>
+      <td class="item">Which LLM provider is acceptable on privacy grounds?</td>
+      <td class="status"><span class="pill blocked">Needs Bishop</span></td>
+      <td class="note">Blocks embedding and generation work. Company documents would leave AIC's control.</td>
+    </tr>
+    <tr>
+      <td class="item">What email domain will team accounts use?</td>
+      <td class="status"><span class="pill blocked">Needs Bishop</span></td>
+      <td class="note">Needed before invitations go out, and to decide whether to restrict invites by domain.</td>
+    </tr>
+    <tr>
+      <td class="item">Is the role model two roles or three? The plan says administrator / document owner / team member, but the student screen review of 27 July described a three-layer system — students/learners, tutors, admin.</td>
+      <td class="status"><span class="pill blocked">Needs Bishop</span></td>
+      <td class="note">Most likely two separate products — this platform and the AI 360 training screens — but if the filing system is also meant to serve the training centre, <code>user_role</code> needs a third value and the invitation flow needs to set it. Cheap now, a migration later.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2>10 · Immediate next steps</h2>
+
+<p class="lead">Everything on the build side that can be done without credentials is done.
+Every remaining item needs either a live database or an answer from Bishop —
+which is why the order below starts with standing one up.</p>
+
+<ul class="clean">
+  <li><strong>Commit the work.</strong> Everything past the initial Create-Next-App commit
+    is still untracked in git. The cheapest risk on this list to remove.</li>
+  <li><strong>Connect a Supabase project</strong> and run all four migrations in order.
+    <code>npm run build</code>, <code>npm run typecheck</code> and <code>npm run lint</code>
+    all pass clean, so the TypeScript half is verified — but no SQL has ever
+    executed, so every <em>runtime</em> claim marked Built is still unproven. Migration
+    <code>0004</code> is the one to watch: it needs <code>pgvector</code> to support HNSW
+    indexes.</li>
+  <li><strong>Run <code>npm run verify:rls</code></strong> against that project. This is the
+    single highest-value command on the list — it is the only thing that turns
+    the security model from a claim into a result.</li>
+  <li><strong>Walk the full flow by hand:</strong> invite, sign in, upload, watch indexing
+    complete, share, ask a question, check a citation, revoke, delete.</li>
+  <li><strong>Add the AI keys</strong> (<code>ANTHROPIC_API_KEY</code>, and an embedding
+    provider key) once Bishop has answered the privacy question. Until then the platform
+    runs correctly without them, with Ask degraded to keyword search.</li>
+  <li><strong>Get sample documents from Bishop</strong> and run them through ingestion. The
+    parsers were written against the stated document types, not against real files —
+    this is what turns that from a guess into a tested claim.</li>
+  <li><strong>Stand up the two environments</strong> per
+    <code>Documentation/DEPLOYMENT.md</code>, then rehearse
+    <code>Documentation/DEMO_SCRIPT.md</code> end to end before showing it to Bishop.</li>
+</ul>
+
+<footer>
+  Reflects <em>AIC Intelligent Knowledge Management System — Revised Project Plan</em> and the
+  internal-tool discussion of 17 August 2026. Last updated 18 August 2026, after Phases 1–3.
+  Update this page whenever a deliverable status changes.
+</footer>
+
+</div>
+</body>
+</html>
