@@ -137,6 +137,34 @@ under `src/modules`, not editing the document module.
   forget it. `npm run verify:rls` asserts this from a second, unauthorised
   account.
 
+## Working from Claude Code on the web
+
+The repo is set up to be useful from a phone with no configuration at all.
+`.env.local` is gitignored, so a fresh cloud checkout has no secrets — and
+does not need any for most work:
+
+```bash
+npm install
+npm run build      # passes with no env file
+npm run typecheck
+npm run lint
+```
+
+What **does** need configuration is running the dev server and looking at pages:
+every route reads Supabase at request time, so without env vars the pages return
+500s. To bring a cloud session up to the same state as the local machine, paste:
+
+```bash
+cp .env.example .env.local
+```
+
+then fill in the four Supabase values. Nothing is committed — `.env.local`
+stays ignored in the cloud exactly as it does locally.
+
+Until a real Supabase project exists, placeholder values are enough to let the
+app boot and the login and recovery screens render; anything that touches the
+database will fail, which is expected.
+
 ## Scripts
 
 ```bash
