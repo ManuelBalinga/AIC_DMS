@@ -166,9 +166,22 @@ provider too, so no future route can accidentally re-open public registration.
 cp .env.example .env.local
 ```
 
-From **Project Settings → API**, fill the first four values. Leave the AI keys
-empty for now — the platform runs fine without them; only Ask degrades to
+From **Project Settings → API Keys**, fill the first four values. Leave the AI
+keys empty for now — the platform runs fine without them; only Ask degrades to
 keyword search.
+
+**The dashboard will not say "anon key".** Supabase renamed these in 2026, and a
+project created now shows the new pair. They map straight across:
+
+| Dashboard | `.env.local` |
+| --- | --- |
+| Project URL | `NEXT_PUBLIC_SUPABASE_URL` |
+| Publishable key (`sb_publishable_…`) | `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
+| Secret key (`sb_secret_…`) | `SUPABASE_SERVICE_ROLE_KEY` |
+
+The variable names keep the old wording because that is still what the Supabase
+client library calls them. If you see a **Create new API keys** button, click it
+— a fresh project may have no publishable key until you do.
 
 `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS entirely. It is a database password.
 Never prefix it `NEXT_PUBLIC_`, never commit it. `.env.local` is gitignored.
