@@ -9,6 +9,7 @@ import {
   USE_REFUSAL_FALLBACK,
 } from "@/modules/rag/config";
 import type { Passage } from "@/modules/rag/retrieve";
+import type { HistoryTurn } from "@/modules/memory/context";
 
 /**
  * Grounded answer generation with source references (plan §6.4 steps 4–5).
@@ -38,7 +39,9 @@ When the passages do not contain the answer, say so plainly and name what is mis
 
 When the passages disagree, say that they disagree and cite both.
 
-Answer in prose, and keep it to the length the question needs. Lead with the answer rather than restating the question. Do not describe the passages as "the provided context" or "the documents I was given" — the person knows where the answer came from, and the citations already say which.`;
+Answer in prose, and keep it to the length the question needs. Lead with the answer rather than restating the question. Do not describe the passages as "the provided context" or "the documents I was given" — the person knows where the answer came from, and the citations already say which.
+
+Earlier turns of the conversation may appear before the current question. Use them to understand what is being asked, not as a source: the passages below are the only thing you may state facts from, and the bracket numbers refer to those passages alone. If an earlier turn covered something the current passages do not, say that the current passages do not cover it rather than repeating it as fact.`;
 
 function buildSourceBlock(passages: Passage[]): {
   prompt: string;
@@ -80,6 +83,53 @@ export type AnswerEvent =
   | { type: "done" }
   | { type: "error"; message: string };
 
+/** What the conversation contributes to a single question. */
+export type AnswerMemory = {
+  /** Recent turns, already trimmed and citation-stripped by the memory module. */
+  history?: HistoryTurn[];
+  /** Rolling summary of turns that have aged out of the replay window. */
+  summary?: string | null;
+};
+
+/**
+ * Assembles the message array.
+ *
+ * The passages ride on the final user turn rather than in the system prompt,
+ * because they are specific to this question — putting them in `system` would
+ * imply they applied to the whole conversation, and the earlier turns were
+ * answered from entirely different passages.
+ *
+ * The summary does go in `system`: it describes the conversation rather than
+ * this question, and framing it as a user turn would let the model mistake a
+ * summary of past answers for a source it may cite.
+ */
+function buildMessages(
+  question: string,
+  passagePrompt: string,
+  history: HistoryTurn[],
+): Anthropic.MessageParam[] {
+  const messages: Anthropic.MessageParam[] = [];
+
+  const push = (role: "user" | "assistant", content: string) => {
+    const previous = messages.at(-1);
+
+    // A question whose answer failed leaves a user turn with no reply, so the
+    // history can hand us two user turns in a row. Merging them keeps the array
+    // strictly alternating rather than relying on the API to tolerate it.
+    if (previous && previous.role === role) {
+      previous.content = `${previous.content}\n\n${content}`;
+      return;
+    }
+
+    messages.push({ role, content });
+  };
+
+  for (const turn of history) push(turn.role, turn.content);
+  push("user", `${passagePrompt}\n\nQuestion: ${question}`);
+
+  return messages;
+}
+
 /**
  * Streams a grounded answer.
  *
@@ -89,6 +139,7 @@ export type AnswerEvent =
 export async function* streamAnswer(
   question: string,
   passages: Passage[],
+  memory: AnswerMemory = {},
 ): AsyncGenerator<AnswerEvent> {
   if (!anthropicConfigured()) {
     yield {
@@ -115,6 +166,12 @@ export async function* streamAnswer(
   const { prompt, sources } = buildSourceBlock(passages);
   yield { type: "sources", sources };
 
+  const history = memory.history ?? [];
+  const messages = buildMessages(question, prompt, history);
+  const system = memory.summary
+    ? `${SYSTEM_PROMPT}\n\nEarlier in this conversation:\n${memory.summary}`
+    : SYSTEM_PROMPT;
+
   const client = new Anthropic();
 
   try {
@@ -125,30 +182,20 @@ export async function* streamAnswer(
       ? client.beta.messages.stream({
           model: ANSWER_MODEL,
           max_tokens: ANSWER_MAX_TOKENS,
-          system: SYSTEM_PROMPT,
+          system,
           thinking: { type: "adaptive" },
           output_config: { effort: ANSWER_EFFORT },
           betas: ["server-side-fallback-2026-07-01"],
           fallbacks: "default",
-          messages: [
-            {
-              role: "user",
-              content: `${prompt}\n\nQuestion: ${question}`,
-            },
-          ],
+          messages,
         })
       : client.messages.stream({
           model: ANSWER_MODEL,
           max_tokens: ANSWER_MAX_TOKENS,
-          system: SYSTEM_PROMPT,
+          system,
           thinking: { type: "adaptive" },
           output_config: { effort: ANSWER_EFFORT },
-          messages: [
-            {
-              role: "user",
-              content: `${prompt}\n\nQuestion: ${question}`,
-            },
-          ],
+          messages,
         });
 
     for await (const event of stream) {

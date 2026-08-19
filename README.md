@@ -20,6 +20,7 @@ Full scope in [`Documentation/`](./Documentation) — including a
 | Permissions | Postgres Row Level Security |
 | Retrieval | `pgvector` (HNSW) for semantic search, Postgres full-text for keyword |
 | Generation | Claude Opus 5 via `@anthropic-ai/sdk` |
+| Conversation memory | Postgres — threads, turns and citations, owner-only under RLS |
 
 **Why RLS matters here:** per-document permissions are enforced by database
 policies, not by application code. Week 2's RAG retrieval reads
@@ -27,17 +28,47 @@ policies, not by application code. Week 2's RAG retrieval reads
 retrieve an answer grounded in a document they cannot open, even if the
 retrieval code forgets to filter.
 
+## Conversation memory
+
+Ask is a thread, not a one-shot box. Each question is answered with the recent
+turns of its conversation replayed as context, and a follow-up is rewritten into
+a standalone query *before* retrieval runs — "what about the fees?" carries
+almost no meaning on its own, so retrieving on it directly returns noise, and
+the model then answers from noise. See
+[`src/modules/memory/README.md`](./src/modules/memory/README.md).
+
+Threads are owner-only, with no administrator exception. An administrator can
+already read any document; reading what a colleague privately asked about one is
+a different power, and nothing here needs it.
+
+## Moving to another Postgres provider
+
+The schema is not locked to Supabase. Four things normally do the locking —
+`auth.users`, `auth.uid()`, `storage.*`, and the `authenticated` role — and each
+is isolated to one place, so the RLS policies are identical across providers.
+
+```bash
+node scripts/db-export.mjs                                    # records out
+node scripts/db-import.mjs --from db/export --target neon     # SQL for the target
+psql "$NEON_DATABASE_URL" -f db/portable-schema.sql
+psql "$NEON_DATABASE_URL" -f db/export/import.sql
+```
+
+What does *not* move — document bytes, passwords, and why Neon needs a separate
+answer for both — is in [`db/README.md`](./db/README.md).
+
 ## Setup
 
 ### 1. Create the Supabase project
 
-Create a project at [supabase.com](https://supabase.com), then run the two
+Create a project at [supabase.com](https://supabase.com), then run the
 migrations in order from the SQL Editor:
 
 1. `supabase/migrations/0001_init.sql` — schema, helper functions, RLS policies
 2. `supabase/migrations/0002_storage.sql` — private `documents` bucket
 3. `supabase/migrations/0003_organization.sql` — tags and keyword search
 4. `supabase/migrations/0004_rag.sql` — retrieval functions and the vector index
+5. `supabase/migrations/0005_memory.sql` — conversation threads, turns and citations
 
 ### 2. Configure environment
 

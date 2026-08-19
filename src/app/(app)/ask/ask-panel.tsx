@@ -1,19 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { Alert, Badge, Button, Card, Textarea } from "@/components/ui";
 
-type Source = {
+export type Source = {
   number: number;
-  documentId: string;
+  /** Null once the cited document has been deleted — the citation still reads. */
+  documentId: string | null;
   documentTitle: string;
   pageNumber: number | null;
   excerpt: string;
 };
 
+export type ThreadMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  sources: Source[];
+};
+
 type StreamEvent =
+  | { type: "conversation"; id: string; title: string; isNew: boolean }
   | { type: "sources"; sources: Source[] }
   | { type: "delta"; text: string }
   | { type: "notice"; message: string }
@@ -51,7 +61,9 @@ function AnswerBody({ text, sources }: { text: string; sources: Source[] }) {
               const source = byNumber.get(number);
               const separator = position > 0 ? " " : "";
 
-              if (!source) return <span key={number}>{separator}[{number}]</span>;
+              if (!source?.documentId) {
+                return <span key={number}>{separator}[{number}]</span>;
+              }
 
               return (
                 <span key={number}>
@@ -75,16 +87,84 @@ function AnswerBody({ text, sources }: { text: string; sources: Source[] }) {
   );
 }
 
-export function AskPanel() {
+function SourceList({ sources }: { sources: Source[] }) {
+  if (sources.length === 0) return null;
+
+  return (
+    <div className="mt-5 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+      <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+        Sources
+      </p>
+      <ul className="mt-2 space-y-2">
+        {sources.map((source) => (
+          <li key={source.number} className="flex gap-2 text-sm">
+            <Badge tone="blue">{source.number}</Badge>
+            <div className="min-w-0">
+              {source.documentId ? (
+                <Link
+                  href={`/documents/${source.documentId}`}
+                  className="font-medium text-neutral-900 hover:underline dark:text-neutral-100"
+                >
+                  {source.documentTitle}
+                </Link>
+              ) : (
+                <span
+                  className="font-medium text-neutral-500 dark:text-neutral-400"
+                  title="This document has since been deleted."
+                >
+                  {source.documentTitle} (deleted)
+                </span>
+              )}
+              {source.pageNumber ? (
+                <span className="text-neutral-500 dark:text-neutral-400">
+                  {" "}
+                  · page {source.pageNumber}
+                </span>
+              ) : null}
+              <p className="mt-0.5 truncate text-xs text-neutral-500 dark:text-neutral-400">
+                {source.excerpt}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * The Ask thread.
+ *
+ * Every turn is already on the server by the time it renders here, so this
+ * component holds no memory of its own — the messages in state are a mirror of
+ * the thread, kept locally only so an answer can stream in before the page
+ * revalidates. Reloading mid-thread loses nothing.
+ */
+export function AskPanel({
+  conversationId,
+  initialMessages,
+}: {
+  conversationId: string | null;
+  initialMessages: ThreadMessage[];
+}) {
+  const router = useRouter();
+
+  const [messages, setMessages] = useState<ThreadMessage[]>(initialMessages);
+  const [threadId, setThreadId] = useState<string | null>(conversationId);
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [sources, setSources] = useState<Source[]>([]);
+  const [streaming, setStreaming] = useState<{ text: string; sources: Source[] } | null>(
+    null,
+  );
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [asked, setAsked] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
+  const endRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages.length, streaming?.text]);
 
   async function ask(text: string) {
     const trimmed = text.trim();
@@ -95,17 +175,23 @@ export function AskPanel() {
     abortRef.current = controller;
 
     setPending(true);
-    setAnswer("");
-    setSources([]);
     setNotice(null);
     setError(null);
-    setAsked(trimmed);
+    setQuestion("");
+    setMessages((current) => [
+      ...current,
+      { id: `local-${Date.now()}`, role: "user", content: trimmed, sources: [] },
+    ]);
+    setStreaming({ text: "", sources: [] });
+
+    let answer = "";
+    let sources: Source[] = [];
 
     try {
       const response = await fetch("/api/rag/ask", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question: trimmed }),
+        body: JSON.stringify({ question: trimmed, conversationId: threadId }),
         signal: controller.signal,
       });
 
@@ -141,11 +227,27 @@ export function AskPanel() {
           }
 
           switch (event.type) {
+            case "conversation":
+              setThreadId(event.id);
+              // replaceState rather than a router navigation: the thread is
+              // already on screen, and navigating would tear down the stream
+              // that is still filling it in. This only makes the URL shareable
+              // and reload-safe from the first token onwards.
+              if (event.isNew) {
+                window.history.replaceState(null, "", `/ask?c=${event.id}`);
+              }
+              break;
             case "sources":
-              setSources(event.sources);
+              sources = event.sources;
+              setStreaming((current) =>
+                current ? { ...current, sources: event.sources } : current,
+              );
               break;
             case "delta":
-              setAnswer((current) => current + event.text);
+              answer += event.text;
+              setStreaming((current) =>
+                current ? { ...current, text: current.text + event.text } : current,
+              );
               break;
             case "notice":
               setNotice(event.message);
@@ -161,12 +263,64 @@ export function AskPanel() {
         setError("The connection dropped before the answer finished.");
       }
     } finally {
+      if (answer.trim()) {
+        setMessages((current) => [
+          ...current,
+          {
+            id: `local-answer-${Date.now()}`,
+            role: "assistant",
+            content: answer,
+            sources,
+          },
+        ]);
+      }
+      setStreaming(null);
       setPending(false);
+
+      // Brings the sidebar up to date with the thread that was just created or
+      // touched. Server state is the source of truth; the local mirror above
+      // only existed to avoid waiting for this round trip.
+      router.refresh();
     }
   }
 
+  const empty = messages.length === 0 && !streaming;
+
   return (
     <div className="space-y-6">
+      {messages.map((message) =>
+        message.role === "user" ? (
+          <div key={message.id} className="flex justify-end">
+            <p className="max-w-[85%] rounded-2xl bg-neutral-900 px-4 py-2 text-sm text-white dark:bg-neutral-100 dark:text-neutral-900">
+              {message.content}
+            </p>
+          </div>
+        ) : (
+          <Card key={message.id} className="p-5">
+            <AnswerBody text={message.content} sources={message.sources} />
+            <SourceList sources={message.sources} />
+          </Card>
+        ),
+      )}
+
+      {streaming ? (
+        <Card className="p-5">
+          {streaming.text ? (
+            <AnswerBody text={streaming.text} sources={streaming.sources} />
+          ) : (
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">
+              Searching the documents you can access…
+            </p>
+          )}
+          <SourceList sources={streaming.sources} />
+        </Card>
+      ) : null}
+
+      {notice ? <Alert tone="error">{notice}</Alert> : null}
+      {error ? <Alert tone="error">{error}</Alert> : null}
+
+      <div ref={endRef} />
+
       <Card className="p-5">
         <form
           onSubmit={(event) => {
@@ -188,12 +342,18 @@ export function AskPanel() {
             }}
             rows={3}
             required
-            placeholder="Ask anything about the documents you can access…"
+            placeholder={
+              empty
+                ? "Ask anything about the documents you can access…"
+                : "Ask a follow-up…"
+            }
           />
 
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Answers only use documents shared with you.
+              {empty
+                ? "Answers only use documents shared with you."
+                : "Follow-ups keep the context of this conversation."}
             </p>
             <Button type="submit" disabled={pending || !question.trim()}>
               {pending ? "Thinking..." : "Ask"}
@@ -202,7 +362,7 @@ export function AskPanel() {
         </form>
       </Card>
 
-      {!asked ? (
+      {empty ? (
         <div className="space-y-2">
           <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
             Try one of these
@@ -211,69 +371,13 @@ export function AskPanel() {
             <button
               key={example}
               type="button"
-              onClick={() => {
-                setQuestion(example);
-                void ask(example);
-              }}
+              onClick={() => void ask(example)}
               className="block w-full rounded-lg border border-neutral-200 px-3 py-2 text-left text-sm text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:border-neutral-700 dark:hover:bg-neutral-900"
             >
               {example}
             </button>
           ))}
         </div>
-      ) : null}
-
-      {notice ? <Alert tone="error">{notice}</Alert> : null}
-      {error ? <Alert tone="error">{error}</Alert> : null}
-
-      {asked && (answer || pending) ? (
-        <Card className="p-5">
-          <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-            {asked}
-          </p>
-
-          <div className="mt-3">
-            {answer ? (
-              <AnswerBody text={answer} sources={sources} />
-            ) : (
-              <p className="text-sm text-neutral-400 dark:text-neutral-500">
-                Searching the documents you can access…
-              </p>
-            )}
-          </div>
-
-          {sources.length > 0 ? (
-            <div className="mt-5 border-t border-neutral-200 pt-4 dark:border-neutral-800">
-              <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-                Sources
-              </p>
-              <ul className="mt-2 space-y-2">
-                {sources.map((source) => (
-                  <li key={source.number} className="flex gap-2 text-sm">
-                    <Badge tone="blue">{source.number}</Badge>
-                    <div className="min-w-0">
-                      <Link
-                        href={`/documents/${source.documentId}`}
-                        className="font-medium text-neutral-900 hover:underline dark:text-neutral-100"
-                      >
-                        {source.documentTitle}
-                      </Link>
-                      {source.pageNumber ? (
-                        <span className="text-neutral-500 dark:text-neutral-400">
-                          {" "}
-                          · page {source.pageNumber}
-                        </span>
-                      ) : null}
-                      <p className="mt-0.5 truncate text-xs text-neutral-500 dark:text-neutral-400">
-                        {source.excerpt}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </Card>
       ) : null}
     </div>
   );

@@ -183,28 +183,34 @@
   requirements that the week line-items had missed (account management and document
   organization). What is left is not construction: it is a live database, real AIC sample
   documents, and the four decisions only Bishop can make — listed in sections 9 and 10.</p>
+  <p><strong>Since the 18 August conversations.</strong> Bishop's two technical
+  recommendations are implemented: conversation memory for the Ask module (session
+  history, follow-up questions, a rolling summary) and a provider-portable schema with
+  export/import scripts, so moving to Neon is three commands rather than a rewrite. The
+  full tracker — what he said, what was built, what is still open — is at
+  <code>Documentation/BISHOP_NOTES.md</code>.</p>
 </div>
 
 <h2>Overall progress</h2>
 
 <div class="stats">
-  <div class="stat"><div class="n">26 / 30</div><div class="l">Deliverables built</div></div>
+  <div class="stat"><div class="n">29 / 33</div><div class="l">Deliverables built</div></div>
   <div class="stat"><div class="n">12 / 14</div><div class="l">Acceptance criteria met</div></div>
   <div class="stat"><div class="n">0</div><div class="l">Verified against a live database</div></div>
   <div class="stat"><div class="n">4</div><div class="l">Open questions for Bishop</div></div>
 </div>
 
 <div class="card">
-  <div class="progress-shell" role="img" aria-label="26 of 30 deliverables built, 3 in progress, 1 waiting on Bishop">
-    <span style="width:86.7%;background:var(--built-dot)"></span>
-    <span style="width:10%;background:var(--progress-dot)"></span>
-    <span style="width:3.3%;background:var(--blocked-dot)"></span>
+  <div class="progress-shell" role="img" aria-label="29 of 33 deliverables built, 3 in progress, 1 waiting on Bishop">
+    <span style="width:87.9%;background:var(--built-dot)"></span>
+    <span style="width:9.1%;background:var(--progress-dot)"></span>
+    <span style="width:3%;background:var(--blocked-dot)"></span>
   </div>
   <div class="progress-legend">
-    <span><b>26</b> Built</span>
+    <span><b>29</b> Built</span>
     <span><b>3</b> In progress</span>
     <span><b>1</b> Needs Bishop</span>
-    <span><b>30</b> total tracked deliverables</span>
+    <span><b>33</b> total tracked deliverables</span>
   </div>
   <p style="margin:14px 0 0; font-size:13.5px; color:var(--text-muted)">
     <b>Read that number carefully.</b> “Built” means code-complete,
@@ -442,6 +448,11 @@ text layer indexes to zero passages and reports as much.</p>
     <tr><td class="item">Security checks</td><td class="status"><span class="pill progress">In progress</span></td><td class="note"><code>npm run verify:rls</code> is written: it signs in as a user with no grant and asserts they cannot reach the document, its chunks, its keyword hits or its stored bytes. <b>It has never been run</b> — that needs a live project.</td></tr>
     <tr><td class="item">Test with representative AIC documents</td><td class="status"><span class="pill blocked">Needs Bishop</span></td><td class="note">Requires real sample files.</td></tr>
     <tr><td class="item">Deploy beta</td><td class="status"><span class="pill progress">In progress</span></td><td class="note">A deployment guide covering both environments, the migration order, every variable and the known limits is at <code>Documentation/DEPLOYMENT.md</code>. Neither environment has been stood up.</td></tr>
+    <tr class="group-head"><td colspan="3">Follow-up from Bishop's recommendations (18 Aug)</td></tr>
+    <tr><td class="item">Conversation memory for Ask</td><td class="status"><span class="pill built">Built</span></td><td class="note">Ask was stateless — a question in, an answer out, nothing kept — so follow-ups were impossible. Threads, turns and citations are now stored (migration <code>0005</code>), with a replayed window of recent turns and a rolling summary for what ages out. Threads are owner-only under RLS, with no administrator exception: an admin can already read any document, and being able to read what a colleague privately asked about one is a different power.</td></tr>
+    <tr><td class="item">Follow-up question resolution</td><td class="status"><span class="pill built">Built</span></td><td class="note">The part that is easy to miss. Retrieval matches by meaning, and “what about the fees?” has almost none on its own — so a naive follow-up retrieves noise and the model then answers from noise, fluently. Follow-ups are rewritten into standalone queries <em>before</em> retrieval, because by the time the generator sees anything the wrong passages have already been chosen.</td></tr>
+    <tr><td class="item">Provider-portable schema &amp; migration scripts</td><td class="status"><span class="pill built">Built</span></td><td class="note">Bishop's “port records in a modular way from one database to the next”. Four things normally lock a schema to its provider — <code>auth.users</code>, <code>auth.uid()</code>, <code>storage.*</code>, the <code>authenticated</code> role — and each is now isolated to one place, so the ~20 RLS policies are identical across providers. <code>db/portable-schema.sql</code> plus export/import scripts; the Neon move is three commands.</td></tr>
+
     <tr><td class="item">Bishop demonstration &amp; technical documentation</td><td class="status"><span class="pill built">Built</span></td><td class="note">A fifteen-minute demo script at <code>Documentation/DEMO_SCRIPT.md</code>, built around what WhatsApp cannot do, with the three asks at the end and a what-to-say-if-it-breaks table.</td></tr>
 
   </tbody>
@@ -511,7 +522,7 @@ which is why the order below starts with standing one up.</p>
 <ul class="clean">
   <li><strong>Commit the work.</strong> Everything past the initial Create-Next-App commit
     is still untracked in git. The cheapest risk on this list to remove.</li>
-  <li><strong>Connect a Supabase project</strong> and run all four migrations in order.
+  <li><strong>Connect a Supabase project</strong> and run all five migrations in order.
     <code>npm run build</code>, <code>npm run typecheck</code> and <code>npm run lint</code>
     all pass clean, so the TypeScript half is verified — but no SQL has ever
     executed, so every <em>runtime</em> claim marked Built is still unproven. Migration

@@ -2,7 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getCurrentProfile } from "@/modules/auth/session";
 import { retrievePassages } from "@/modules/rag/retrieve";
-import { streamAnswer } from "@/modules/rag/answer";
+import { streamAnswer, type AnswerSource } from "@/modules/rag/answer";
+import { buildHistoryWindow, resolveQuery } from "@/modules/memory/context";
+import {
+  loadWorkingMemory,
+  maintainSummary,
+  recordAnswer,
+  recordQuestion,
+  resumeOrCreateConversation,
+} from "@/modules/memory/store";
 
 /**
  * Ask-the-documents endpoint.
@@ -13,6 +21,11 @@ import { streamAnswer } from "@/modules/rag/answer";
  *
  * Retrieval runs as the signed-in user, so `document_chunks`' RLS policy has
  * already removed anything they cannot read before generation sees it.
+ *
+ * The order of operations matters. Working memory is read *before* the new
+ * question is stored, so the question never appears in its own context; the
+ * question is then stored before generation begins, so a thread whose answer
+ * fails still records what was asked.
  */
 export async function POST(request: NextRequest) {
   const profile = await getCurrentProfile();
@@ -21,9 +34,14 @@ export async function POST(request: NextRequest) {
   }
 
   let question = "";
+  let conversationId: string | null = null;
   try {
-    const body = (await request.json()) as { question?: unknown };
+    const body = (await request.json()) as {
+      question?: unknown;
+      conversationId?: unknown;
+    };
     question = String(body.question ?? "").trim();
+    conversationId = body.conversationId ? String(body.conversationId) : null;
   } catch {
     return NextResponse.json({ error: "Malformed request." }, { status: 400 });
   }
@@ -44,7 +62,33 @@ export async function POST(request: NextRequest) {
       };
 
       try {
-        const { passages, degradedTo } = await retrievePassages(question);
+        const conversation = await resumeOrCreateConversation(
+          profile.id,
+          conversationId,
+          question,
+        );
+
+        // Sent first so the client can put the thread in the URL immediately.
+        // If the connection drops mid-answer, the person still has a link to a
+        // thread that will contain the question when they come back to it.
+        send({
+          type: "conversation",
+          id: conversation.id,
+          title: conversation.title,
+          isNew: conversation.message_count === 0,
+        });
+
+        const { turns, summary } = await loadWorkingMemory(conversation);
+        const history = buildHistoryWindow(turns);
+
+        // Retrieval is matched against the rewritten query, generation against
+        // what was actually typed. "What about the fees?" retrieves nothing on
+        // its own, but is what the person should see quoted back to them.
+        const { query, rewritten } = await resolveQuery(question, history);
+
+        await recordQuestion(conversation.id, question, rewritten ? query : null);
+
+        const { passages, degradedTo } = await retrievePassages(query);
 
         if (degradedTo === "keyword") {
           send({
@@ -54,8 +98,32 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        for await (const event of streamAnswer(question, passages)) {
+        let answer = "";
+        let sources: AnswerSource[] = [];
+
+        for await (const event of streamAnswer(question, passages, {
+          history,
+          summary,
+        })) {
+          if (event.type === "delta") answer += event.text;
+          if (event.type === "sources") sources = event.sources;
           send(event);
+        }
+
+        if (answer.trim()) {
+          await recordAnswer(conversation.id, answer, sources, {
+            retrievalMode: degradedTo === "keyword" ? "keyword" : "hybrid",
+            passageCount: passages.length,
+          });
+
+          // Housekeeping for the next question, after this one is fully sent.
+          // The count is projected forward by the two turns just written rather
+          // than re-read, since the trigger's value is only needed to decide
+          // whether this thread has grown past the summary threshold.
+          await maintainSummary({
+            ...conversation,
+            message_count: conversation.message_count + 2,
+          });
         }
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : String(cause);

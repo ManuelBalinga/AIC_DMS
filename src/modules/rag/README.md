@@ -16,6 +16,14 @@ document → extract → chunk → embed → store → retrieve → generate →
 | `retrieve.ts` | Hybrid semantic + keyword retrieval |
 | `answer.ts` | Grounded generation with numbered citations |
 
+Conversation state is deliberately not in this module — see
+[`../memory/README.md`](../memory/README.md). The split is that retrieval
+answers *what is true* and memory answers *what we were talking about*;
+collapsing the two is how an assistant ends up citing its own previous answer as
+a source. The one place they meet is that a follow-up is rewritten into a
+standalone query by the memory module **before** `retrieve.ts` sees it, because
+by the time generation starts the wrong passages have already been chosen.
+
 ## Why permissions are not in this code
 
 `retrieve.ts` contains no permission filter, and that is deliberate. Both
@@ -60,6 +68,8 @@ document, whole — and its callers check the caller's rights first
 ## Not done
 
 - OCR for scanned documents and images.
+- Re-embedding a rewritten follow-up against the *original* phrasing as well, and
+  merging both result sets. Worth measuring once real threads exist.
 - A durable queue for ingestion; today it runs in the upload request's process.
 - Re-ranking retrieved passages before generation. Worth measuring once there
   are enough real documents for retrieval quality to be assessable at all.

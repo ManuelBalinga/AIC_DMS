@@ -9,6 +9,7 @@
 export type UserRole = "administrator" | "member";
 export type InvitationStatus = "pending" | "accepted" | "revoked";
 export type DocumentIndexStatus = "pending" | "processing" | "indexed" | "failed";
+export type MessageRole = "user" | "assistant";
 
 export type Profile = {
   id: string;
@@ -75,6 +76,40 @@ export type RetrievedChunk = {
   content: string;
 }
 
+export type Conversation = {
+  id: string;
+  user_id: string;
+  title: string;
+  summary: string | null;
+  summary_through_seq: number | null;
+  message_count: number;
+  last_message_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ConversationMessage = {
+  id: string;
+  conversation_id: string;
+  seq: number;
+  role: MessageRole;
+  content: string;
+  retrieval_mode: string | null;
+  passage_count: number | null;
+  resolved_query: string | null;
+  created_at: string;
+}
+
+export type MessageCitation = {
+  id: string;
+  message_id: string;
+  position: number;
+  document_id: string | null;
+  document_title: string;
+  page_number: number | null;
+  excerpt: string;
+}
+
 type Relationship = {
   foreignKeyName: string;
   columns: string[];
@@ -137,6 +172,36 @@ export type Database = {
         Update: Partial<DocumentChunk>;
         Relationships: Relationship[];
       };
+      conversations: {
+        Row: Conversation;
+        Insert: Pick<Conversation, "user_id"> & Partial<Omit<Conversation, "user_id">>;
+        Update: Partial<Conversation>;
+        Relationships: Relationship[];
+      };
+      conversation_messages: {
+        Row: ConversationMessage;
+        Insert: Pick<
+          ConversationMessage,
+          "conversation_id" | "seq" | "role" | "content"
+        > &
+          Partial<
+            Omit<ConversationMessage, "conversation_id" | "seq" | "role" | "content">
+          >;
+        Update: Partial<ConversationMessage>;
+        Relationships: Relationship[];
+      };
+      message_citations: {
+        Row: MessageCitation;
+        Insert: Pick<
+          MessageCitation,
+          "message_id" | "position" | "document_title" | "excerpt"
+        > &
+          Partial<
+            Omit<MessageCitation, "message_id" | "position" | "document_title" | "excerpt">
+          >;
+        Update: Partial<MessageCitation>;
+        Relationships: Relationship[];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -164,11 +229,16 @@ export type Database = {
         Args: { query_text: string; match_count?: number };
         Returns: (RetrievedChunk & { rank: number })[];
       };
+      next_message_seq: {
+        Args: { target_conversation_id: string };
+        Returns: number;
+      };
     };
     Enums: {
       user_role: UserRole;
       invitation_status: InvitationStatus;
       document_index_status: DocumentIndexStatus;
+      message_role: MessageRole;
     };
     CompositeTypes: Record<never, never>;
   };

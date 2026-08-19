@@ -42,3 +42,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# database exports
+# scripts/db-export.mjs reads with the service-role key, so its output is every
+# document, question and answer in the platform, in plaintext. Never commit it.
+/db/export/
