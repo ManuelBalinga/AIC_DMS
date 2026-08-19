@@ -6,7 +6,9 @@ an AI/RAG layer for querying company documents.
 
 Full scope in [`Documentation/`](./Documentation) — including a
 [deployment guide](./Documentation/DEPLOYMENT.md) and a
-[demo script](./Documentation/DEMO_SCRIPT.md). Live delivery status in
+[demo script](./Documentation/DEMO_SCRIPT.md). Where accounts are stored, why
+Supabase rather than Neon, and the full setup walkthrough are in
+[the database decision](./Documentation/DATABASE_DECISION.md). Live delivery status in
 [`PROJECT_STATUS.html`](./PROJECT_STATUS.html) — open it in a browser.
 
 ## Stack
@@ -113,15 +115,22 @@ no-public-sign-up rule is enforced by the provider as well as by the app.
 
 ### 4. Create the first administrator
 
-The invitation flow needs an administrator to exist first, so bootstrap one by
-hand. In **Authentication → Users**, click *Add user* and create your account,
-then run this in the SQL Editor:
+The platform has no public sign-up, and inviting anybody requires an
+administrator — so the first account has to come from outside the app:
 
-```sql
-update public.profiles
-set role = 'administrator'
-where email = 'you@example.com';
+```bash
+npm run bootstrap:admin -- you@aic.example
 ```
+
+This creates the auth user, verifies the profile row was actually written by the
+`on_auth_user_created` trigger (catching a half-applied migration `0001` now
+rather than days later), and sets the role to `administrator`. It prints a
+generated password once; change it from the Account page after signing in, or
+pass `--password 'your-own'` instead.
+
+Safe to re-run — an address that already has an account is promoted, not
+duplicated. Every account after this one is created by invitation from the Team
+page.
 
 ### 5. Run
 
@@ -221,6 +230,9 @@ npm run build       # production build
 npm run lint        # eslint
 npm run typecheck   # tsc --noEmit
 npm run verify:rls  # permission-boundary test against a live project
+npm run bootstrap:admin -- <email>   # create the first administrator
+npm run db:export   # dump all records to portable JSONL
+npm run db:import   # load an export into another Postgres provider
 ```
 
 `verify:rls` creates two throwaway users, confirms one cannot read the other's
