@@ -36,6 +36,9 @@ yarn-error.log*
 # and holds only placeholders. README and DEPLOYMENT.md both point at it.
 !.env.example
 
+# supabase cli scratch
+supabase/.temp
+
 # vercel
 .vercel
 
