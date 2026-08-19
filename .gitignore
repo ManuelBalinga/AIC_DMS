@@ -36,6 +36,9 @@ yarn-error.log*
 # and holds only placeholders. README and DEPLOYMENT.md both point at it.
 !.env.example
 
+# build output: copied from PROJECT_STATUS.html by scripts/copy-status.mjs
+public/status.html
+
 # supabase cli scratch
 supabase/.temp
 
