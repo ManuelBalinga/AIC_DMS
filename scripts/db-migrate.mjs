@@ -115,6 +115,14 @@ async function main() {
     );
   `);
 
+  // This ledger lives in `public`, which Supabase exposes through PostgREST, so
+  // without RLS every signed-in user could read and rewrite the record of which
+  // migrations have run. RLS on with no policies denies everyone; this runner is
+  // unaffected because it connects as the table's owner, which RLS does not
+  // apply to. On a project whose entire security model is RLS, the runner should
+  // not be the one table that opts out of it.
+  await client.query("alter table public.applied_migrations enable row level security");
+
   const { rows: applied } = await client.query(
     "select name, checksum from public.applied_migrations",
   );

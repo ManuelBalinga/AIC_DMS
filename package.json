@@ -13,6 +13,7 @@
     "test": "node --conditions=react-server --import ./tests/register.mjs --test tests/*.test.ts",
     "test:watch": "node --conditions=react-server --import ./tests/register.mjs --test --watch tests/*.test.ts",
     "verify:rls": "node scripts/verify-rls.mjs",
+    "verify:rls:local": "node scripts/verify-rls-local.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:export": "node scripts/db-export.mjs",
     "db:import": "node scripts/db-import.mjs",
