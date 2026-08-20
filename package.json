@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "prebuild": "node scripts/copy-status.mjs",
+    "status:artifact": "node scripts/build-status-artifact.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

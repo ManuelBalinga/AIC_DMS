@@ -168,17 +168,24 @@
     sharing with secure document storage, organization, controlled team access, and an
     AI-powered RAG layer for querying company documents.
   </p>
-  <p class="meta">Status as of <strong>19 August 2026</strong> · Phases 1&ndash;4 built, awaiting live verification · Three-week beta target</p>
+  <p class="meta">Status as of <strong>20 August 2026</strong> · Phases 1&ndash;4 built, awaiting live verification · Three-week beta target</p>
 </header>
 
 <div class="banner">
   <p><strong>Verification note.</strong> Everything marked <em>Built</em> is code-complete and passes
-  typecheck, lint and a production build. None of it has yet been exercised against a live
-  Supabase project — no project has been connected. The migrations have never been executed,
-  so the SQL, the <code>auth.users</code> trigger and the RLS policies are all unproven.</p>
+  typecheck, lint, a production build and 72 tests. None of it has yet been exercised against
+  a live database. The migrations have never been executed, so the SQL, the
+  <code>auth.users</code> trigger and the RLS policies are all unproven.</p>
+  <p><strong>Environment, as of 20 August.</strong> A Supabase project now exists
+  (<code>pduohcdyszjlnmchhvws</code>), and the tooling around it is in place: the Supabase
+  MCP server is configured at project scope, and the Supabase agent skills are pinned in
+  <code>skills-lock.json</code>. What is still missing is three values in
+  <code>.env.local</code> — the publishable key, the secret key and the database
+  connection string. Until those are filled, the application cannot reach the database and
+  nothing below can be proven.</p>
   <p>End-to-end runtime verification (invite → sign in → upload → index → share → ask
-  → revoke) is the first task of the next working session, once Supabase credentials
-  exist. <code>npm run verify:rls</code> automates the permission half of it.</p>
+  → revoke) is the first task once those three values exist.
+  <code>npm run verify:rls</code> automates the permission half of it.</p>
   <p><strong>Scope note.</strong> Weeks 1, 2 and 3 are all built, including the two plan §4
   requirements that the week line-items had missed (account management and document
   organization). What is left is not construction: it is a live database, real AIC sample
@@ -223,8 +230,9 @@
   <p style="margin:14px 0 0; font-size:13.5px; color:var(--text-muted)">
     <b>Read that number carefully.</b> “Built” means code-complete,
     type-checked, linting clean and building clean — it does not mean proven.
-    No migration has been run and <code>.env.local</code> still holds placeholders, so every
-    runtime claim below is unverified. Standing up a Supabase project is what converts this
+    No migration has been run, and three of the five Supabase values in
+    <code>.env.local</code> are still empty, so every runtime claim below is unverified.
+    Filling those three and running <code>npm run db:migrate</code> is what converts this
     page from a plan into a status.
   </p>
 </div>
@@ -580,13 +588,17 @@ Every remaining item needs either a live database or an answer from Bishop —
 which is why the order below starts with standing one up.</p>
 
 <ul class="clean">
-  <li><strong>Connect a Supabase project</strong>, then apply the schema with
-    <code>npm run db:migrate</code> — all six migrations, in order, each in its own
-    transaction. <code>npm run build</code>, <code>npm run typecheck</code>,
-    <code>npm run lint</code> and 72 tests all pass, so the TypeScript half is verified
-    — but no SQL has ever executed, so every <em>runtime</em> claim marked Built is
-    still unproven. Migration <code>0004</code> is the one to watch: it needs
-    <code>pgvector</code> to support HNSW indexes.</li>
+  <li><strong>Fill the three remaining values in <code>.env.local</code></strong> —
+    the publishable key and secret key from Project Settings &rarr; API Keys, and the
+    connection URI from Project Settings &rarr; Database. Take the <em>session</em> pooler or
+    the direct connection; the transaction pooler cannot run DDL, so migrations fail against
+    it. This is the whole remaining blocker.</li>
+  <li><strong>Apply the schema</strong> with <code>npm run db:migrate</code> — all six
+    migrations, in order, each in its own transaction. <code>npm run build</code>,
+    <code>npm run typecheck</code>, <code>npm run lint</code> and 72 tests all pass, so the
+    TypeScript half is verified — but no SQL has ever executed, so every
+    <em>runtime</em> claim marked Built is still unproven. Migration <code>0004</code> is the
+    one to watch: it needs <code>pgvector</code> to support HNSW indexes.</li>
   <li><strong>Create the first administrator</strong> with
     <code>npm run bootstrap:admin -- you@aic.example</code>. There is no public sign-up and
     inviting requires an administrator, so this one account has to come from outside the
@@ -611,8 +623,8 @@ which is why the order below starts with standing one up.</p>
 <footer>
   Reflects <em>AIC Intelligent Knowledge Management System — Revised Project Plan</em> and the
   internal-tool discussion of 17 August 2026, and Bishop's recommendations of 18 August.
-  Last updated 19 August 2026, after the database-provider decision and administrator
-  bootstrap.
+  Last updated 20 August 2026, after the Supabase project was created and the MCP server
+  and agent skills were configured.
   Update this page whenever a deliverable status changes.
 </footer>
 

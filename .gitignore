@@ -46,6 +46,9 @@ yarn-error.log*
 .agents/
 .claude/skills/
 
+# build output: derived from PROJECT_STATUS.html by scripts/build-status-artifact.mjs
+build/
+
 # build output: copied from PROJECT_STATUS.html by scripts/copy-status.mjs
 public/status.html
 
