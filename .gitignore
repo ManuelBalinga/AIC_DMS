@@ -36,6 +36,16 @@ yarn-error.log*
 # and holds only placeholders. README and DEPLOYMENT.md both point at it.
 !.env.example
 
+# Installed agent skills. Treated like node_modules: the content is fetched,
+# not authored here, and skills-lock.json pins the source and hash so
+# `npx skills add supabase/agent-skills` reproduces it exactly.
+#
+# .claude/skills is a symlink mirror of .agents/skills. Windows checkouts have
+# core.symlinks=false, so git follows the links and would commit a second copy
+# of all 40 files that can then drift from the first.
+.agents/
+.claude/skills/
+
 # build output: copied from PROJECT_STATUS.html by scripts/copy-status.mjs
 public/status.html
 

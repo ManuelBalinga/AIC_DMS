@@ -231,6 +231,25 @@ Until a real Supabase project exists, placeholder values are enough to let the
 app boot and the login and recovery screens render; anything that touches the
 database will fail, which is expected.
 
+## Agent skills
+
+Two Supabase-maintained skills are used by AI coding tools working in this repo:
+`supabase` (products, client libraries, debugging) and
+`supabase-postgres-best-practices` (schema, RLS, indexes, migrations). The second
+is the relevant one here, since this platform puts its whole permission model in
+RLS policies.
+
+They are installed, not authored, so the content is gitignored and
+`skills-lock.json` pins the source and hash. After a fresh clone:
+
+```bash
+npx skills add supabase/agent-skills
+```
+
+Skills run with full agent permissions, so review a diff to `skills-lock.json`
+the way you would review a new dependency — the hash changing means the
+upstream instructions changed.
+
 ## Scripts
 
 ```bash
