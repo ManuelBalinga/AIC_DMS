@@ -165,13 +165,36 @@ create index if not exists documents_owner_id_idx on public.documents (owner_id)
 create index if not exists documents_created_at_idx on public.documents (created_at desc);
 create index if not exists documents_tags_idx on public.documents using gin (tags);
 
+-- `array_to_string` is declared over `anyarray`, so Postgres marks it STABLE
+-- rather than IMMUTABLE: for an arbitrary element type it would depend on that
+-- type's output function. A generated column requires provable immutability, so
+-- using it directly fails with "generation expression is not immutable".
+--
+-- Narrowing the signature to `text[]` removes the generality that forced the
+-- STABLE marking — text's output function is itself immutable, so this wrapper
+-- is telling the planner the truth rather than papering over a hazard.
+--
+-- Mirrors `supabase/migrations/0003_organization.sql`, where this failure was
+-- found for real. Portable in the plainest sense: nothing here is Supabase's,
+-- so the same wrapper is needed on Neon or any other Postgres.
+create or replace function public.text_array_to_string(arr text[], sep text)
+returns text
+language sql
+immutable
+strict
+parallel safe
+set search_path = pg_catalog
+as $fn$
+  select array_to_string(arr, sep);
+$fn$;
+
 alter table public.documents
   add column if not exists search_vector tsvector
   generated always as (
     setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
     setweight(to_tsvector('english', coalesce(description, '')), 'B') ||
     setweight(to_tsvector('english', coalesce(file_name, '')), 'C') ||
-    setweight(to_tsvector('english', coalesce(array_to_string(tags, ' '), '')), 'C')
+    setweight(to_tsvector('english', coalesce(public.text_array_to_string(tags, ' '), '')), 'C')
   ) stored;
 
 create index if not exists documents_search_vector_idx
