@@ -42,9 +42,11 @@ yarn-error.log*
 #
 # .claude/skills is a symlink mirror of .agents/skills. Windows checkouts have
 # core.symlinks=false, so git follows the links and would commit a second copy
-# of all 40 files that can then drift from the first.
+# of all 40 files that can then drift from the first. Both spellings are needed:
+# the trailing slash ignores a real directory, the bare name ignores the symlink.
 .agents/
 .claude/skills/
+.claude/skills
 
 # build output: derived from PROJECT_STATUS.html by scripts/build-status-artifact.mjs
 build/

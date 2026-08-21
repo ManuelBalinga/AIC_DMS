@@ -226,25 +226,25 @@
 <h2>Overall progress</h2>
 
 <div class="stats">
-  <div class="stat"><div class="n">45 / 50</div><div class="l">Deliverables built</div></div>
+  <div class="stat"><div class="n">47 / 52</div><div class="l">Deliverables built</div></div>
   <div class="stat"><div class="n">12 / 14</div><div class="l">Acceptance criteria met</div></div>
   <div class="stat"><div class="n">3</div><div class="l">Verified against a live database</div></div>
   <div class="stat"><div class="n">4</div><div class="l">Open questions for Bishop</div></div>
 </div>
 
 <div class="card">
-  <div class="progress-shell" role="img" aria-label="45 of 50 deliverables built, 2 in progress, 2 not started, 1 waiting on Bishop">
-    <span style="width:90.0%;background:var(--built-dot)"></span>
-    <span style="width:4.0%;background:var(--progress-dot)"></span>
-    <span style="width:4.0%;background:var(--todo-dot)"></span>
-    <span style="width:2.0%;background:var(--blocked-dot)"></span>
+  <div class="progress-shell" role="img" aria-label="47 of 52 deliverables built, 2 in progress, 2 not started, 1 waiting on Bishop">
+    <span style="width:90.4%;background:var(--built-dot)"></span>
+    <span style="width:3.8%;background:var(--progress-dot)"></span>
+    <span style="width:3.8%;background:var(--todo-dot)"></span>
+    <span style="width:1.9%;background:var(--blocked-dot)"></span>
   </div>
   <div class="progress-legend">
-    <span><b>45</b> Built</span>
+    <span><b>47</b> Built</span>
     <span><b>2</b> In progress</span>
     <span><b>2</b> Not started</span>
     <span><b>1</b> Needs Bishop</span>
-    <span><b>50</b> total tracked deliverables</span>
+    <span><b>52</b> total tracked deliverables</span>
   </div>
   <p style="margin:14px 0 0; font-size:13.5px; color:var(--text-muted)">
     <b>Read that number carefully.</b> “Built” means code-complete,
@@ -551,7 +551,9 @@ text layer indexes to zero passages and reports as much.</p>
     <tr><td class="item">Last-administrator protection</td><td class="status"><span class="pill built">Built</span></td><td class="note">A <code>before update</code> trigger on <code>profiles</code>, not a UI check, so it holds whichever code path attempts it. Fires on demotion <em>and</em> on deactivation — both are ways to reach zero administrators, and only one of them was obvious.</td></tr>
     <tr><td class="item">Comment on a selected passage in the preview</td><td class="status"><span class="pill todo">Not started</span></td><td class="note">The only part of comments not built. The preview is an <code>&lt;iframe&gt;</code> on a signed storage URL — a different origin — so a page cannot read a text selection inside it, and the browser's built-in PDF viewer exposes no selection API to its embedder. Doing it properly means rendering the PDF in-page with pdf.js and building a text layer: a document viewer, which is a project rather than a detail. Pasting the passage into the comment form is the interim and stores the identical <code>quoted_text</code>.</td></tr>
     <tr><td class="item">Departure handling</td><td class="status"><span class="pill built">Built</span></td><td class="note">Deactivate, not delete. <code>profiles.deactivated_at</code> ends sign-in — enforced in the session check as well as at the provider, so an existing token dies at its next request rather than lingering. Documents, grants and comments are untouched and it is reversible. Ownership transfer is a separate deliberate act on the person detail view, because the right new owner is a judgement about the work rather than about the org chart.</td></tr>
-
+    <tr class="group-head"><td colspan="3">Framework evaluation (requested 21 Aug) <span style="font-weight:400;opacity:.7">— outside the three-week beta</span></td></tr>
+    <tr><td class="item">LangChain &amp; LangSmith agent skills</td><td class="status"><span class="pill built">Built</span></td><td class="note">25 skills from <code>langchain-ai/langsmith-skills</code> and <code>langchain-ai/langchain-skills</code>, installed the way the Supabase ones already were: files in <code>.agents/skills</code>, mirrored by a symlink at <code>.claude/skills</code>, both gitignored, with <code>skills-lock.json</code> pinning every source and hash so the set is reproducible rather than remembered. The vendor's <code>install.sh</code> was not run — it pipes a remote script into <code>sh</code> to fetch a CLI this project does not need, and the rest of it is a file copy.</td></tr>
+    <tr><td class="item">Deep Agents research agent</td><td class="status"><span class="pill built">Built</span></td><td class="note"><code>deep-agent/</code>. A scratch agent from LangChain's Deep Agents quickstart, kept deliberately at arm's length: Python rather than the platform's TypeScript, no Supabase client, no storage credentials, nothing in <code>src/</code> importing it. Its one tool is Anthropic's server-side web search, so it adds no second search vendor. <b>Built but never run</b> — there is no <code>ANTHROPIC_API_KEY</code> in this environment, the same reason Ask is keyless, so the graph is known to construct and the research loop is entirely untested. It exists to answer whether the harness is worth having near AIC documents, and that question is still open.</td></tr>
 
   </tbody>
 </table>

@@ -1,0 +1,4 @@
+# Pinned to what was installed and verified on 21 August 2026.
+deepagents==0.7.8
+langchain-anthropic==1.6.1
+python-dotenv==1.2.3
