@@ -168,21 +168,28 @@
     sharing with secure document storage, organization, controlled team access, and an
     AI-powered RAG layer for querying company documents.
   </p>
-  <p class="meta">Status as of <strong>20 August 2026</strong> · Phases 1&ndash;4 built, awaiting live verification · Three-week beta target</p>
+  <p class="meta">Status as of <strong>20 August 2026</strong> · Phases 1&ndash;4 built · Migrations proven to apply, but not yet against Supabase · Three-week beta target</p>
 </header>
 
 <div class="banner">
-  <p><strong>Verification note.</strong> Everything marked <em>Built</em> is code-complete and passes
-  typecheck, lint, a production build and 72 tests. None of it has yet been exercised against
-  a live database. The migrations have never been executed, so the SQL, the
-  <code>auth.users</code> trigger and the RLS policies are all unproven.</p>
-  <p><strong>Environment, as of 20 August.</strong> A Supabase project now exists
-  (<code>pduohcdyszjlnmchhvws</code>), and the tooling around it is in place: the Supabase
-  MCP server is configured at project scope, and the Supabase agent skills are pinned in
-  <code>skills-lock.json</code>. What is still missing is three values in
-  <code>.env.local</code> — the publishable key, the secret key and the database
-  connection string. Until those are filled, the application cannot reach the database and
-  nothing below can be proven.</p>
+  <p><strong>What exists in the Supabase project right now: nothing.</strong> The project
+  <code>pduohcdyszjlnmchhvws</code> has been created, but no migration has been run against
+  it, so it holds <em>no tables, no documents and no user accounts</em> — including no
+  administrator account. Every screen described below, the dashboard included, exists as
+  code in this repository and has never rendered against it. Creating the first account
+  needs <code>npm run bootstrap:admin</code>, which needs the three keys in
+  <code>.env.local</code>, and only Manuel can supply those. Nothing on this page can be
+  done on his behalf until that happens.</p>
+  <p><strong>Verification note.</strong> Everything marked <em>Built</em> is code-complete and
+  passes typecheck, lint, a production build and 72 tests. The migrations and the RLS
+  policies have since been proven against a local Postgres standing in for Supabase — see
+  below — but nothing has been exercised against Supabase itself, so Supabase Auth, Storage,
+  its role grants and PostgREST exposure all remain unproven.</p>
+  <p><strong>Environment, as of 20 August.</strong> The tooling around the project is in
+  place: the Supabase MCP server is configured at project scope, and the Supabase agent
+  skills are pinned in <code>skills-lock.json</code>. The three missing values are the
+  publishable key, the secret key and the database connection string, all from
+  <b>Project Settings</b> in the Supabase dashboard.</p>
   <p>End-to-end runtime verification (invite → sign in → upload → index → share → ask
   → revoke) is the first task once those three values exist.
   <code>npm run verify:rls</code> automates the permission half of it.</p>
