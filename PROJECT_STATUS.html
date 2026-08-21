@@ -217,8 +217,9 @@
   the document but cannot re-share it; a revoked user sees nothing again. That is the
   policy <em>logic</em> proven. It is not Supabase: different roles, different
   ownership, and no PostgREST. <code>npm run verify:rls</code> against the real project
-  is still the only thing that closes this out, and the counter above stays at zero
-  until it has run. Bishop's recommendation tracker is at
+  is still the only thing that closes this out. The counter above reads 3 for the
+  schema, the bucket and the vector index — the things inspection can settle — and will
+  not move for the policies until an unauthorised sign-in has actually been refused. Bishop's recommendation tracker is at
   <code>Documentation/BISHOP_NOTES.md</code>.</p>
 </div>
 
@@ -247,11 +248,12 @@
   </div>
   <p style="margin:14px 0 0; font-size:13.5px; color:var(--text-muted)">
     <b>Read that number carefully.</b> “Built” means code-complete,
-    type-checked, linting clean and building clean — it does not mean proven.
-    No migration has been run, and three of the five Supabase values in
-    <code>.env.local</code> are still empty, so every runtime claim below is unverified.
-    Filling those three and running <code>npm run db:migrate</code> is what converts this
-    page from a plan into a status.
+    type-checked, linting clean and building clean — it does not mean proven. Three of the
+    43 carry a separate <b>verified against Supabase</b> note, and only those three have
+    been seen to work outside this repository. The gap between 39 and 3 is the honest
+    shape of this project right now, and <code>SUPABASE_SERVICE_ROLE_KEY</code> is what
+    closes most of it: it unlocks the first account, the permission check, and every path
+    that touches Auth, Storage or ingestion.
   </p>
 </div>
 
