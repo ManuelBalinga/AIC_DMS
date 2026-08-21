@@ -168,31 +168,31 @@
     sharing with secure document storage, organization, controlled team access, and an
     AI-powered RAG layer for querying company documents.
   </p>
-  <p class="meta">Status as of <strong>20 August 2026</strong> · Phases 1&ndash;4 built · Migrations proven to apply, but not yet against Supabase · Three-week beta target</p>
+  <p class="meta">Status as of <strong>20 August 2026</strong> · Schema live on Supabase; application paths still unproven · Three-week beta target</p>
 </header>
 
 <div class="banner">
-  <p><strong>What exists in the Supabase project right now: nothing.</strong> The project
-  <code>pduohcdyszjlnmchhvws</code> has been created, but no migration has been run against
-  it, so it holds <em>no tables, no documents and no user accounts</em> — including no
-  administrator account. Every screen described below, the dashboard included, exists as
-  code in this repository and has never rendered against it. Creating the first account
-  needs <code>npm run bootstrap:admin</code>, which needs the three keys in
-  <code>.env.local</code>, and only Manuel can supply those. Nothing on this page can be
-  done on his behalf until that happens.</p>
-  <p><strong>Verification note.</strong> Everything marked <em>Built</em> is code-complete and
-  passes typecheck, lint, a production build and 72 tests. The migrations and the RLS
-  policies have since been proven against a local Postgres standing in for Supabase — see
-  below — but nothing has been exercised against Supabase itself, so Supabase Auth, Storage,
-  its role grants and PostgREST exposure all remain unproven.</p>
-  <p><strong>Environment, as of 20 August.</strong> The tooling around the project is in
-  place: the Supabase MCP server is configured at project scope, and the Supabase agent
-  skills are pinned in <code>skills-lock.json</code>. The three missing values are the
-  publishable key, the secret key and the database connection string, all from
-  <b>Project Settings</b> in the Supabase dashboard.</p>
+  <p><strong>The schema is live.</strong> All six migrations were applied to the Supabase
+  project <code>pduohcdyszjlnmchhvws</code> on 20 August, through the Supabase MCP server.
+  Confirmed by inspection afterwards: 8 application tables, <b>row level security enabled on
+  every one</b>, 14 policies, the private <code>documents</code> bucket at its 50&nbsp;MB cap,
+  the HNSW vector index built on pgvector 0.8.2, and the <code>on_auth_user_created</code>
+  trigger installed on <code>auth.users</code> — which was the flagged risk, since it
+  needs rights on a schema Supabase owns.</p>
+  <p><strong>What that does and does not prove.</strong> The SQL is now known to be correct
+  against real Supabase rather than a stand-in. It does <em>not</em> prove the policies
+  actually deny anything: RLS fails silently, and only <code>npm run verify:rls</code>
+  signing in as an unauthorised user settles that. Nor does it touch Supabase Auth, Storage
+  uploads, PostgREST exposure or ingestion. Those need
+  <code>SUPABASE_SERVICE_ROLE_KEY</code>, which is not yet set.</p>
+  <p><strong>No accounts exist yet — including no administrator.</strong> The tables are
+  there; nobody is in them. The first account cannot be made through the app (no public
+  sign-up, and inviting requires an administrator), so it comes from
+  <code>npm run bootstrap:admin</code>, which needs <code>SUPABASE_SERVICE_ROLE_KEY</code>.
+  Until then there is nothing to sign in as, and every screen below — the dashboard
+  included — exists as code that has never rendered against real data.</p>
   <p>End-to-end runtime verification (invite → sign in → upload → index → share → ask
-  → revoke) is the first task once those three values exist.
-  <code>npm run verify:rls</code> automates the permission half of it.</p>
+  → revoke) is the next task, and is blocked only on that one value.</p>
   <p><strong>Scope note.</strong> Weeks 1, 2 and 3 are all built, including the two plan §4
   requirements that the week line-items had missed (account management and document
   organization). What is left is not construction: it is a live database, real AIC sample
@@ -204,15 +204,13 @@
   started early where it reuses what already exists — summaries, tag suggestions,
   related documents and conversation memory all run on the chunks and embeddings
   ingestion already produces.</p>
-  <p><strong>The bottleneck is verification, not features.</strong> No migration has
-  ever run against the Supabase project, so every runtime claim below is still
-  unproven <em>there</em>. What changed on 19 August is that they have now run
-  <em>somewhere</em>: all six were applied to a local Postgres built to stand in for
-  Supabase, and the RLS policies were tested against it. That found one real defect
-  — migration <code>0003</code> could not create its generated search column, because
-  <code>array_to_string</code> is declared <code>STABLE</code> and Postgres refuses a
-  non-immutable generation expression. It would have stopped the first setup attempt
-  dead. Fixed, and all six now apply cleanly in order.</p>
+  <p><strong>The bottleneck is verification, not features.</strong> The local stand-in
+  run on 19 August earned its keep: it caught one real defect that would have stopped
+  the first Supabase attempt dead — migration <code>0003</code> could not create its
+  generated search column, because <code>array_to_string</code> is declared
+  <code>STABLE</code> and Postgres refuses a non-immutable generation expression. With
+  that fixed, all six applied to Supabase on 20 August without a single failure, which
+  is the return on having rehearsed them somewhere cheap first.</p>
   <p><strong>What that does and does not buy.</strong> The permission model — the part
   where a silent failure is a security bug — now has twelve passing assertions behind
   it: an outsider sees no document, no chunks and no keyword hits; a granted user sees
@@ -229,7 +227,7 @@
 <div class="stats">
   <div class="stat"><div class="n">39 / 43</div><div class="l">Deliverables built</div></div>
   <div class="stat"><div class="n">12 / 14</div><div class="l">Acceptance criteria met</div></div>
-  <div class="stat"><div class="n">0</div><div class="l">Verified against a live database</div></div>
+  <div class="stat"><div class="n">3</div><div class="l">Verified against a live database</div></div>
   <div class="stat"><div class="n">4</div><div class="l">Open questions for Bishop</div></div>
 </div>
 
@@ -492,8 +490,8 @@ text layer indexes to zero passages and reports as much.</p>
     <tr><td class="item">Next.js project architecture</td><td class="status"><span class="pill built">Built</span></td><td class="note">App Router, TypeScript, Tailwind. Modules under <code>src/modules</code>.</td></tr>
     <tr><td class="item">Internal login</td><td class="status"><span class="pill built">Built</span></td><td class="note">Email + password. No sign-up route exists. Session refresh in <code>src/proxy.ts</code>.</td></tr>
     <tr><td class="item">User / invitation foundation</td><td class="status"><span class="pill built">Built</span></td><td class="note">Admin invites by email; invitee sets their own password. Roles carried from the invitation.</td></tr>
-    <tr><td class="item">Database schema</td><td class="status"><span class="pill built">Built</span></td><td class="note">Profiles, invitations, documents, document_access, document_chunks — plus RLS policies.</td></tr>
-    <tr><td class="item">Secure document storage</td><td class="status"><span class="pill built">Built</span></td><td class="note">Private bucket, no client-facing policies, 50 MB cap.</td></tr>
+    <tr><td class="item">Database schema</td><td class="status"><span class="pill built">Built</span></td><td class="note">Profiles, invitations, documents, document_access, document_chunks — plus RLS policies.<br><span style="font-size:12.5px;color:var(--built-fg)"><b>Verified against Supabase, 20 August.</b> All six migrations applied to the live project. 8 tables, RLS enabled on every one, 14 policies, 19 columns on <code>documents</code>.</span></td></tr>
+    <tr><td class="item">Secure document storage</td><td class="status"><span class="pill built">Built</span></td><td class="note">Private bucket, no client-facing policies, 50 MB cap.<br><span style="font-size:12.5px;color:var(--built-fg)"><b>Verified against Supabase, 20 August.</b> Bucket exists, <code>public=false</code>, limit 52428800 bytes. The <em>provisioning</em> is proven; no bytes have been written through it yet.</span></td></tr>
     <tr><td class="item">Document upload</td><td class="status"><span class="pill built">Built</span></td><td class="note">Streaming route handler with type and size validation; orphaned files cleaned up on failure.</td></tr>
     <tr><td class="item">Document listing / dashboard</td><td class="status"><span class="pill built">Built</span></td><td class="note">Shows only what the user owns or has been granted, split owned vs. shared.</td></tr>
     <tr><td class="item">Basic document metadata</td><td class="status"><span class="pill built">Built</span></td><td class="note">Title, description, file name, size, type, owner, upload time, index status.</td></tr>
@@ -502,7 +500,7 @@ text layer indexes to zero passages and reports as much.</p>
     <tr class="group-head"><td colspan="3">Core requirements beyond the week line-items (plan §4)</td></tr>
     <tr><td class="item">Basic account management</td><td class="status"><span class="pill built">Built</span></td><td class="note">§4.1. Closed. An <b>Account</b> page changes password (re-authenticating with the current one first) and display name; a public recovery page emails a reset link and answers identically whether or not the address exists, so it cannot be used to test who works at AIC.</td></tr>
     <tr><td class="item">Organize documents</td><td class="status"><span class="pill built">Built</span></td><td class="note">§4.2. Closed with tags rather than folders: a document that is both an i363 item and a product doc belongs in both places, which a tree cannot do without duplicating the file. Tags, scope filters and search all live in the URL, so a filtered view can be sent to a colleague.</td></tr>
-    <tr><td class="item">Automated tests</td><td class="status"><span class="pill built">Built</span></td><td class="note">§4 and master plan §15. 72 unit tests (<code>npm test</code>) plus the permission-boundary script (<code>npm run verify:rls</code>). Zero new dependencies — <code>node:test</code> with native TypeScript stripping, and a 30-line resolve hook so the tests import the real source rather than a copy. Integration and RAG-grounding tests still need a live database.</td></tr>
+    <tr><td class="item">Automated tests</td><td class="status"><span class="pill built">Built</span></td><td class="note">§4 and master plan §15. 77 unit tests (<code>npm test</code>) plus the permission-boundary script (<code>npm run verify:rls</code>). Zero new dependencies — <code>node:test</code> with native TypeScript stripping, and a 30-line resolve hook so the tests import the real source rather than a copy. Integration and RAG-grounding tests still need a live database.</td></tr>
 
     <tr class="group-head"><td colspan="3">Phase 2 — Document Processing &amp; Management <span style="font-weight:400;opacity:.7">(master plan §8; Week 2)</span></td></tr>
     <tr><td class="item">Per-document permissions</td><td class="status"><span class="pill built">Built</span></td><td class="note">Landed early. Enforced by RLS rather than application code.</td></tr>
@@ -510,7 +508,7 @@ text layer indexes to zero passages and reports as much.</p>
     <tr><td class="item">Grant / revoke document access</td><td class="status"><span class="pill built">Built</span></td><td class="note">Landed early. Sharing panel on each document, owner and admin only.</td></tr>
     <tr><td class="item">Document parsing</td><td class="status"><span class="pill built">Built</span></td><td class="note">PDF, DOCX, XLSX, PPTX, TXT, MD and CSV, all parsed in-process with no external binaries. Images are stored but not indexed, and say so on the document page — OCR still needs real AIC scans to choose a tool against.</td></tr>
     <tr><td class="item">Chunking and embeddings</td><td class="status"><span class="pill built">Built</span></td><td class="note">Boundary-respecting overlapping chunks that never span a page, embedded in batches behind a provider interface. Ingestion is triggered on upload and retryable from the document page.</td></tr>
-    <tr><td class="item">Vector storage</td><td class="status"><span class="pill built">Built</span></td><td class="note">HNSW index over the existing <code>vector(1536)</code> column — HNSW rather than IVFFlat because it needs no training pass, so it behaves correctly on an empty table and stays accurate as the corpus grows.</td></tr>
+    <tr><td class="item">Vector storage</td><td class="status"><span class="pill built">Built</span></td><td class="note">HNSW index over the existing <code>vector(1536)</code> column — HNSW rather than IVFFlat because it needs no training pass, so it behaves correctly on an empty table and stays accurate as the corpus grows.<br><span style="font-size:12.5px;color:var(--built-fg)"><b>Verified against Supabase, 20 August.</b> Index built on pgvector 0.8.2, which was the version risk flagged for this migration.</span></td></tr>
     <tr><td class="item">RAG retrieval</td><td class="status"><span class="pill built">Built</span></td><td class="note">Hybrid semantic + keyword retrieval through two <code>SECURITY INVOKER</code> functions. The keyword arm exists because vector search cannot reliably find an exact string like an invoice number.</td></tr>
     <tr><td class="item">AI question-answering interface</td><td class="status"><span class="pill built">Built</span></td><td class="note">An <b>Ask</b> page streaming answers over NDJSON. Degrades honestly: without an API key it says so and falls back to keyword search rather than failing.</td></tr>
     <tr><td class="item">Source references</td><td class="status"><span class="pill built">Built</span></td><td class="note">Inline <code>[n]</code> citations render as links to the source document and page, with a source list and excerpt under each answer.</td></tr>
@@ -541,7 +539,7 @@ text layer indexes to zero passages and reports as much.</p>
     <tr><td class="item">Advanced conversational context</td><td class="status"><span class="pill built">Built</span></td><td class="note">Listed under Phase 4 in the master plan; delivered early because Bishop asked for it directly. Threads, replayed turns, rolling summary, and follow-up rewriting before retrieval.</td></tr>
 
     <tr class="group-head"><td colspan="3">Phase 6 — Security, Performance &amp; Production Hardening <span style="font-weight:400;opacity:.7">(master plan §11, §15)</span></td></tr>
-    <tr><td class="item">Unit and integration test suite</td><td class="status"><span class="pill built">Built</span></td><td class="note">72 tests on <code>node:test</code> with native TypeScript stripping — no test-framework dependency added. Covers chunking (including that a chunk never spans two pages, which is the citation contract), memory windowing and citation stripping, filename sanitisation, tag parsing, and the migration script's SQL escaping. Runs with <code>npm test</code>. Exercises the real source files, not a bundler's transformation of them.</td></tr>
+    <tr><td class="item">Unit and integration test suite</td><td class="status"><span class="pill built">Built</span></td><td class="note">77 tests on <code>node:test</code> with native TypeScript stripping — no test-framework dependency added. Covers chunking (including that a chunk never spans two pages, which is the citation contract), memory windowing and citation stripping, filename sanitisation, tag parsing, the migration script's SQL escaping, and schema parity between <code>supabase/migrations/</code> and <code>db/portable-schema.sql</code>. That last suite paid for itself on its first run: it found the portable schema still carrying the bare <code>array_to_string</code> expression that had already broken migration <code>0003</code>, so a move to Neon would have hit the identical failure. Runs with <code>npm test</code>. Exercises the real source files, not a bundler's transformation of them.</td></tr>
     <tr><td class="item">Local permission-boundary test</td><td class="status"><span class="pill built">Built</span></td><td class="note"><code>npm run verify:rls:local</code> applies all six migrations to a throwaway Postgres and asserts the policies: an outsider sees no document, no chunks and no keyword hits; a granted user sees the document but <b>cannot re-share it</b>; a revoked user sees nothing again. Twelve checks, all passing. It cannot reproduce Supabase's own grants or PostgREST exposure, so <code>verify:rls</code> against the real project is still the authority — this is the version that runs in seconds with no credentials.</td></tr>
 
   </tbody>
@@ -616,7 +614,7 @@ which is why the order below starts with standing one up.</p>
     it. This is the whole remaining blocker.</li>
   <li><strong>Apply the schema</strong> with <code>npm run db:migrate</code> — all six
     migrations, in order, each in its own transaction. <code>npm run build</code>,
-    <code>npm run typecheck</code>, <code>npm run lint</code> and 72 tests all pass, so the
+    <code>npm run typecheck</code>, <code>npm run lint</code> and 77 tests all pass, so the
     TypeScript half is verified — but no SQL has ever executed, so every
     <em>runtime</em> claim marked Built is still unproven. Migration <code>0004</code> is the
     one to watch: it needs <code>pgvector</code> to support HNSW indexes.</li>
