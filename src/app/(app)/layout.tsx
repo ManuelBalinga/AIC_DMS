@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { requireProfile } from "@/modules/auth/session";
 import { signOut } from "@/modules/auth/actions";
+import { countUnread } from "@/modules/chat/queries";
 import { Button } from "@/components/ui";
 
 const NAV_LINK =
@@ -14,6 +15,7 @@ export default async function AppLayout({
 }) {
   const profile = await requireProfile();
   const isAdmin = profile.role === "administrator";
+  const unread = await countUnread(profile.id);
 
   return (
     <div className="flex min-h-screen flex-col bg-neutral-50 dark:bg-neutral-950">
@@ -31,6 +33,14 @@ export default async function AppLayout({
             </Link>
             <Link href="/ask" className={NAV_LINK}>
               Ask
+            </Link>
+            <Link href="/messages" className={`${NAV_LINK} flex items-center gap-1.5`}>
+              Messages
+              {unread > 0 ? (
+                <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              ) : null}
             </Link>
             {isAdmin ? (
               <Link href="/admin/team" className={NAV_LINK}>

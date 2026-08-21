@@ -28,10 +28,21 @@ because a bad migration in development would then take production with it.
    supabase/migrations/0004_rag.sql
    supabase/migrations/0005_memory.sql
    supabase/migrations/0006_intelligence.sql
+   supabase/migrations/0007_roles_and_comments.sql
+   supabase/migrations/0008_chat_and_context.sql
    ```
 
    Run them one at a time and read the result of each. `0001` enables the
-   `vector` extension; if that fails, nothing after it will work.
+   `vector` extension; if that fails, nothing after it will work. `0007` is the
+   one that *removes* a permission — administrators stop being able to read
+   document contents — so if that is not the intended policy, stop there and
+   decide before running it.
+
+   Or apply them all in one command with `npm run db:migrate`, which needs
+   `SUPABASE_DB_URL`. Either way, rehearse first: `npm run verify:rls:local`
+   applies the same migrations to a throwaway local Postgres and runs the 45
+   permission assertions against them. That rehearsal is what caught the
+   `array_to_string` defect in `0003` before it reached Supabase.
 3. **Authentication → URL Configuration**
    - Site URL: the environment's own URL.
    - Redirect URLs: add `<site url>/auth/callback`.

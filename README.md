@@ -20,9 +20,10 @@ Supabase rather than Neon, and the full setup walkthrough are in
 | Auth | Supabase Auth, invitation-only (no public sign-up) |
 | File storage | Supabase Storage, private bucket, server-signed URLs only |
 | Permissions | Postgres Row Level Security |
-| Retrieval | `pgvector` (HNSW) for semantic search, Postgres full-text for keyword |
+| Retrieval | `pgvector` (HNSW) for semantic search, Postgres full-text for keyword, over documents *and* the asker's own conversations |
 | Generation | Claude Opus 5 via `@anthropic-ai/sdk` |
 | Conversation memory | Postgres — threads, turns and citations, owner-only under RLS |
+| Team messaging | Postgres — threads, participants and messages, participant-only under RLS |
 
 **Why RLS matters here:** per-document permissions are enforced by database
 policies, not by application code. Week 2's RAG retrieval reads
@@ -36,7 +37,7 @@ retrieval code forgets to filter.
 npm test
 ```
 
-72 unit tests on `node:test`, with no test-framework dependency: Node 22 strips
+87 unit tests on `node:test`, with no test-framework dependency: Node 22 strips
 the TypeScript natively, and a small resolve hook in `tests/` teaches it the
 `@/*` alias so the tests exercise the real source files rather than a copy.
 
@@ -45,6 +46,21 @@ never spans two pages, which is what makes a page citation honest), memory
 windowing and citation stripping, filename sanitisation, and the migration
 script's SQL escaping. Anything needing a database is covered by
 `npm run verify:rls` instead, which needs a live project.
+
+## Messaging, and what Ask may quote
+
+Team members message each other on the platform rather than on WhatsApp, which
+is the whole point of the product. Threads are readable only by their
+participants — **with no administrator exception**, the same reasoning that took
+document reading away from administrators in migration 0007: managing access and
+reading contents are different powers, and reading a colleague's private messages
+is further still.
+
+Ask retrieves from those messages alongside documents, scoped by the same kind of
+RLS, so you can only ever be quoted a conversation you are in. Documents are
+ranked first and cited differently, because "I think we said 500" and the
+published fee schedule are different claims. See
+[`src/modules/chat/README.md`](./src/modules/chat/README.md).
 
 ## Conversation memory
 

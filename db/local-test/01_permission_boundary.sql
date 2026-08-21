@@ -21,6 +21,19 @@ begin
   return format('  ok  %s (%s)', label, actual);
 end $$;
 
+-- The mirror image of expect(): the statement must be refused. Returns its
+-- result for the same reason -- a check whose success is invisible is a check
+-- nobody notices has stopped running.
+create or replace function pg_temp.expect_denied(label text, stmt text)
+returns text language plpgsql as $$
+begin
+  execute stmt;
+  raise exception 'FAIL % -- the statement was allowed', label;
+exception
+  when insufficient_privilege then
+    return format('  ok  %s (denied)', label);
+end $$;
+
 -- Two users. The handle_new_user trigger should mirror each into public.profiles.
 insert into auth.users (id, email) values
   ('11111111-1111-1111-1111-111111111111','owner@aic.test'),
@@ -160,6 +173,93 @@ exception
   when check_violation then
     raise notice 'ok  last administrator cannot be deactivated';
 end $$;
+
+
+-- ---------------------------------------------------------------------------
+-- Chat: a private conversation is private (migration 0008)
+--
+-- The same silent-failure risk as documents, with a sharper edge: a leaking
+-- policy here exposes what two colleagues said to each other, which no
+-- administrator setting is supposed to reveal.
+-- ---------------------------------------------------------------------------
+reset role;
+
+insert into auth.users (id, email) values
+  ('66666666-6666-6666-6666-666666666666','bob@aic.test'),
+  ('77777777-7777-7777-7777-777777777777','carol@aic.test');
+
+-- ---- ALICE (the existing owner account) starts a DM with BOB --------------
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+select public.find_or_create_direct_thread('66666666-6666-6666-6666-666666666666') as thread \gset
+
+select pg_temp.expect('the direct thread is idempotent',
+  public.find_or_create_direct_thread('66666666-6666-6666-6666-666666666666'), :'thread'::uuid);
+
+insert into public.chat_messages (thread_id, sender_id, body)
+values (:'thread'::uuid, '11111111-1111-1111-1111-111111111111',
+        'The i363 fee schedule is going up next quarter.');
+
+select pg_temp.expect('sender sees their own message', count(*)::bigint, 1::bigint) from public.chat_messages;
+select pg_temp.expect('the trigger counted the message', message_count, 1)
+  from public.chat_threads where id = :'thread'::uuid;
+
+-- ---- BOB, the other participant -------------------------------------------
+set request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
+select pg_temp.expect('participant sees the thread', count(*)::bigint, 1::bigint) from public.chat_threads;
+select pg_temp.expect('participant sees both participants', count(*)::bigint, 2::bigint) from public.chat_participants;
+select pg_temp.expect('participant sees the message', count(*)::bigint, 1::bigint) from public.chat_messages;
+select pg_temp.expect('participant retrieves it by keyword', count(*)::bigint, 1::bigint)
+  from public.search_chat_messages('fee schedule', 10);
+
+-- The other half of the insert policy, and the half that is easy to leave out:
+-- being in the thread does not let you sign somebody else's name to a message.
+select pg_temp.expect_denied('a participant cannot post as someone else',
+  format($q$insert into public.chat_messages (thread_id, sender_id, body)
+            values (%L, '11111111-1111-1111-1111-111111111111', 'not me')$q$, :'thread'));
+
+-- ---- CAROL, who is in no thread at all ------------------------------------
+set request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
+select pg_temp.expect('outsider sees no threads', count(*)::bigint, 0::bigint) from public.chat_threads;
+select pg_temp.expect('outsider sees no participants', count(*)::bigint, 0::bigint) from public.chat_participants;
+select pg_temp.expect('outsider sees no messages', count(*)::bigint, 0::bigint) from public.chat_messages;
+select pg_temp.expect('outsider retrieves nothing by keyword', count(*)::bigint, 0::bigint)
+  from public.search_chat_messages('fee schedule', 10);
+select pg_temp.expect('is_chat_participant says no',
+  public.is_chat_participant(:'thread'::uuid, '77777777-7777-7777-7777-777777777777'), false);
+
+-- Writing into somebody else's conversation, and adding themselves to it.
+select pg_temp.expect_denied('outsider cannot post into a thread they are not in',
+  format($q$insert into public.chat_messages (thread_id, sender_id, body)
+            values (%L, '77777777-7777-7777-7777-777777777777', 'let me in')$q$, :'thread'));
+
+select pg_temp.expect_denied('outsider cannot add themselves to a thread',
+  format($q$insert into public.chat_participants (thread_id, user_id)
+            values (%L, '77777777-7777-7777-7777-777777777777')$q$, :'thread'));
+
+-- ---- THE ADMINISTRATOR, who is not a participant --------------------------
+-- Migration 0007 took document reading away from administrators. Private
+-- messages were never theirs to begin with, and this is the assertion that
+-- says so out loud.
+set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+select pg_temp.expect('administrator sees no threads', count(*)::bigint, 0::bigint) from public.chat_threads;
+select pg_temp.expect('administrator sees no messages', count(*)::bigint, 0::bigint) from public.chat_messages;
+select pg_temp.expect('administrator retrieves nothing by keyword', count(*)::bigint, 0::bigint)
+  from public.search_chat_messages('fee schedule', 10);
+
+-- ---- BOB cannot evict ALICE, but may leave himself ------------------------
+set request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
+delete from public.chat_participants
+  where thread_id = :'thread'::uuid and user_id = '11111111-1111-1111-1111-111111111111';
+select pg_temp.expect('a participant cannot remove another', count(*)::bigint, 2::bigint)
+  from public.chat_participants where thread_id = :'thread'::uuid;
+
+delete from public.chat_participants
+  where thread_id = :'thread'::uuid and user_id = '66666666-6666-6666-6666-666666666666';
+select pg_temp.expect('a participant may leave', count(*)::bigint, 0::bigint) from public.chat_threads;
+
+reset role;
 
 \echo ''
 \echo 'Permission boundary: all checks passed.'

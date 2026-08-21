@@ -90,6 +90,10 @@ do $$ begin
   create type public.document_role as enum ('viewer', 'commenter', 'editor');
 exception when duplicate_object then null; end $$;
 
+do $$ begin
+  create type public.citation_kind as enum ('document', 'message');
+exception when duplicate_object then null; end $$;
+
 -- ---------------------------------------------------------------------------
 -- app_users: identity, owned by this schema rather than by the provider
 --
@@ -227,6 +231,9 @@ create table if not exists public.document_chunks (
   content     text not null,
   token_count integer,
   page_number integer,
+  -- Situating text prepended to content at embedding time only. Never shown to
+  -- a reader and never part of a citation.
+  context_header text,
   embedding   vector(1536),
   created_at  timestamptz not null default now(),
   unique (document_id, chunk_index)
@@ -240,6 +247,56 @@ create index if not exists document_chunks_embedding_idx
 
 create index if not exists document_chunks_content_fts_idx
   on public.document_chunks using gin (to_tsvector('english', content));
+
+-- ---------------------------------------------------------------------------
+-- Team messaging
+--
+-- `chat_*` rather than `conversation_*`: the latter is a person's Ask thread
+-- with the model, which is a different thing with different privacy rules.
+-- ---------------------------------------------------------------------------
+create table if not exists public.chat_threads (
+  id              uuid primary key default gen_random_uuid(),
+  created_by      uuid references public.app_users (id) on delete set null,
+  topic           text,
+  is_group        boolean not null default false,
+  message_count   integer not null default 0,
+  last_message_at timestamptz not null default now(),
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+
+create table if not exists public.chat_participants (
+  thread_id    uuid not null references public.chat_threads (id) on delete cascade,
+  user_id      uuid not null references public.app_users (id) on delete cascade,
+  joined_at    timestamptz not null default now(),
+  last_read_at timestamptz,
+  primary key (thread_id, user_id)
+);
+
+create index if not exists chat_participants_user_idx
+  on public.chat_participants (user_id);
+
+create index if not exists chat_threads_recent_idx
+  on public.chat_threads (last_message_at desc);
+
+create table if not exists public.chat_messages (
+  id         uuid primary key default gen_random_uuid(),
+  thread_id  uuid not null references public.chat_threads (id) on delete cascade,
+  sender_id  uuid references public.app_users (id) on delete set null,
+  body       text not null check (length(btrim(body)) > 0),
+  embedding  vector(1536),
+  created_at timestamptz not null default now(),
+  edited_at  timestamptz
+);
+
+create index if not exists chat_messages_thread_idx
+  on public.chat_messages (thread_id, created_at);
+
+create index if not exists chat_messages_embedding_idx
+  on public.chat_messages using hnsw (embedding vector_cosine_ops);
+
+create index if not exists chat_messages_body_fts_idx
+  on public.chat_messages using gin (to_tsvector('english', body));
 
 create table if not exists public.conversations (
   id                  uuid primary key default gen_random_uuid(),
@@ -276,7 +333,9 @@ create table if not exists public.message_citations (
   id             uuid primary key default gen_random_uuid(),
   message_id     uuid not null references public.conversation_messages (id) on delete cascade,
   position       integer not null,
+  kind           public.citation_kind not null default 'document',
   document_id    uuid references public.documents (id) on delete set null,
+  thread_id      uuid references public.chat_threads (id) on delete set null,
   document_title text not null,
   page_number    integer,
   excerpt        text not null,
@@ -486,6 +545,161 @@ as $fn$
   limit least(greatest(match_count, 1), 50);
 $fn$;
 
+-- Security definer for the same reason as on Supabase: chat_participants's own
+-- select policy calls this, and reading the table as the caller would re-enter
+-- that policy and recurse.
+create or replace function public.is_chat_participant(
+  check_thread_id uuid,
+  check_user_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $fn$
+  select exists (
+    select 1 from public.chat_participants p
+    where p.thread_id = check_thread_id
+      and p.user_id = check_user_id
+  );
+$fn$;
+
+create or replace function public.touch_chat_thread()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+begin
+  update public.chat_threads
+  set last_message_at = new.created_at,
+      message_count   = message_count + 1,
+      updated_at      = now()
+  where id = new.thread_id;
+  return new;
+end;
+$fn$;
+
+drop trigger if exists chat_messages_touch_thread on public.chat_messages;
+create trigger chat_messages_touch_thread
+  after insert on public.chat_messages
+  for each row execute function public.touch_chat_thread();
+
+create or replace function public.match_chat_messages(
+  query_embedding vector(1536),
+  match_count integer default 6,
+  min_similarity double precision default 0.15
+)
+returns table (
+  message_id   uuid,
+  thread_id    uuid,
+  thread_topic text,
+  sender_name  text,
+  body         text,
+  created_at   timestamptz,
+  similarity   double precision
+)
+language sql
+stable
+set search_path = public
+as $fn$
+  select
+    m.id,
+    m.thread_id,
+    t.topic,
+    coalesce(u.full_name, u.email, 'A former colleague'),
+    m.body,
+    m.created_at,
+    1 - (m.embedding <=> query_embedding) as similarity
+  from public.chat_messages m
+  join public.chat_threads t on t.id = m.thread_id
+  left join public.app_users u on u.id = m.sender_id
+  where m.embedding is not null
+    and 1 - (m.embedding <=> query_embedding) >= min_similarity
+  order by m.embedding <=> query_embedding
+  limit least(greatest(match_count, 1), 50);
+$fn$;
+
+create or replace function public.search_chat_messages(
+  query_text text,
+  match_count integer default 6
+)
+returns table (
+  message_id   uuid,
+  thread_id    uuid,
+  thread_topic text,
+  sender_name  text,
+  body         text,
+  created_at   timestamptz,
+  rank         double precision
+)
+language sql
+stable
+set search_path = public
+as $fn$
+  select
+    m.id,
+    m.thread_id,
+    t.topic,
+    coalesce(u.full_name, u.email, 'A former colleague'),
+    m.body,
+    m.created_at,
+    ts_rank(to_tsvector('english', m.body), websearch_to_tsquery('english', query_text))::double precision
+  from public.chat_messages m
+  join public.chat_threads t on t.id = m.thread_id
+  left join public.app_users u on u.id = m.sender_id
+  where to_tsvector('english', m.body) @@ websearch_to_tsquery('english', query_text)
+  order by 7 desc
+  limit least(greatest(match_count, 1), 50);
+$fn$;
+
+create or replace function public.find_or_create_direct_thread(other_user_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  me uuid := app.current_user_id();
+  found uuid;
+begin
+  if me is null then
+    raise exception 'Not signed in';
+  end if;
+
+  if other_user_id = me then
+    raise exception 'Cannot start a conversation with yourself';
+  end if;
+
+  if not exists (select 1 from public.app_users where id = other_user_id) then
+    raise exception 'No such person';
+  end if;
+
+  select t.id into found
+  from public.chat_threads t
+  join public.chat_participants a on a.thread_id = t.id and a.user_id = me
+  join public.chat_participants b on b.thread_id = t.id and b.user_id = other_user_id
+  where t.is_group = false
+    and (select count(*) from public.chat_participants p where p.thread_id = t.id) = 2
+  order by t.created_at
+  limit 1;
+
+  if found is not null then
+    return found;
+  end if;
+
+  insert into public.chat_threads (created_by, is_group)
+  values (me, false)
+  returning id into found;
+
+  insert into public.chat_participants (thread_id, user_id)
+  values (found, me), (found, other_user_id);
+
+  return found;
+end;
+$fn$;
+
 create or replace function public.search_document_chunks(
   query_text text,
   match_count integer default 8
@@ -619,6 +833,9 @@ alter table public.conversations         enable row level security;
 alter table public.conversation_messages enable row level security;
 alter table public.message_citations     enable row level security;
 alter table public.document_comments     enable row level security;
+alter table public.chat_threads          enable row level security;
+alter table public.chat_participants     enable row level security;
+alter table public.chat_messages         enable row level security;
 
 drop policy if exists app_users_select on public.app_users;
 create policy app_users_select on public.app_users
@@ -802,6 +1019,65 @@ drop trigger if exists app_users_protect_last_administrator on public.app_users;
 create trigger app_users_protect_last_administrator
   before update on public.app_users
   for each row execute function public.protect_last_administrator();
+
+-- Team messaging. No administrator clause anywhere: an administrator cannot
+-- read documents since migration 0007, and private messages are further still.
+drop policy if exists chat_threads_select on public.chat_threads;
+create policy chat_threads_select on public.chat_threads
+  for select to app_user using (public.is_chat_participant(id, app.current_user_id()));
+
+drop policy if exists chat_threads_insert on public.chat_threads;
+create policy chat_threads_insert on public.chat_threads
+  for insert to app_user with check (created_by = app.current_user_id());
+
+drop policy if exists chat_threads_update on public.chat_threads;
+create policy chat_threads_update on public.chat_threads
+  for update to app_user using (public.is_chat_participant(id, app.current_user_id()));
+
+drop policy if exists chat_participants_select on public.chat_participants;
+create policy chat_participants_select on public.chat_participants
+  for select to app_user
+  using (public.is_chat_participant(thread_id, app.current_user_id()));
+
+drop policy if exists chat_participants_insert on public.chat_participants;
+create policy chat_participants_insert on public.chat_participants
+  for insert to app_user
+  with check (
+    public.is_chat_participant(thread_id, app.current_user_id())
+    or exists (
+      select 1 from public.chat_threads t
+      where t.id = thread_id and t.created_by = app.current_user_id()
+    )
+  );
+
+drop policy if exists chat_participants_delete on public.chat_participants;
+create policy chat_participants_delete on public.chat_participants
+  for delete to app_user using (user_id = app.current_user_id());
+
+drop policy if exists chat_participants_update_self on public.chat_participants;
+create policy chat_participants_update_self on public.chat_participants
+  for update to app_user using (user_id = app.current_user_id());
+
+drop policy if exists chat_messages_select on public.chat_messages;
+create policy chat_messages_select on public.chat_messages
+  for select to app_user
+  using (public.is_chat_participant(thread_id, app.current_user_id()));
+
+drop policy if exists chat_messages_insert on public.chat_messages;
+create policy chat_messages_insert on public.chat_messages
+  for insert to app_user
+  with check (
+    sender_id = app.current_user_id()
+    and public.is_chat_participant(thread_id, app.current_user_id())
+  );
+
+drop policy if exists chat_messages_update_own on public.chat_messages;
+create policy chat_messages_update_own on public.chat_messages
+  for update to app_user using (sender_id = app.current_user_id());
+
+drop policy if exists chat_messages_delete_own on public.chat_messages;
+create policy chat_messages_delete_own on public.chat_messages
+  for delete to app_user using (sender_id = app.current_user_id());
 
 grant usage on schema public, app to app_user;
 grant select, insert, update, delete on all tables in schema public to app_user;

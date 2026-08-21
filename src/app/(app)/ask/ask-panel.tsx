@@ -8,12 +8,24 @@ import { Alert, Badge, Button, Card, Textarea } from "@/components/ui";
 
 export type Source = {
   number: number;
+  /** A published document, or something a colleague said in a conversation. */
+  kind: "document" | "message";
   /** Null once the cited document has been deleted — the citation still reads. */
   documentId: string | null;
+  /** Set for a message, so the citation links back to the conversation. */
+  threadId: string | null;
   documentTitle: string;
   pageNumber: number | null;
   excerpt: string;
 };
+
+/** Where a citation points, or null when the thing it cited is gone. */
+function sourceHref(source: Source): string | null {
+  if (source.kind === "message") {
+    return source.threadId ? `/messages/${source.threadId}` : null;
+  }
+  return source.documentId ? `/documents/${source.documentId}` : null;
+}
 
 export type ThreadMessage = {
   id: string;
@@ -61,19 +73,34 @@ function AnswerBody({ text, sources }: { text: string; sources: Source[] }) {
               const source = byNumber.get(number);
               const separator = position > 0 ? " " : "";
 
-              if (!source?.documentId) {
+              const href = source ? sourceHref(source) : null;
+
+              if (!source || !href) {
                 return <span key={number}>{separator}[{number}]</span>;
               }
+
+              // A message citation is tinted differently from a document one.
+              // The colour is the only thing telling a reader, mid-sentence,
+              // that the claim rests on somebody's recollection rather than on
+              // something the organisation published.
+              const tone =
+                source.kind === "message"
+                  ? "bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900"
+                  : "bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900";
 
               return (
                 <span key={number}>
                   {separator}
                   <Link
-                    href={`/documents/${source.documentId}`}
-                    title={`${source.documentTitle}${
-                      source.pageNumber ? `, page ${source.pageNumber}` : ""
-                    }`}
-                    className="mx-0.5 rounded bg-blue-100 px-1 text-xs font-medium text-blue-800 hover:bg-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900"
+                    href={href}
+                    title={
+                      source.kind === "message"
+                        ? `Message from ${source.documentTitle}`
+                        : `${source.documentTitle}${
+                            source.pageNumber ? `, page ${source.pageNumber}` : ""
+                          }`
+                    }
+                    className={`mx-0.5 rounded px-1 text-xs font-medium ${tone}`}
                   >
                     {number}
                   </Link>
@@ -98,11 +125,13 @@ function SourceList({ sources }: { sources: Source[] }) {
       <ul className="mt-2 space-y-2">
         {sources.map((source) => (
           <li key={source.number} className="flex gap-2 text-sm">
-            <Badge tone="blue">{source.number}</Badge>
+            <Badge tone={source.kind === "message" ? "amber" : "blue"}>
+              {source.number}
+            </Badge>
             <div className="min-w-0">
-              {source.documentId ? (
+              {sourceHref(source) ? (
                 <Link
-                  href={`/documents/${source.documentId}`}
+                  href={sourceHref(source) as string}
                   className="font-medium text-neutral-900 hover:underline dark:text-neutral-100"
                 >
                   {source.documentTitle}
@@ -110,11 +139,21 @@ function SourceList({ sources }: { sources: Source[] }) {
               ) : (
                 <span
                   className="font-medium text-neutral-500 dark:text-neutral-400"
-                  title="This document has since been deleted."
+                  title={
+                    source.kind === "message"
+                      ? "That conversation is no longer available."
+                      : "This document has since been deleted."
+                  }
                 >
                   {source.documentTitle} (deleted)
                 </span>
               )}
+              {source.kind === "message" ? (
+                <span className="text-neutral-500 dark:text-neutral-400">
+                  {" "}
+                  · from a conversation
+                </span>
+              ) : null}
               {source.pageNumber ? (
                 <span className="text-neutral-500 dark:text-neutral-400">
                   {" "}

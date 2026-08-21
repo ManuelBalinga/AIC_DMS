@@ -22,7 +22,17 @@ import type { HistoryTurn } from "@/modules/memory/context";
 export type AnswerSource = {
   /** The bracket number the answer cites, 1-indexed. */
   number: number;
-  documentId: string;
+  /**
+   * Which kind of thing was cited. The reader needs this: a fee named in the
+   * published schedule and a fee a colleague recalled in a chat are different
+   * claims, and a citation that renders them identically hides the difference.
+   */
+  kind: "document" | "message";
+  /** Null for a message, and for a document that has since been deleted. */
+  documentId: string | null;
+  /** Set for a message, so the citation can link back to the conversation. */
+  threadId: string | null;
+  /** The document's title, or "Ama Mensah in Fee planning" for a message. */
   documentTitle: string;
   pageNumber: number | null;
   /** Short lead-in from the passage, for the "why this source" hover. */
@@ -31,7 +41,11 @@ export type AnswerSource = {
 
 const SYSTEM_PROMPT = `You answer questions about the Accra Innovation Center's internal documents.
 
-You are given numbered passages retrieved from documents the person asking is authorised to read. Answer only from those passages.
+You are given numbered passages the person asking is authorised to read. Answer only from those passages.
+
+Passages come in two kinds, and the difference matters. A passage marked kind="document" is from a document the organisation published. A passage marked kind="message" is something one colleague said to another in a conversation — it carries a sender and a date.
+
+Treat a document as what the organisation has committed to, and a message as what somebody said. Where they conflict, lead with the document and note that a message said otherwise. When an answer rests on a message, attribute it in the prose — "Ama said in March that the fee would rise" — because a recollection stated flatly reads as policy. Never present a message as though it settled something unless a document confirms it.
 
 Cite every factual claim with the passage number in square brackets, like [2]. Cite the passages you actually used, and cite more than one when a claim rests on more than one.
 
@@ -43,6 +57,11 @@ Answer in prose, and keep it to the length the question needs. Lead with the ans
 
 Earlier turns of the conversation may appear before the current question. Use them to understand what is being asked, not as a source: the passages below are the only thing you may state facts from, and the bracket numbers refer to those passages alone. If an earlier turn covered something the current passages do not, say that the current passages do not cover it rather than repeating it as fact.`;
 
+function excerptOf(text: string): string {
+  const trimmed = text.slice(0, 220).trim();
+  return text.length > 220 ? `${trimmed}…` : trimmed;
+}
+
 function buildSourceBlock(passages: Passage[]): {
   prompt: string;
   sources: AnswerSource[];
@@ -53,20 +72,43 @@ function buildSourceBlock(passages: Passage[]): {
   for (const [position, passage] of passages.entries()) {
     const number = position + 1;
 
+    if (passage.kind === "document") {
+      parts.push(
+        `<passage number="${number}" kind="document" document="${passage.document_title}"${
+          passage.page_number === null ? "" : ` page="${passage.page_number}"`
+        }>\n${passage.content}\n</passage>`,
+      );
+
+      sources.push({
+        number,
+        kind: "document",
+        documentId: passage.document_id,
+        threadId: null,
+        documentTitle: passage.document_title,
+        pageNumber: passage.page_number,
+        excerpt: excerptOf(passage.content),
+      });
+      continue;
+    }
+
+    // The sender and the date are inside the tag rather than folded into the
+    // body, so the model can attribute the remark without the attribution
+    // becoming text it might quote back as though the person had written it.
+    const where = passage.thread_topic ? ` thread="${passage.thread_topic}"` : "";
     parts.push(
-      `<passage number="${number}" document="${passage.document_title}"${
-        passage.page_number === null ? "" : ` page="${passage.page_number}"`
-      }>\n${passage.content}\n</passage>`,
+      `<passage number="${number}" kind="message" from="${passage.sender_name}"${where} sent="${passage.created_at}">\n${passage.body}\n</passage>`,
     );
 
     sources.push({
       number,
-      documentId: passage.document_id,
-      documentTitle: passage.document_title,
-      pageNumber: passage.page_number,
-      excerpt: `${passage.content.slice(0, 220).trim()}${
-        passage.content.length > 220 ? "…" : ""
-      }`,
+      kind: "message",
+      documentId: null,
+      threadId: passage.thread_id,
+      documentTitle: passage.thread_topic
+        ? `${passage.sender_name} in ${passage.thread_topic}`
+        : passage.sender_name,
+      pageNumber: null,
+      excerpt: excerptOf(passage.body),
     });
   }
 
@@ -155,9 +197,10 @@ export async function* streamAnswer(
     yield {
       type: "delta",
       text:
-        "Nothing in the documents you can access covers that. If you expected a " +
-        "document to be here, it may not have been shared with you yet, or it may " +
-        "still be waiting to be indexed.",
+        "Nothing you can access covers that — not in the documents shared with " +
+        "you, and not in your own conversations. If you expected a document to be " +
+        "here, it may not have been shared with you yet, or it may still be " +
+        "waiting to be indexed.",
     };
     yield { type: "done" };
     return;

@@ -138,7 +138,9 @@ export async function recordAnswer(
     sources.map((source) => ({
       message_id: message.id,
       position: source.number,
+      kind: source.kind,
       document_id: source.documentId,
+      thread_id: source.threadId,
       document_title: source.documentTitle,
       page_number: source.pageNumber,
       excerpt: source.excerpt,

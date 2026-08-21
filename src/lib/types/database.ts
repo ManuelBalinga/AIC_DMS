@@ -95,6 +95,11 @@ export type DocumentChunk = {
   content: string;
   token_count: number | null;
   page_number: number | null;
+  /**
+   * Situating text prepended to `content` at embedding time only. Never shown
+   * to a reader and never part of a citation: the citation quotes the document.
+   */
+  context_header: string | null;
   embedding: string | null;
   created_at: string;
 }
@@ -141,14 +146,64 @@ export type ConversationMessage = {
   created_at: string;
 }
 
+export type CitationKind = "document" | "message";
+
 export type MessageCitation = {
   id: string;
   message_id: string;
   position: number;
+  kind: CitationKind;
   document_id: string | null;
+  /** Set when `kind` is "message". */
+  thread_id: string | null;
   document_title: string;
   page_number: number | null;
   excerpt: string;
+}
+
+/**
+ * A message between team members. Distinct from `ConversationMessage`, which is
+ * a turn in somebody's Ask thread with the model — different table, different
+ * privacy rules, deliberately different name.
+ */
+export type ChatThread = {
+  id: string;
+  created_by: string | null;
+  /** Null for a direct message, where the participants are the subject. */
+  topic: string | null;
+  is_group: boolean;
+  message_count: number;
+  last_message_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ChatParticipant = {
+  thread_id: string;
+  user_id: string;
+  joined_at: string;
+  /** Null means never opened, which correctly reads as unread. */
+  last_read_at: string | null;
+}
+
+export type ChatMessage = {
+  id: string;
+  thread_id: string;
+  sender_id: string | null;
+  body: string;
+  embedding: string | null;
+  created_at: string;
+  edited_at: string | null;
+}
+
+/** One row of `match_chat_messages` / `search_chat_messages`. */
+export type RetrievedMessage = {
+  message_id: string;
+  thread_id: string;
+  thread_topic: string | null;
+  sender_name: string;
+  body: string;
+  created_at: string;
 }
 
 type Relationship = {
@@ -250,6 +305,26 @@ export type Database = {
         Update: Partial<MessageCitation>;
         Relationships: Relationship[];
       };
+      chat_threads: {
+        Row: ChatThread;
+        Insert: Partial<ChatThread>;
+        Update: Partial<ChatThread>;
+        Relationships: Relationship[];
+      };
+      chat_participants: {
+        Row: ChatParticipant;
+        Insert: Pick<ChatParticipant, "thread_id" | "user_id"> &
+          Partial<Omit<ChatParticipant, "thread_id" | "user_id">>;
+        Update: Partial<ChatParticipant>;
+        Relationships: Relationship[];
+      };
+      chat_messages: {
+        Row: ChatMessage;
+        Insert: Pick<ChatMessage, "thread_id" | "body"> &
+          Partial<Omit<ChatMessage, "thread_id" | "body">>;
+        Update: Partial<ChatMessage>;
+        Relationships: Relationship[];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -293,6 +368,26 @@ export type Database = {
         };
         Returns: RelatedDocument[];
       };
+      is_chat_participant: {
+        Args: { check_thread_id: string; check_user_id: string };
+        Returns: boolean;
+      };
+      find_or_create_direct_thread: {
+        Args: { other_user_id: string };
+        Returns: string;
+      };
+      match_chat_messages: {
+        Args: {
+          query_embedding: number[] | string;
+          match_count?: number;
+          min_similarity?: number;
+        };
+        Returns: (RetrievedMessage & { similarity: number })[];
+      };
+      search_chat_messages: {
+        Args: { query_text: string; match_count?: number };
+        Returns: (RetrievedMessage & { rank: number })[];
+      };
       next_message_seq: {
         Args: { target_conversation_id: string };
         Returns: number;
@@ -303,6 +398,7 @@ export type Database = {
       invitation_status: InvitationStatus;
       document_index_status: DocumentIndexStatus;
       message_role: MessageRole;
+      citation_kind: CitationKind;
       document_role: DocumentRole;
     };
     CompositeTypes: Record<never, never>;

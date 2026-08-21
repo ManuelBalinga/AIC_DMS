@@ -49,6 +49,40 @@ export const EMBEDDING_DIMENSIONS = 1536;
 export const EMBEDDING_BATCH_SIZE = 64;
 
 /* -------------------------------------------------------------------------- */
+/* Contextual embeddings                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Embed each chunk together with a short description of the document it came
+ * from, rather than the chunk alone.
+ *
+ * Chunking throws away the context that made a passage meaningful: "the fee is
+ * GHS 500" names neither the programme nor the year, so it sits nowhere near
+ * the question it answers. Prefixing the title, tags and summary at embedding
+ * time puts it back.
+ *
+ * Off is the pre-existing behaviour. Turning it off does not require a
+ * re-index to be *correct* — old and new vectors are the same width and the
+ * same space — but retrieval will be uneven until every document is on the
+ * same setting, so treat a change here as a re-index.
+ */
+export const CONTEXTUAL_EMBEDDINGS = true;
+
+/**
+ * Ceiling on the whole header.
+ *
+ * Every character here is added to every chunk of the document, so this trades
+ * embedding cost against context. 600 covers a title, a tag list and two
+ * sentences of summary; beyond that the header starts to dominate short
+ * passages and pull their embeddings toward the document average, which is the
+ * opposite of what this is for.
+ */
+export const CONTEXT_HEADER_MAX_CHARS = 600;
+
+/** How much of the document summary the header may carry. */
+export const CONTEXT_SUMMARY_MAX_CHARS = 400;
+
+/* -------------------------------------------------------------------------- */
 /* Retrieval                                                                  */
 /* -------------------------------------------------------------------------- */
 

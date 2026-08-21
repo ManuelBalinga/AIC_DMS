@@ -38,7 +38,9 @@ export default async function AskPage({
     content: message.content,
     sources: message.citations.map((citation) => ({
       number: citation.position,
+      kind: citation.kind,
       documentId: citation.document_id,
+      threadId: citation.thread_id,
       documentTitle: citation.document_title,
       pageNumber: citation.page_number,
       excerpt: citation.excerpt,

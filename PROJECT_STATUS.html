@@ -212,10 +212,14 @@
   that fixed, all six applied to Supabase on 20 August without a single failure, which
   is the return on having rehearsed them somewhere cheap first.</p>
   <p><strong>What that does and does not buy.</strong> The permission model — the part
-  where a silent failure is a security bug — now has twelve passing assertions behind
-  it: an outsider sees no document, no chunks and no keyword hits; a granted user sees
-  the document but cannot re-share it; a revoked user sees nothing again. That is the
-  policy <em>logic</em> proven. It is not Supabase: different roles, different
+  where a silent failure is a security bug — now has <b>45 passing assertions</b> behind
+  it, up from twelve: an outsider sees no document, no chunks and no keyword hits; a
+  granted user sees the document but cannot re-share it; a revoked user sees nothing
+  again; an administrator manages access without reading a word of it; and, since 21
+  August, a colleague's private conversation is invisible to everyone outside it,
+  including that administrator, with three writes proven to be <em>refused</em> rather
+  than merely absent. That is the policy <em>logic</em> proven, on a real Postgres 16
+  with pgvector. It is not Supabase: different roles, different
   ownership, and no PostgREST. <code>npm run verify:rls</code> against the real project
   is still the only thing that closes this out. The counter above reads 3 for the
   schema, the bucket and the vector index — the things inspection can settle — and will
@@ -226,25 +230,25 @@
 <h2>Overall progress</h2>
 
 <div class="stats">
-  <div class="stat"><div class="n">47 / 52</div><div class="l">Deliverables built</div></div>
+  <div class="stat"><div class="n">52 / 57</div><div class="l">Deliverables built</div></div>
   <div class="stat"><div class="n">12 / 14</div><div class="l">Acceptance criteria met</div></div>
   <div class="stat"><div class="n">3</div><div class="l">Verified against a live database</div></div>
   <div class="stat"><div class="n">4</div><div class="l">Open questions for Bishop</div></div>
 </div>
 
 <div class="card">
-  <div class="progress-shell" role="img" aria-label="47 of 52 deliverables built, 2 in progress, 2 not started, 1 waiting on Bishop">
-    <span style="width:90.4%;background:var(--built-dot)"></span>
-    <span style="width:3.8%;background:var(--progress-dot)"></span>
-    <span style="width:3.8%;background:var(--todo-dot)"></span>
-    <span style="width:1.9%;background:var(--blocked-dot)"></span>
+  <div class="progress-shell" role="img" aria-label="52 of 57 deliverables built, 2 in progress, 2 not started, 1 waiting on Bishop">
+    <span style="width:91.2%;background:var(--built-dot)"></span>
+    <span style="width:3.5%;background:var(--progress-dot)"></span>
+    <span style="width:3.5%;background:var(--todo-dot)"></span>
+    <span style="width:1.8%;background:var(--blocked-dot)"></span>
   </div>
   <div class="progress-legend">
-    <span><b>47</b> Built</span>
+    <span><b>52</b> Built</span>
     <span><b>2</b> In progress</span>
     <span><b>2</b> Not started</span>
     <span><b>1</b> Needs Bishop</span>
-    <span><b>52</b> total tracked deliverables</span>
+    <span><b>57</b> total tracked deliverables</span>
   </div>
   <p style="margin:14px 0 0; font-size:13.5px; color:var(--text-muted)">
     <b>Read that number carefully.</b> “Built” means code-complete,
@@ -388,7 +392,7 @@ without coupling every feature to the document platform.</p>
 
 <h2>5 · RAG pipeline</h2>
 
-<div class="flow">Document → Extract → Clean → Chunk → Embed → Store → Retrieve → Generate → Cite</div>
+<div class="flow">Document → Extract → Clean → Chunk → Contextualise → Embed → Store → Retrieve → Generate → Cite</div>
 
 <div class="table-scroll" style="margin-top:14px">
 <table>
@@ -502,7 +506,7 @@ text layer indexes to zero passages and reports as much.</p>
     <tr class="group-head"><td colspan="3">Core requirements beyond the week line-items (plan §4)</td></tr>
     <tr><td class="item">Basic account management</td><td class="status"><span class="pill built">Built</span></td><td class="note">§4.1. Closed. An <b>Account</b> page changes password (re-authenticating with the current one first) and display name; a public recovery page emails a reset link and answers identically whether or not the address exists, so it cannot be used to test who works at AIC.</td></tr>
     <tr><td class="item">Organize documents</td><td class="status"><span class="pill built">Built</span></td><td class="note">§4.2. Closed with tags rather than folders: a document that is both an i363 item and a product doc belongs in both places, which a tree cannot do without duplicating the file. Tags, scope filters and search all live in the URL, so a filtered view can be sent to a colleague.</td></tr>
-    <tr><td class="item">Automated tests</td><td class="status"><span class="pill built">Built</span></td><td class="note">§4 and master plan §15. 77 unit tests (<code>npm test</code>) plus the permission-boundary script (<code>npm run verify:rls</code>). Zero new dependencies — <code>node:test</code> with native TypeScript stripping, and a 30-line resolve hook so the tests import the real source rather than a copy. Integration and RAG-grounding tests still need a live database.</td></tr>
+    <tr><td class="item">Automated tests</td><td class="status"><span class="pill built">Built</span></td><td class="note">§4 and master plan §15. 87 unit tests (<code>npm test</code>) plus the permission-boundary script, whose local form (<code>npm run verify:rls:local</code>) now carries 45 assertions and has actually been run against a real Postgres 16 with pgvector. <code>npm run verify:rls</code> against Supabase itself is still the authority and still unrun. Zero new dependencies — <code>node:test</code> with native TypeScript stripping, and a 30-line resolve hook so the tests import the real source rather than a copy. Integration and RAG-grounding tests still need a live database.</td></tr>
 
     <tr class="group-head"><td colspan="3">Phase 2 — Document Processing &amp; Management <span style="font-weight:400;opacity:.7">(master plan §8; Week 2)</span></td></tr>
     <tr><td class="item">Per-document permissions</td><td class="status"><span class="pill built">Built</span></td><td class="note">Landed early. Enforced by RLS rather than application code.</td></tr>
@@ -554,6 +558,13 @@ text layer indexes to zero passages and reports as much.</p>
     <tr class="group-head"><td colspan="3">Framework evaluation (requested 21 Aug) <span style="font-weight:400;opacity:.7">— outside the three-week beta</span></td></tr>
     <tr><td class="item">LangChain &amp; LangSmith agent skills</td><td class="status"><span class="pill built">Built</span></td><td class="note">25 skills from <code>langchain-ai/langsmith-skills</code> and <code>langchain-ai/langchain-skills</code>, installed the way the Supabase ones already were: files in <code>.agents/skills</code>, mirrored by a symlink at <code>.claude/skills</code>, both gitignored, with <code>skills-lock.json</code> pinning every source and hash so the set is reproducible rather than remembered. The vendor's <code>install.sh</code> was not run — it pipes a remote script into <code>sh</code> to fetch a CLI this project does not need, and the rest of it is a file copy.</td></tr>
     <tr><td class="item">Deep Agents research agent</td><td class="status"><span class="pill built">Built</span></td><td class="note"><code>deep-agent/</code>. A scratch agent from LangChain's Deep Agents quickstart, kept deliberately at arm's length: Python rather than the platform's TypeScript, no Supabase client, no storage credentials, nothing in <code>src/</code> importing it. Its one tool is Anthropic's server-side web search, so it adds no second search vendor. <b>Built but never run</b> — there is no <code>ANTHROPIC_API_KEY</code> in this environment, the same reason Ask is keyless, so the graph is known to construct and the research loop is entirely untested. It exists to answer whether the harness is worth having near AIC documents, and that question is still open.</td></tr>
+
+    <tr class="group-head"><td colspan="3">Documents in context, and team messaging (requested 21 Aug)</td></tr>
+    <tr><td class="item">Contextual embeddings</td><td class="status"><span class="pill built">Built</span></td><td class="note">The change that makes retrieval understand what a document <em>is</em>. Chunking destroys a passage's place in the whole: &ldquo;the fee is GHS 500&rdquo; names neither the programme nor the year, so its embedding sits nowhere near the question it answers, and the keyword arm cannot help because the two share almost no words. Each chunk is now embedded together with its document's title, tags, summary and page. The header lives in its own column and never enters <code>content</code> &mdash; a citation quotes the document, not a preamble this code wrote. It costs no extra model call: the textbook version asks a model per chunk, which multiplies ingestion cost by the chunk count. Ingestion now summarises <em>before</em> embedding, because the summary is an input to the header.</td></tr>
+    <tr><td class="item">Team messaging</td><td class="status"><span class="pill built">Built</span></td><td class="note">Migration <code>0008</code>. <code>chat_threads</code>, <code>chat_participants</code> and <code>chat_messages</code>, with an inbox, a thread view, unread badges, group threads, renaming and leaving. Direct conversations are opened through a database function rather than select-then-insert, so two people opening each other's profile at the same moment get one thread rather than two nobody can reconcile. Leaving removes only your own row: being in a conversation is not a power over who else is.</td></tr>
+    <tr><td class="item">Messages as a retrieval source</td><td class="status"><span class="pill built">Built</span></td><td class="note">Ask can now ground an answer in what colleagues said, not only in what was filed &mdash; scoped to conversations the asker is in, through <code>SECURITY INVOKER</code> functions over <code>chat_messages</code>, exactly as documents work. Deliberately unequal to documents: fewer passages, a higher similarity floor, ranked second so the model reads them as less authoritative, tinted differently in the answer, and the system prompt requires attribution in the prose. &ldquo;Ama said in March&rdquo; and the published fee schedule are different claims, and a citation that renders them identically hides the difference.</td></tr>
+    <tr><td class="item">Permission boundary for messaging</td><td class="status"><span class="pill built">Built</span></td><td class="note"><b>Proven, not asserted.</b> Seventeen assertions added to <code>npm run verify:rls:local</code>, run against a real Postgres 16 with pgvector: a participant reads the thread and retrieves from it; an outsider sees no thread, no participants, no messages and gets nothing from <code>search_chat_messages</code>; three writes are <em>refused</em> &mdash; posting into someone else's thread, adding yourself to one, and signing another person's name to a message. An administrator who is not a participant sees nothing at all, which is the assertion that says out loud what migration 0007 started.</td></tr>
+    <tr><td class="item">Portable schema keeps up</td><td class="status"><span class="pill built">Built</span></td><td class="note">The schema-parity test caught all three new tables missing from <code>db/portable-schema.sql</code> and refused to pass until they were added &mdash; which is the guard rail working. The portable copy now applies cleanly to a plain Postgres with every chat table, policy and function present, so Bishop's &ldquo;must port from one database to the next&rdquo; still holds with messaging in it.</td></tr>
 
   </tbody>
 </table>

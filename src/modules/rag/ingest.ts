@@ -3,6 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { STORAGE_BUCKET } from "@/modules/documents/constants";
 import { chunkPages } from "@/modules/rag/chunk";
+import { buildContextHeader, embeddableText } from "@/modules/rag/contextualise";
 import { embedAll, embeddingsConfigured } from "@/modules/rag/embed";
 import { extractText } from "@/modules/rag/extract";
 import { summariseDocument, suggestTags } from "@/modules/intelligence/summarise";
@@ -41,21 +42,23 @@ async function setStatus(
 }
 
 /**
- * Writes the Phase 4 enrichments: a summary and suggested tags.
+ * The Phase 4 enrichments: a summary and suggested tags.
  *
- * Takes the already-extracted pages rather than re-reading the file, so this
- * costs one model call each and no additional storage round trip.
+ * This used to run *after* indexing, as a pure side effect. It now runs before
+ * embedding and returns what it produced, because the summary is an input to
+ * the context headers — a passage is situated using the document's own summary,
+ * so the summary has to exist first (see `contextualise.ts`).
  *
- * Swallows its own failures on purpose. The document is indexed by the time
- * this runs; a null summary is a missing nicety, while a thrown error here
- * would mark a perfectly searchable document as failed.
+ * Still swallows its own failures, and that guarantee is why it returns nulls
+ * rather than throwing. A summariser outage costs the corpus better retrieval;
+ * it must never cost the corpus its retrieval, and a document with no summary
+ * still chunks, embeds, stores and answers questions.
  */
 async function enrichDocument(
-  documentId: string,
   title: string,
   existingTags: string[],
   pages: { text: string }[],
-): Promise<void> {
+): Promise<{ summary: string | null; suggestedTags: string[] }> {
   try {
     const text = pages.map((page) => page.text).join("\n\n");
 
@@ -64,17 +67,9 @@ async function enrichDocument(
       suggestTags(title, text, existingTags),
     ]);
 
-    if (!summary && suggested.length === 0) return;
-
-    await createAdminClient()
-      .from("documents")
-      .update({
-        ...(summary ? { summary, summary_generated_at: new Date().toISOString() } : {}),
-        ...(suggested.length > 0 ? { suggested_tags: suggested } : {}),
-      })
-      .eq("id", documentId);
+    return { summary, suggestedTags: suggested };
   } catch {
-    // Enrichment is optional by design; the document is already indexed.
+    return { summary: null, suggestedTags: [] };
   }
 }
 
@@ -128,7 +123,27 @@ export async function ingestDocument(documentId: string): Promise<IngestResult> 
       return { ok: true, chunkCount: 0, skipped: reason };
     }
 
-    const vectors = await embedAll(chunks.map((chunk) => chunk.content));
+    const existingTags = document.tags ?? [];
+
+    // Before embedding, not after: the summary is what tells each chunk which
+    // document it belongs to, and a header written after the vectors exist
+    // would be a header nothing was embedded with.
+    const enrichment = await enrichDocument(
+      document.title,
+      existingTags,
+      extracted.pages,
+    );
+
+    const headers = chunks.map((chunk) =>
+      buildContextHeader(
+        { title: document.title, tags: existingTags, summary: enrichment.summary },
+        chunk,
+      ),
+    );
+
+    const vectors = await embedAll(
+      chunks.map((chunk, position) => embeddableText(chunk.content, headers[position])),
+    );
 
     // Replace rather than merge: chunk indices are positional, so a re-index
     // after an edit would otherwise leave orphaned passages from the old text.
@@ -138,7 +153,11 @@ export async function ingestDocument(documentId: string): Promise<IngestResult> 
       chunks.map((chunk, position) => ({
         document_id: documentId,
         chunk_index: chunk.index,
+        // `content` stays exactly what the document says. The header was an
+        // input to the embedding and is stored beside it, never inside it,
+        // because this column is what a citation quotes.
         content: chunk.content,
+        context_header: headers[position],
         page_number: chunk.pageNumber,
         token_count: chunk.tokenEstimate,
         embedding: vectors[position],
@@ -149,10 +168,21 @@ export async function ingestDocument(documentId: string): Promise<IngestResult> 
 
     await setStatus(documentId, "indexed", { chunkCount: chunks.length });
 
-    // Phase 4 enrichment, after the document is already searchable. Deliberately
-    // last and deliberately non-fatal: indexing is what makes a document useful,
-    // and a summariser outage must not cost the corpus its retrieval.
-    await enrichDocument(documentId, document.title, document.tags ?? [], extracted.pages);
+    // Persisted last, and non-fatally: the document is searchable by now, so a
+    // failure to write the summary costs a nicety rather than the index.
+    if (enrichment.summary || enrichment.suggestedTags.length > 0) {
+      await admin
+        .from("documents")
+        .update({
+          ...(enrichment.summary
+            ? { summary: enrichment.summary, summary_generated_at: new Date().toISOString() }
+            : {}),
+          ...(enrichment.suggestedTags.length > 0
+            ? { suggested_tags: enrichment.suggestedTags }
+            : {}),
+        })
+        .eq("id", documentId);
+    }
 
     return { ok: true, chunkCount: chunks.length };
   } catch (cause) {

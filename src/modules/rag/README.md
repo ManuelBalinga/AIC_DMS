@@ -3,7 +3,7 @@
 The intelligence layer over the document platform. Pipeline, in order:
 
 ```
-document → extract → chunk → embed → store → retrieve → generate → cite
+document → extract → chunk → contextualise → embed → store → retrieve → generate → cite
 ```
 
 | File | Responsibility |
@@ -11,6 +11,7 @@ document → extract → chunk → embed → store → retrieve → generate →
 | `config.ts` | Every tuneable number, and the reasoning for each |
 | `extract.ts` | Text out of PDF / DOCX / XLSX / PPTX / plain text, with page numbers where the format has them |
 | `chunk.ts` | Boundary-respecting, overlapping chunks |
+| `contextualise.ts` | Situates a chunk in its document before embedding |
 | `embed.ts` | Embedding provider behind an interface |
 | `ingest.ts` | Orchestration and the `documents.index_status` lifecycle |
 | `retrieve.ts` | Hybrid semantic + keyword retrieval |
@@ -64,6 +65,44 @@ document, whole — and its callers check the caller's rights first
 - **A model refusal** — Claude Opus 5's classifiers occasionally decline benign
   requests, so requests carry a server-side fallback. A refusal that survives it
   is reported rather than shown as an empty answer.
+
+## Contextual embeddings
+
+Chunking destroys the thing that made each passage meaningful: its place in the
+whole document. A chunk reading
+
+> The fee is GHS 500 per participant, payable before the first session.
+
+names neither the programme nor the year, so its embedding lands nowhere near
+"what does the i363 programme cost in 2026?" — and the passage holding the
+answer becomes the one passage retrieval cannot find. The keyword arm does not
+rescue it either: the question and the passage share almost no words.
+
+`contextualise.ts` fixes this by embedding each chunk together with a short
+header naming its document, tags, summary and page. Two properties matter:
+
+1. **The header never reaches `content`.** It lives in its own column
+   (`document_chunks.context_header`) and is stored beside the passage, never
+   inside it, because `content` is what a citation quotes. A citation that
+   quoted a preamble this code wrote would be a citation of something the
+   document does not say.
+2. **It costs no extra model call.** The header is assembled from metadata
+   ingestion already produces. The textbook version asks a model to write a
+   bespoke sentence per chunk, which multiplies ingestion cost by the chunk
+   count — for a 200-page PDF that is not a rounding error.
+
+This is why ingestion now summarises *before* embedding rather than after: the
+summary is an input to the header. When there is no summary — no API key, or a
+summariser outage — the header degrades to title, tags and page rather than
+disappearing, so indexing still works with no AI keys at all.
+
+## Retrieval over conversations
+
+Ask also retrieves from team messages (`../chat/README.md`), scoped by the same
+kind of RLS that governs documents: you can only be quoted conversations you are
+a participant in. Documents are ranked first and messages are cited differently,
+because "I think we said 500" and the published fee schedule are different
+claims and an answer that renders them identically hides the difference.
 
 ## Not done
 
