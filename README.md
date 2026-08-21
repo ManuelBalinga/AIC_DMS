@@ -279,7 +279,8 @@ a **development** project.
    This is the only point at which document content leaves AIC's control.
 3. **The email domain** team accounts will use.
 4. **Two roles or three.** The plan says administrator / document owner / team
-   member; the student screen review of 27 July described students, tutors and
-   admin. Most likely two separate products — but if this platform is also meant
+member, plus document roles of viewer, commenter, editor and owner. The
+   student/tutor structure once floated is out permanently: this platform is
+   corporate. See `Documentation/ROLE_MODEL.md`.
    to serve the training centre, `user_role` needs a third value now rather than
    as a migration later.

@@ -106,10 +106,11 @@ Be straight about the edges. It buys credibility for everything above.
 - Answering sends the relevant passages to Anthropic's API. **This is the
   decision that needs Bishop**: whether that is acceptable for AIC's documents,
   or whether it needs a different arrangement.
-- Roles today are administrator and member. The student/tutor/admin structure
-  discussed for the training screens is a different product; if this platform is
-  also meant to serve the training centre, that changes the design and is
-  cheaper to decide now than later.
+- Roles are administrator and member at the platform level, and viewer,
+  commenter, editor or owner on each document. The student/tutor/admin
+  structure once floated is out permanently — this platform is corporate.
+  Administrators manage access but cannot read documents unless an owner
+  shares one with them.
 
 ## 8. What to ask for (30 sec)
 

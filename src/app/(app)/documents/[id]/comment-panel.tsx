@@ -103,7 +103,7 @@ export function CommentPanel({
             required
             placeholder="Add a comment about this document…"
           />
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
               Page
               <input
@@ -113,12 +113,19 @@ export function CommentPanel({
                 placeholder="any"
                 className="w-16 rounded-md border border-neutral-200 bg-transparent px-2 py-1 text-xs dark:border-neutral-800"
               />
-              <span className="text-neutral-400 dark:text-neutral-500">
-                optional — leave blank for the document as a whole
-              </span>
             </label>
+            <input
+              name="quoted_text"
+              placeholder="Paste the passage you mean (optional)"
+              className="min-w-48 flex-1 rounded-md border border-neutral-200 bg-transparent px-2 py-1 text-xs dark:border-neutral-800"
+            />
             <SubmitButton label="Comment" busy="Posting..." />
           </div>
+          <p className="text-xs text-neutral-400 dark:text-neutral-500">
+            Leave both blank to comment on the document as a whole. The passage
+            is stored as text rather than a position, so it still shows what you
+            meant after somebody replaces the file.
+          </p>
         </form>
       ) : (
         <p className="mt-4 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">

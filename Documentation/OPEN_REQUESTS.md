@@ -52,10 +52,12 @@ that is the half of the product Bishop is most interested in.
 **4. The email domain** for team accounts, and whether invitations should be
 restricted to it.
 
-**5. Two roles or three.** The plan says administrator / document owner / team
-member. Your 27 July student-screen notes described students, tutors and admin.
-If this platform is also meant to serve the training centre, `user_role` needs a
-third value — cheap to add now, a migration once there is data.
+**5. ~~Two roles or three.~~ Answered 20 August: two.** No student/tutor model —
+this platform is corporate, and the three-layer scheme from the July design
+review is out permanently. Depth comes from *document* roles instead (viewer /
+commenter / editor / owner), so a person holds one platform role and a different
+document role on every file shared with them. See
+[`ROLE_MODEL.md`](./ROLE_MODEL.md).
 
 **6. A platform name**, if you want one before the demo. Currently "AIC
 Documents", in 13 places in code.

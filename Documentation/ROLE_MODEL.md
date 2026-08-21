@@ -1,7 +1,8 @@
 # Roles and the Team page
 
-Design for expanding beyond the current two roles. **Not built** — this is the
-specification, written so implementation is mechanical.
+Design for expanding beyond the current two roles. **Built in migration `0007`
+and shipped 20 August** — this document is now the record of what exists and
+why, not a proposal. The one part still outstanding is noted under *Comments*.
 
 **Decisions taken by Manuel, 20 August**, recorded here because two of them
 change existing behaviour rather than adding to it:
@@ -277,10 +278,23 @@ construction, with no separate rule to keep in step.
 - **On the dashboard** — an unresolved-comment count on each document row, so a
   document waiting on you is visible without opening it.
 
-### Explicitly not in this first pass
+### Built, and the one part that is not
 
-Notifications, @mentions, and comment search. Each is a feature in its own
-right, and none of them is needed for the role to mean something.
+Built: the table and its policies, threads with replies, document-level and
+page-anchored comments, resolve and reopen, delete-your-own, and the
+unresolved-thread badge on the dashboard. `quoted_text` is filled by pasting the
+passage into the comment form.
+
+**Not built: selecting text in the preview to comment on it.** The preview
+shows a PDF in an `<iframe>` pointed at a signed storage URL, which is a
+different origin — a page cannot read a selection inside it, and the browser's
+built-in PDF viewer exposes no selection API to the embedding page. Doing this
+properly means rendering the PDF in-page with pdf.js and building a text layer
+over it: a document viewer, which is a project rather than a detail. Pasting
+the passage is the honest interim, and it stores the same thing.
+
+Also not in this pass, and each a feature in its own right: notifications,
+@mentions, and comment search. None is needed for the role to mean something.
 
 ---
 

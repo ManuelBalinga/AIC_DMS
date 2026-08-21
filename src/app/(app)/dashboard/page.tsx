@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { requireProfile } from "@/modules/auth/session";
 import { listVisibleDocuments, listVisibleTags } from "@/modules/documents/queries";
+import { countUnresolvedComments } from "@/modules/comments/queries";
 import { formatFileSize } from "@/modules/documents/constants";
 import { searchDocumentContent } from "@/modules/search/queries";
 import { Badge, Card, EmptyState } from "@/components/ui";
@@ -43,6 +44,11 @@ export default async function DashboardPage({
   ]);
 
   const listedIds = new Set(documents.map((doc) => doc.id));
+
+  // One query for the whole page rather than one per row: a document waiting on
+  // you should be visible without opening it, and twenty badges are not worth
+  // twenty round trips.
+  const unresolved = await countUnresolvedComments(documents.map((doc) => doc.id));
   const alsoFoundInside = contentMatches.filter(
     (match) => !listedIds.has(match.documentId),
   );
@@ -113,6 +119,11 @@ export default async function DashboardPage({
                         )}
                         {doc.index_status === "indexed" ? (
                           <Badge tone="green">AI</Badge>
+                        ) : null}
+                        {unresolved.get(doc.id) ? (
+                          <Badge tone="amber">
+                            {unresolved.get(doc.id)} open
+                          </Badge>
                         ) : null}
                       </div>
                       <p className="mt-0.5 truncate text-xs text-neutral-500 dark:text-neutral-400">
