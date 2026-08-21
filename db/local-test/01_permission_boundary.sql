@@ -72,5 +72,94 @@ select pg_temp.expect('revoked user sees no documents', count(*)::bigint, 0::big
 select pg_temp.expect('revoked user sees no chunks', count(*)::bigint, 0::bigint) from public.document_chunks;
 reset role;
 
+
+-- ---------------------------------------------------------------------------
+-- Document roles, and the administrator who may manage but not read.
+-- ---------------------------------------------------------------------------
+reset role;
+
+insert into auth.users (id, email) values
+  ('44444444-4444-4444-4444-444444444444','admin@aic.test'),
+  ('55555555-5555-5555-5555-555555555555','editor@aic.test');
+update public.profiles set role = 'administrator'
+  where id = '44444444-4444-4444-4444-444444444444';
+
+set role authenticated;
+set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+
+-- The heart of "manage access, not content": the row is visible so access can
+-- be administered, the chunks are not so the contents stay closed.
+select pg_temp.expect('admin sees the document row', count(*)::bigint, 1::bigint)
+  from public.documents;
+select pg_temp.expect('admin cannot read its chunks', count(*)::bigint, 0::bigint)
+  from public.document_chunks;
+select pg_temp.expect('admin can_read_document says no',
+  public.can_read_document('33333333-3333-3333-3333-333333333333','44444444-4444-4444-4444-444444444444'), false);
+select pg_temp.expect('admin can still manage access',
+  public.can_manage_document('33333333-3333-3333-3333-333333333333','44444444-4444-4444-4444-444444444444'), true);
+select pg_temp.expect('admin gets no keyword hits either', count(*)::bigint, 0::bigint)
+  from public.search_document_chunks('fee', 10);
+
+-- Roles are ordered, so each includes the one below it.
+reset role;
+insert into public.document_access (document_id, user_id, role, granted_by)
+values ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555',
+        'editor','11111111-1111-1111-1111-111111111111');
+
+select pg_temp.expect('editor may edit',
+  public.can_edit_document('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555'), true);
+select pg_temp.expect('editor may comment',
+  public.can_comment_on_document('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555'), true);
+select pg_temp.expect('editor may not re-share',
+  public.can_manage_document('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555'), false);
+
+update public.document_access set role = 'viewer'
+  where user_id = '55555555-5555-5555-5555-555555555555';
+select pg_temp.expect('viewer may read',
+  public.can_read_document('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555'), true);
+select pg_temp.expect('viewer may not comment',
+  public.can_comment_on_document('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555'), false);
+select pg_temp.expect('viewer may not edit',
+  public.can_edit_document('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555'), false);
+
+-- ---------------------------------------------------------------------------
+-- Comments inherit the document's privacy exactly.
+-- ---------------------------------------------------------------------------
+insert into public.document_comments (document_id, author_id, body)
+values ('33333333-3333-3333-3333-333333333333','11111111-1111-1111-1111-111111111111','Is this current?');
+
+set role authenticated;
+set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+select pg_temp.expect('admin cannot read comments either', count(*)::bigint, 0::bigint)
+  from public.document_comments;
+
+set request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
+select pg_temp.expect('viewer can read comments', count(*)::bigint, 1::bigint)
+  from public.document_comments;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- The last active administrator cannot be demoted or deactivated.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  update public.profiles set role = 'member'
+    where id = '44444444-4444-4444-4444-444444444444';
+  raise exception 'FAIL last administrator was demoted';
+exception
+  when check_violation then
+    raise notice 'ok  last administrator cannot be demoted';
+end $$;
+
+do $$
+begin
+  update public.profiles set deactivated_at = now()
+    where id = '44444444-4444-4444-4444-444444444444';
+  raise exception 'FAIL last administrator was deactivated';
+exception
+  when check_violation then
+    raise notice 'ok  last administrator cannot be deactivated';
+end $$;
+
 \echo ''
 \echo 'Permission boundary: all checks passed.'

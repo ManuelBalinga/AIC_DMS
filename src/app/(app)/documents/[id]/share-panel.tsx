@@ -3,11 +3,28 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { grantDocumentAccess, revokeDocumentAccess } from "@/modules/access/actions";
+import {
+  changeDocumentRole,
+  grantDocumentAccess,
+  revokeDocumentAccess,
+} from "@/modules/access/actions";
 import { emptyActionState } from "@/lib/action-state";
 import type { DocumentGrant } from "@/modules/access/queries";
-import type { Profile } from "@/lib/types/database";
+import type { DocumentRole, Profile } from "@/lib/types/database";
 import { Alert, Button, Card, Label, Select } from "@/components/ui";
+
+/**
+ * What each role permits, in the words of the person choosing it.
+ *
+ * Written as consequences rather than capability names — "can suggest changes
+ * but not make them" is a decision somebody can take; "commenter" is a label
+ * they have to look up.
+ */
+const ROLE_OPTIONS: { value: DocumentRole; label: string; hint: string }[] = [
+  { value: "viewer", label: "Viewer", hint: "Read and download it" },
+  { value: "commenter", label: "Commenter", hint: "Read it and leave comments" },
+  { value: "editor", label: "Editor", hint: "Change its details and replace the file" },
+];
 
 function GrantButton() {
   const { pending } = useFormStatus();
@@ -44,6 +61,10 @@ export function SharePanel({
     revokeDocumentAccess,
     emptyActionState,
   );
+  const [roleState, roleAction] = useActionState(
+    changeDocumentRole,
+    emptyActionState,
+  );
 
   return (
     <Card className="p-5">
@@ -51,7 +72,8 @@ export function SharePanel({
         Who can see this
       </h2>
       <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-        Only the people listed here, plus administrators.
+        Only you and the people listed here. Administrators can change who has
+        access but cannot read the document unless you share it with them.
       </p>
 
       <form action={grantAction} className="mt-4 flex flex-wrap items-end gap-3">
@@ -73,6 +95,16 @@ export function SharePanel({
             )}
           </Select>
         </div>
+        <div className="w-44 space-y-1.5">
+          <Label htmlFor="role">Can</Label>
+          <Select id="role" name="role" defaultValue="viewer">
+            {ROLE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label} — {option.hint.toLowerCase()}
+              </option>
+            ))}
+          </Select>
+        </div>
         <GrantButton />
       </form>
 
@@ -89,6 +121,16 @@ export function SharePanel({
       {revokeState.error ? (
         <div className="mt-3">
           <Alert tone="error">{revokeState.error}</Alert>
+        </div>
+      ) : null}
+      {roleState.error ? (
+        <div className="mt-3">
+          <Alert tone="error">{roleState.error}</Alert>
+        </div>
+      ) : null}
+      {roleState.success ? (
+        <div className="mt-3">
+          <Alert tone="success">{roleState.success}</Alert>
         </div>
       ) : null}
 
@@ -109,11 +151,33 @@ export function SharePanel({
                   </p>
                 ) : null}
               </div>
-              <form action={revokeAction}>
-                <input type="hidden" name="document_id" value={documentId} />
-                <input type="hidden" name="user_id" value={grant.user_id} />
-                <RevokeButton />
-              </form>
+              <div className="flex items-center gap-2">
+                <form action={roleAction}>
+                  <input type="hidden" name="document_id" value={documentId} />
+                  <input type="hidden" name="user_id" value={grant.user_id} />
+                  <Select
+                    name="role"
+                    defaultValue={grant.role}
+                    aria-label={`What ${grant.profile?.full_name || grant.profile?.email || "this person"} can do`}
+                    className="w-32 text-xs"
+                    // Submitting on change keeps this to one interaction; a
+                    // separate Save button beside a dropdown is a button people
+                    // forget to press, which silently discards the change.
+                    onChange={(event) => event.currentTarget.form?.requestSubmit()}
+                  >
+                    {ROLE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                </form>
+                <form action={revokeAction}>
+                  <input type="hidden" name="document_id" value={documentId} />
+                  <input type="hidden" name="user_id" value={grant.user_id} />
+                  <RevokeButton />
+                </form>
+              </div>
             </li>
           ))}
         </ul>

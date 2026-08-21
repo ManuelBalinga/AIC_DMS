@@ -226,24 +226,24 @@
 <h2>Overall progress</h2>
 
 <div class="stats">
-  <div class="stat"><div class="n">39 / 49</div><div class="l">Deliverables built</div></div>
+  <div class="stat"><div class="n">45 / 49</div><div class="l">Deliverables built</div></div>
   <div class="stat"><div class="n">12 / 14</div><div class="l">Acceptance criteria met</div></div>
   <div class="stat"><div class="n">3</div><div class="l">Verified against a live database</div></div>
-  <div class="stat"><div class="n">8</div><div class="l">Open questions for Bishop</div></div>
+  <div class="stat"><div class="n">4</div><div class="l">Open questions for Bishop</div></div>
 </div>
 
 <div class="card">
-  <div class="progress-shell" role="img" aria-label="39 of 49 deliverables built, 2 in progress, 6 not started, 2 waiting on Bishop">
-    <span style="width:79.6%;background:var(--built-dot)"></span>
+  <div class="progress-shell" role="img" aria-label="45 of 49 deliverables built, 2 in progress, 1 not started, 1 waiting on Bishop">
+    <span style="width:91.8%;background:var(--built-dot)"></span>
     <span style="width:4.1%;background:var(--progress-dot)"></span>
-    <span style="width:12.2%;background:var(--todo-dot)"></span>
-    <span style="width:4.1%;background:var(--blocked-dot)"></span>
+    <span style="width:2.0%;background:var(--todo-dot)"></span>
+    <span style="width:2.1%;background:var(--blocked-dot)"></span>
   </div>
   <div class="progress-legend">
-    <span><b>39</b> Built</span>
+    <span><b>45</b> Built</span>
     <span><b>2</b> In progress</span>
-    <span><b>6</b> Not started</span>
-    <span><b>2</b> Needs Bishop</span>
+    <span><b>1</b> Not started</span>
+    <span><b>1</b> Needs Bishop</span>
     <span><b>49</b> total tracked deliverables</span>
   </div>
   <p style="margin:14px 0 0; font-size:13.5px; color:var(--text-muted)">
@@ -544,12 +544,12 @@ text layer indexes to zero passages and reports as much.</p>
     <tr><td class="item">Unit and integration test suite</td><td class="status"><span class="pill built">Built</span></td><td class="note">77 tests on <code>node:test</code> with native TypeScript stripping — no test-framework dependency added. Covers chunking (including that a chunk never spans two pages, which is the citation contract), memory windowing and citation stripping, filename sanitisation, tag parsing, the migration script's SQL escaping, and schema parity between <code>supabase/migrations/</code> and <code>db/portable-schema.sql</code>. That last suite paid for itself on its first run: it found the portable schema still carrying the bare <code>array_to_string</code> expression that had already broken migration <code>0003</code>, so a move to Neon would have hit the identical failure. Runs with <code>npm test</code>. Exercises the real source files, not a bundler's transformation of them.</td></tr>
     <tr><td class="item">Local permission-boundary test</td><td class="status"><span class="pill built">Built</span></td><td class="note"><code>npm run verify:rls:local</code> applies all six migrations to a throwaway Postgres and asserts the policies: an outsider sees no document, no chunks and no keyword hits; a granted user sees the document but <b>cannot re-share it</b>; a revoked user sees nothing again. Twelve checks, all passing. It cannot reproduce Supabase's own grants or PostgREST exposure, so <code>verify:rls</code> against the real project is still the authority — this is the version that runs in seconds with no credentials.</td></tr>
     <tr class="group-head"><td colspan="3">Roles &amp; Team (requested 20 Aug) <span style="font-weight:400;opacity:.7">— specified in <code>Documentation/ROLE_MODEL.md</code></span></td></tr>
-    <tr><td class="item">Document roles: Viewer / Editor / Owner</td><td class="status"><span class="pill todo">Not started</span></td><td class="note">Designed, not built. One column — <code>document_access.role</code> — as an <b>ordered</b> enum, so one comparison (<code>role &gt;= 'editor'</code>) answers every question instead of a lookup table that grows quadratically and eventually disagrees with itself. Owner stays on <code>documents.owner_id</code> rather than becoming a grant row, because a row that can be deleted makes ownership revocable by accident. Every existing grant becomes Viewer, which is what it already means, so nobody gains or loses access on the day it ships.</td></tr>
-    <tr><td class="item">Document role: Commenter</td><td class="status"><span class="pill todo">Not started</span></td><td class="note">Blocked on a feature, not on the role. Comments do not exist — the role needs a <code>document_comments</code> table with its own policies, threads on the document page, and a decision about notification. Comparable in size to the sharing panel. Recommendation is to ship the other three roles first rather than a role that silently does nothing.</td></tr>
-    <tr><td class="item">Role-aware permission helpers</td><td class="status"><span class="pill todo">Not started</span></td><td class="note">Adds <code>can_edit_document</code> beside the existing two, and switches the policies to it. Worth noting what does <em>not</em> change: <code>can_read_document</code> keeps its current meaning, so the entire RAG layer needs no edits — retrieval only ever asks "may this person read this?", and the new roles do not change that answer. That is the return on having put permissions in the database instead of the retrieval code.</td></tr>
-    <tr><td class="item">Team page: person detail view</td><td class="status"><span class="pill todo">Not started</span></td><td class="note">Answers the question the platform currently cannot: <b>what can this person actually see?</b> Today that means opening every document one at a time. Shows their platform role, everything shared with them and at what role, everything they own, and last sign-in — the screen an administrator needs when somebody leaves or something was shared that should not have been.</td></tr>
-    <tr><td class="item">Last-administrator protection</td><td class="status"><span class="pill todo">Not started</span></td><td class="note">A real gap in what is already shipped. The current rule stops you demoting <em>yourself</em>, so two administrators can demote each other down to zero and nobody can ever invite anyone again. Needs a database-level check, not a UI one.</td></tr>
-    <tr><td class="item">Departure handling</td><td class="status"><span class="pill blocked">Needs Bishop</span></td><td class="note">People own documents, so deleting an account cascades to their files — correct for a test account, catastrophic for a departing staff member. Recommendation is a <code>deactivated</code> state: they can no longer sign in but still own their documents. Departure is not deletion, and AIC should not lose company documents because somebody changed jobs.</td></tr>
+    <tr><td class="item">Document roles: Viewer / Editor / Owner</td><td class="status"><span class="pill built">Built</span></td><td class="note">Migration <code>0007</code>. <code>document_access.role</code> as an ordered enum, plus <code>can_comment_on_document</code> and <code>can_edit_document</code>. Every existing grant became Viewer, so nobody's access changed on the day it shipped. Sharing panel picks a role when sharing and changes it afterwards, submitting on change rather than behind a Save button people forget to press.</td></tr>
+    <tr><td class="item">Document role: Commenter</td><td class="status"><span class="pill built">Built</span></td><td class="note">Comments exist. <code>document_comments</code> with threaded replies via <code>parent_id</code>, at document level or anchored to a page. The passage is stored as text rather than a character offset — an offset breaks the moment an editor replaces the file, silently, pointing at the wrong text, which is worse than pointing at nothing. Authors are <code>on delete set null</code>: a departed colleague's comments stay, because a thread with half its turns removed reads as though the rest were answering nobody.</td></tr>
+    <tr><td class="item">Role-aware permission helpers</td><td class="status"><span class="pill built">Built</span></td><td class="note"><code>can_read_document</code> lost its administrator clause and <code>can_manage_document</code> kept one — that pair <em>is</em> the “manage access but do not read” decision, in two functions rather than across twenty policies. The RAG layer needed no edits: retrieval only ever asks “may this person read this?”, so narrowing the answer propagated to retrieval, download and Ask for free.</td></tr>
+    <tr><td class="item">Team page: person detail view</td><td class="status"><span class="pill built">Built</span></td><td class="note"><code>/admin/team/[userId]</code>. Their platform role, everything they own, everything shared with them and at what role. Answers the question that previously meant opening every document one at a time. Bounded by what the caller may see — an administrator gets the whole who-can-reach-what picture without gaining the ability to read any of it.</td></tr>
+    <tr><td class="item">Last-administrator protection</td><td class="status"><span class="pill built">Built</span></td><td class="note">A <code>before update</code> trigger on <code>profiles</code>, not a UI check, so it holds whichever code path attempts it. Fires on demotion <em>and</em> on deactivation — both are ways to reach zero administrators, and only one of them was obvious.</td></tr>
+    <tr><td class="item">Departure handling</td><td class="status"><span class="pill built">Built</span></td><td class="note">Deactivate, not delete. <code>profiles.deactivated_at</code> ends sign-in — enforced in the session check as well as at the provider, so an existing token dies at its next request rather than lingering. Documents, grants and comments are untouched and it is reversible. Ownership transfer is a separate deliberate act on the person detail view, because the right new owner is a judgement about the work rather than about the org chart.</td></tr>
 
 
   </tbody>
@@ -602,9 +602,9 @@ text layer indexes to zero passages and reports as much.</p>
       <td class="note">Needed before invitations go out, and to decide whether to restrict invites by domain.</td>
     </tr>
     <tr>
-      <td class="item">Is the role model two roles or three? The plan says administrator / document owner / team member, but the student screen review of 27 July described a three-layer system — students/learners, tutors, admin.</td>
-      <td class="status"><span class="pill blocked">Needs Bishop</span></td>
-      <td class="note">Most likely two separate products — this platform and the AI 360 training screens — but if the filing system is also meant to serve the training centre, <code>user_role</code> needs a third value and the invitation flow needs to set it. Cheap now, a migration later.</td>
+      <td class="item">Is the role model two roles or three?</td>
+      <td class="status"><span class="pill built">Answered</span></td>
+      <td class="note"><b>Two, 20 August.</b> No student/tutor model — this platform is corporate, and the three-layer scheme from the July design review is out permanently. Depth comes from document roles instead: a person holds one platform role and a different document role on every file shared with them.</td>
     </tr>
   </tbody>
 </table>

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { requireAdministrator } from "@/modules/auth/session";
 import { listPendingInvitations, listTeamMembers } from "@/modules/users/queries";
 import { Badge, Card } from "@/components/ui";
@@ -21,7 +23,8 @@ export default async function TeamPage() {
           Team
         </h1>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          People join by invitation only. There is no public sign-up.
+          People join by invitation only. There is no public sign-up. Open
+          someone to see everything they can reach.
         </p>
       </div>
 
@@ -43,11 +46,17 @@ export default async function TeamPage() {
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="truncate text-sm text-neutral-900 dark:text-neutral-100">
+                  <Link
+                    href={`/admin/team/${member.id}`}
+                    className="truncate text-sm text-neutral-900 hover:underline dark:text-neutral-100"
+                  >
                     {member.full_name || member.email}
-                  </p>
+                  </Link>
                   {member.role === "administrator" ? (
                     <Badge tone="amber">Administrator</Badge>
+                  ) : null}
+                  {member.deactivated_at ? (
+                    <Badge tone="neutral">Deactivated</Badge>
                   ) : null}
                   {member.id === admin.id ? <Badge tone="neutral">You</Badge> : null}
                 </div>

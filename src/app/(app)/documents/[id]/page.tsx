@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { createClient } from "@/lib/supabase/server";
+
 import { requireProfile } from "@/modules/auth/session";
 import { getDocument } from "@/modules/documents/queries";
 import {
@@ -11,6 +13,7 @@ import { deleteDocument } from "@/modules/documents/actions";
 import { listDocumentGrants } from "@/modules/access/queries";
 import { listTeamMembers } from "@/modules/users/queries";
 import { getRelatedDocuments } from "@/modules/intelligence/queries";
+import { listCommentThreads } from "@/modules/comments/queries";
 import { Badge, Button, Card } from "@/components/ui";
 import { DocumentPreview, isPreviewable } from "./document-preview";
 import { EditForm } from "./edit-form";
@@ -18,6 +21,7 @@ import { ReindexForm } from "./reindex-form";
 import { SharePanel } from "./share-panel";
 import { SuggestedTags } from "./suggested-tags";
 import { RelatedDocuments } from "./related-documents";
+import { CommentPanel } from "./comment-panel";
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString("en-GB", {
@@ -58,7 +62,18 @@ export default async function DocumentPage({
 
   // Permission-aware through RLS on the underlying chunks, so this runs for
   // every viewer rather than only for managers.
-  const related = await getRelatedDocuments(document.id);
+  const [related, commentThreads] = await Promise.all([
+    getRelatedDocuments(document.id),
+    listCommentThreads(document.id),
+  ]);
+
+  // Asked of the database rather than derived from the grant list, so the UI and
+  // the policy cannot disagree about who may comment.
+  const supabase = await createClient();
+  const { data: canComment } = await supabase.rpc("can_comment_on_document", {
+    check_document_id: document.id,
+    check_user_id: profile.id,
+  });
 
   const grantedIds = new Set(grants.map((grant) => grant.user_id));
   const shareableMembers = teamMembers.filter(
@@ -140,6 +155,14 @@ export default async function DocumentPage({
       ) : null}
 
       <RelatedDocuments related={related} />
+
+      <CommentPanel
+        documentId={document.id}
+        threads={commentThreads}
+        canComment={Boolean(canComment)}
+        canResolveAny={canManage}
+        currentUserId={profile.id}
+      />
 
       <Card className="p-5">
         <h2 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">

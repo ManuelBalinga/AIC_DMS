@@ -11,11 +11,26 @@ export type InvitationStatus = "pending" | "accepted" | "revoked";
 export type DocumentIndexStatus = "pending" | "processing" | "indexed" | "failed";
 export type MessageRole = "user" | "assistant";
 
+/**
+ * What a grant on a document permits. Ordered — viewer < commenter < editor —
+ * matching the Postgres enum, so a comparison answers a permission question.
+ * Ownership is `documents.owner_id`, deliberately not a value here.
+ */
+export type DocumentRole = "viewer" | "commenter" | "editor";
+
+export const DOCUMENT_ROLE_RANK: Record<DocumentRole, number> = {
+  viewer: 0,
+  commenter: 1,
+  editor: 2,
+};
+
 export type Profile = {
   id: string;
   email: string;
   full_name: string | null;
   role: UserRole;
+  /** Set when the person can no longer sign in. Their documents are untouched. */
+  deactivated_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -54,8 +69,23 @@ export type DocumentRecord = {
 export type DocumentAccess = {
   document_id: string;
   user_id: string;
+  role: DocumentRole;
   granted_by: string | null;
   created_at: string;
+}
+
+export type DocumentComment = {
+  id: string;
+  document_id: string;
+  author_id: string | null;
+  parent_id: string | null;
+  body: string;
+  page_number: number | null;
+  quoted_text: string | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export type DocumentChunk = {
@@ -167,6 +197,13 @@ export type Database = {
         Update: Partial<DocumentAccess>;
         Relationships: Relationship[];
       };
+      document_comments: {
+        Row: DocumentComment;
+        Insert: Pick<DocumentComment, "document_id" | "body"> &
+          Partial<Omit<DocumentComment, "document_id" | "body">>;
+        Update: Partial<DocumentComment>;
+        Relationships: Relationship[];
+      };
       document_chunks: {
         Row: DocumentChunk;
         Insert: Pick<DocumentChunk, "document_id" | "chunk_index" | "content"> &
@@ -224,6 +261,14 @@ export type Database = {
         Args: { check_document_id: string; check_user_id: string };
         Returns: boolean;
       };
+      can_comment_on_document: {
+        Args: { check_document_id: string; check_user_id: string };
+        Returns: boolean;
+      };
+      can_edit_document: {
+        Args: { check_document_id: string; check_user_id: string };
+        Returns: boolean;
+      };
       visible_document_tags: {
         Args: Record<never, never>;
         Returns: { tag: string; document_count: number }[];
@@ -258,6 +303,7 @@ export type Database = {
       invitation_status: InvitationStatus;
       document_index_status: DocumentIndexStatus;
       message_role: MessageRole;
+      document_role: DocumentRole;
     };
     CompositeTypes: Record<never, never>;
   };

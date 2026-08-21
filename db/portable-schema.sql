@@ -84,6 +84,12 @@ do $$ begin
   create type public.message_role as enum ('user', 'assistant');
 exception when duplicate_object then null; end $$;
 
+-- Declaration order is load-bearing: Postgres compares enums by it, so
+-- `role >= 'commenter'` answers a permission question with one comparison.
+do $$ begin
+  create type public.document_role as enum ('viewer', 'commenter', 'editor');
+exception when duplicate_object then null; end $$;
+
 -- ---------------------------------------------------------------------------
 -- app_users: identity, owned by this schema rather than by the provider
 --
@@ -104,6 +110,9 @@ create table if not exists public.app_users (
   role          public.user_role not null default 'member',
   auth_provider text not null default 'supabase',
   auth_subject  text,
+  -- Set when the person can no longer sign in. Their documents, grants and
+  -- comments are untouched, and it is reversible.
+  deactivated_at timestamptz,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
   unique (auth_provider, auth_subject)
@@ -113,7 +122,7 @@ create table if not exists public.app_users (
 -- keeps that name working here without a second copy of the rows, so the same
 -- queries run against either provider unchanged.
 create or replace view public.profiles as
-  select id, email, full_name, role, created_at, updated_at
+  select id, email, full_name, role, deactivated_at, created_at, updated_at
   from public.app_users;
 
 -- ---------------------------------------------------------------------------
@@ -203,6 +212,7 @@ create index if not exists documents_search_vector_idx
 create table if not exists public.document_access (
   document_id uuid not null references public.documents (id) on delete cascade,
   user_id     uuid not null references public.app_users (id) on delete cascade,
+  role        public.document_role not null default 'viewer',
   granted_by  uuid references public.app_users (id) on delete set null,
   created_at  timestamptz not null default now(),
   primary key (document_id, user_id)
@@ -292,6 +302,8 @@ as $fn$
   );
 $fn$;
 
+-- No administrator clause: an administrator manages access, and reads a
+-- document only if an owner granted it to them like anybody else.
 create or replace function public.can_read_document(check_document_id uuid, check_user_id uuid)
 returns boolean
 language sql
@@ -308,7 +320,50 @@ as $fn$
           select 1 from public.document_access a
           where a.document_id = d.id and a.user_id = check_user_id
         )
-        or public.is_administrator(check_user_id)
+      )
+  );
+$fn$;
+
+create or replace function public.can_comment_on_document(check_document_id uuid, check_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $fn$
+  select exists (
+    select 1 from public.documents d
+    where d.id = check_document_id
+      and (
+        d.owner_id = check_user_id
+        or exists (
+          select 1 from public.document_access a
+          where a.document_id = d.id
+            and a.user_id = check_user_id
+            and a.role >= 'commenter'
+        )
+      )
+  );
+$fn$;
+
+create or replace function public.can_edit_document(check_document_id uuid, check_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $fn$
+  select exists (
+    select 1 from public.documents d
+    where d.id = check_document_id
+      and (
+        d.owner_id = check_user_id
+        or exists (
+          select 1 from public.document_access a
+          where a.document_id = d.id
+            and a.user_id = check_user_id
+            and a.role >= 'editor'
+        )
       )
   );
 $fn$;
@@ -463,6 +518,39 @@ as $fn$
   limit least(greatest(match_count, 1), 50);
 $fn$;
 
+create table if not exists public.document_comments (
+  id          uuid primary key default gen_random_uuid(),
+  document_id uuid not null references public.documents (id) on delete cascade,
+  -- `set null`, not cascade: a departing colleague's comments are part of the
+  -- document's history, and removing them rewrites a review thread.
+  author_id   uuid references public.app_users (id) on delete set null,
+  parent_id   uuid references public.document_comments (id) on delete cascade,
+  body        text not null check (length(trim(body)) > 0),
+  page_number integer,
+  -- The passage itself, not an offset: offsets break silently when an editor
+  -- replaces the file, pointing at the wrong text rather than at nothing.
+  quoted_text text,
+  resolved_at timestamptz,
+  resolved_by uuid references public.app_users (id) on delete set null,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+create index if not exists document_comments_document_idx
+  on public.document_comments (document_id, created_at);
+
+create index if not exists document_comments_parent_idx
+  on public.document_comments (parent_id);
+
+create index if not exists document_comments_unresolved_idx
+  on public.document_comments (document_id)
+  where resolved_at is null and parent_id is null;
+
+drop trigger if exists document_comments_touch_updated_at on public.document_comments;
+create trigger document_comments_touch_updated_at
+  before update on public.document_comments
+  for each row execute function public.touch_updated_at();
+
 -- ---------------------------------------------------------------------------
 -- Phase 4: document-level embeddings and related documents
 --
@@ -530,6 +618,7 @@ alter table public.document_chunks       enable row level security;
 alter table public.conversations         enable row level security;
 alter table public.conversation_messages enable row level security;
 alter table public.message_citations     enable row level security;
+alter table public.document_comments     enable row level security;
 
 drop policy if exists app_users_select on public.app_users;
 create policy app_users_select on public.app_users
@@ -567,13 +656,43 @@ create policy documents_insert_own on public.documents
 drop policy if exists documents_update_own on public.documents;
 create policy documents_update_own on public.documents
   for update to app_user
-  using (owner_id = app.current_user_id() or public.is_administrator(app.current_user_id()))
-  with check (owner_id = app.current_user_id() or public.is_administrator(app.current_user_id()));
+  using (public.can_edit_document(id, app.current_user_id()))
+  with check (public.can_edit_document(id, app.current_user_id()));
 
 drop policy if exists documents_delete_own on public.documents;
 create policy documents_delete_own on public.documents
   for delete to app_user
-  using (owner_id = app.current_user_id() or public.is_administrator(app.current_user_id()));
+  using (public.can_manage_document(id, app.current_user_id()));
+
+drop policy if exists document_comments_select on public.document_comments;
+create policy document_comments_select on public.document_comments
+  for select to app_user
+  using (public.can_read_document(document_id, app.current_user_id()));
+
+drop policy if exists document_comments_insert on public.document_comments;
+create policy document_comments_insert on public.document_comments
+  for insert to app_user
+  with check (
+    author_id = app.current_user_id()
+    and public.can_comment_on_document(document_id, app.current_user_id())
+  );
+
+drop policy if exists document_comments_update on public.document_comments;
+create policy document_comments_update on public.document_comments
+  for update to app_user
+  using (
+    author_id = app.current_user_id()
+    or public.can_manage_document(document_id, app.current_user_id())
+  )
+  with check (
+    author_id = app.current_user_id()
+    or public.can_manage_document(document_id, app.current_user_id())
+  );
+
+drop policy if exists document_comments_delete on public.document_comments;
+create policy document_comments_delete on public.document_comments
+  for delete to app_user
+  using (author_id = app.current_user_id());
 
 drop policy if exists document_access_select on public.document_access;
 create policy document_access_select on public.document_access
@@ -643,6 +762,46 @@ create policy message_citations_owner_all on public.message_citations
         and c.user_id = app.current_user_id()
     )
   );
+
+-- ---------------------------------------------------------------------------
+-- Last-administrator protection
+--
+-- The application refuses to let you demote yourself, but two administrators
+-- could demote each other to zero and then nobody could invite anybody again.
+-- A trigger holds regardless of which code path made the change.
+-- ---------------------------------------------------------------------------
+create or replace function public.protect_last_administrator()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+begin
+  if old.role = 'administrator'
+     and old.deactivated_at is null
+     and (new.role <> 'administrator' or new.deactivated_at is not null)
+  then
+    if not exists (
+      select 1 from public.app_users u
+      where u.role = 'administrator'
+        and u.deactivated_at is null
+        and u.id <> old.id
+    ) then
+      raise exception
+        'This is the last active administrator. Promote somebody else first, '
+        'or nobody will be able to invite anyone again.'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  return new;
+end;
+$fn$;
+
+drop trigger if exists app_users_protect_last_administrator on public.app_users;
+create trigger app_users_protect_last_administrator
+  before update on public.app_users
+  for each row execute function public.protect_last_administrator();
 
 grant usage on schema public, app to app_user;
 grant select, insert, update, delete on all tables in schema public to app_user;

@@ -21,7 +21,17 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     .eq("id", user.id)
     .single();
 
-  return profile ?? null;
+  if (!profile) return null;
+
+  // A deactivated person may still be holding a valid session token. Checking
+  // here rather than only at sign-in means their access ends at their next
+  // request, not whenever the token happens to expire.
+  if (profile.deactivated_at) {
+    await supabase.auth.signOut();
+    return null;
+  }
+
+  return profile;
 }
 
 /**

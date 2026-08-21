@@ -5,6 +5,9 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/modules/auth/session";
 import type { ActionState } from "@/lib/action-state";
+import type { DocumentRole } from "@/lib/types/database";
+
+const DOCUMENT_ROLES: DocumentRole[] = ["viewer", "commenter", "editor"];
 
 /**
  * Grant a team member access to a document.
@@ -20,14 +23,16 @@ export async function grantDocumentAccess(
 
   const documentId = String(formData.get("document_id") ?? "");
   const userId = String(formData.get("user_id") ?? "");
+  const role = String(formData.get("role") ?? "viewer") as DocumentRole;
 
   if (!documentId || !userId) return { error: "Choose a team member." };
   if (userId === profile.id) return { error: "You already own this document." };
+  if (!DOCUMENT_ROLES.includes(role)) return { error: "Choose a valid role." };
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("document_access")
-    .insert({ document_id: documentId, user_id: userId, granted_by: profile.id });
+    .insert({ document_id: documentId, user_id: userId, role, granted_by: profile.id });
 
   if (error) {
     if (error.code === "23505") return { error: "They already have access." };
@@ -36,6 +41,43 @@ export async function grantDocumentAccess(
 
   revalidatePath(`/documents/${documentId}`);
   return { success: "Access granted." };
+}
+
+/**
+ * Change what an existing grant permits.
+ *
+ * Separate from granting so that changing somebody from Viewer to Editor is not
+ * a revoke-and-regrant — which would lose `created_at` and, more importantly,
+ * briefly remove their access in the middle of an operation that was meant to
+ * widen it.
+ */
+export async function changeDocumentRole(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireProfile();
+
+  const documentId = String(formData.get("document_id") ?? "");
+  const userId = String(formData.get("user_id") ?? "");
+  const role = String(formData.get("role") ?? "") as DocumentRole;
+
+  if (!documentId || !userId) return { error: "Missing details." };
+  if (!DOCUMENT_ROLES.includes(role)) return { error: "Choose a valid role." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("document_access")
+    .update({ role })
+    .eq("document_id", documentId)
+    .eq("user_id", userId)
+    .select("user_id")
+    .maybeSingle();
+
+  if (error) return { error: "Could not change that role." };
+  if (!data) return { error: "You are not allowed to change sharing here." };
+
+  revalidatePath(`/documents/${documentId}`);
+  return { success: "Role updated." };
 }
 
 /** Withdraw a previously granted access. */
