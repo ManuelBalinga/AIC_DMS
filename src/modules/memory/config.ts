@@ -70,8 +70,10 @@ export const SUMMARY_MAX_CHARS = 1_500;
  * Haiku, not the answering model: both jobs are short rewrites on short inputs,
  * they sit in front of the answer the person is waiting for, and running them
  * on Opus would add latency to every follow-up for no gain in retrieval quality.
+ *
+ * Undated, matching `INTELLIGENCE_MODEL` — see the note there.
  */
-export const UTILITY_MODEL = "claude-haiku-4-5-20251001";
+export const UTILITY_MODEL = "claude-haiku-4-5";
 
 /** Rewritten queries are one line; a larger budget only buys a preamble. */
 export const REWRITE_MAX_TOKENS = 200;

@@ -15,8 +15,12 @@ import "server-only";
  * Haiku, not the answering model. Both jobs are close to extraction: the
  * summary restates what a document says, and the tags name what it is about.
  * Neither is a reasoning problem, and both run on every upload.
+ *
+ * Undated. The dated snapshot this used to carry was a guess at an id that may
+ * not resolve, and a wrong model id fails at the first real request rather than
+ * at build time — the worst place to find out.
  */
-export const INTELLIGENCE_MODEL = "claude-haiku-4-5-20251001";
+export const INTELLIGENCE_MODEL = "claude-haiku-4-5";
 
 /* -------------------------------------------------------------------------- */
 /* Summarisation                                                              */

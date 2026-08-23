@@ -112,6 +112,45 @@ npm run start
 
 ---
 
+## 3b. Moving from personal to company API keys
+
+It is reasonable to develop against personal Anthropic and OpenAI accounts —
+neither vendor has a free tier worth planning around, both are cheap at this
+scale, and waiting for a company account to exist would block every test.
+
+**The rule while on personal keys: no real AIC documents.** Whatever is sent
+sits under a personal account's terms, retention and jurisdiction, which is
+exactly the arrangement nobody has approved. Test with invented documents — a
+made-up fee schedule, a fictional programme outline. They exercise chunking,
+retrieval and citation just as well as real ones.
+
+**This swap must happen before the beta carries real documents.** Deploying on a
+personal key means production runs on somebody's personal card, under somebody's
+personal terms, and stops working the day that account lapses.
+
+1. Create the organisation on an AIC address at
+   [console.anthropic.com](https://console.anthropic.com) (and
+   [platform.openai.com](https://platform.openai.com) for embeddings), and add
+   billing. Both are prepaid credit, not invoiced.
+2. Create a **workspace** per vendor with a monthly spend limit before creating
+   any key, so a runaway loop cannot drain the balance.
+3. Create the keys, scoped to those workspaces.
+4. Replace `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` in the host's environment
+   and redeploy. No code changes — both are read at runtime.
+5. **Revoke the personal keys.** An unrevoked key is a live credential nobody is
+   watching.
+6. Re-index the corpus (**Re-index** on each document) once real documents go in.
+
+**Changing accounts is free; changing providers is not.** A different embedding
+vendor produces vectors in a different space, so every stored embedding becomes
+meaningless and the whole corpus needs re-indexing — and if its native width is
+not 1536, `document_chunks.embedding` needs a schema migration too. That is why
+`src/modules/rag/embed.ts` puts the provider behind an interface, and why the
+privacy decision wants settling *before* anything real is indexed rather than
+after.
+
+---
+
 ## 4. Before letting anyone in
 
 Run these against the environment, in order. The first two are the ones that
@@ -137,6 +176,8 @@ Then walk the flow by hand, because no script covers the parts a person sees:
 5. Ask a question whose answer is in that document; check the citation links to
    the right document and page.
 6. Revoke access; confirm the document disappears and the answer stops citing it.
+7. Confirm `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` belong to the **company**
+   accounts, not to anybody's personal one (§3b).
 
 ---
 
