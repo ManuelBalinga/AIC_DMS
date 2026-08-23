@@ -77,6 +77,7 @@ bypasses Row Level Security entirely — treat it like a database password.
 | `NEXT_PUBLIC_SITE_URL` | yes | Must match the Supabase Site URL exactly, or invitation links land on the wrong host |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | Server only. Never prefix `NEXT_PUBLIC_` |
 | `ANTHROPIC_API_KEY` | no | Without it, Ask reports that answering is unconfigured |
+| `ANSWER_MODEL` | no | Which Claude model answers. Defaults to `claude-opus-5`; set `claude-haiku-4-5` in development to iterate faster and cheaper. Safe to change at any time — no re-index |
 | `OPENAI_API_KEY` | no | Without it, uploads are stored but not indexed, and Ask falls back to keyword search |
 | `EMBEDDING_PROVIDER` | no | Defaults to `openai` |
 | `EMBEDDING_MODEL` | no | Defaults to `text-embedding-3-small` |

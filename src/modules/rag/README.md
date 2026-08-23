@@ -66,6 +66,23 @@ document, whole — and its callers check the caller's rights first
   requests, so requests carry a server-side fallback. A refusal that survives it
   is reported rather than shown as an empty answer.
 
+## Which model can change, and which cannot
+
+Worth keeping straight, because the two look alike and behave nothing alike:
+
+- **The answering model is free.** `ANSWER_MODEL` is an environment variable
+  (default `claude-opus-5`). Nothing it produces is stored — a question goes
+  out, an answer comes back — so a cheaper tier in development and the default
+  in production costs nothing and needs no re-index. Run Haiku while iterating.
+- **The embedding model is not.** Every vector in `document_chunks` was produced
+  by one model. A different one puts vectors in a different space, so the stored
+  ones stop meaning anything and the whole corpus must be re-indexed; a
+  different native width needs a schema migration on top, since the column is
+  pinned to `vector(1536)`.
+
+Which is why the vendor question wants settling before a real corpus is indexed,
+and why the tier question does not.
+
 ## Contextual embeddings
 
 Chunking destroys the thing that made each passage meaningful: its place in the
