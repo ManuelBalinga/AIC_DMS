@@ -616,6 +616,7 @@ as $fn$
   join public.chat_threads t on t.id = m.thread_id
   left join public.app_users u on u.id = m.sender_id
   where m.embedding is not null
+    and t.is_group = true
     and 1 - (m.embedding <=> query_embedding) >= min_similarity
   order by m.embedding <=> query_embedding
   limit least(greatest(match_count, 1), 50);
@@ -650,6 +651,7 @@ as $fn$
   join public.chat_threads t on t.id = m.thread_id
   left join public.app_users u on u.id = m.sender_id
   where to_tsvector('english', m.body) @@ websearch_to_tsquery('english', query_text)
+    and t.is_group = true
   order by 7 desc
   limit least(greatest(match_count, 1), 50);
 $fn$;

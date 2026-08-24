@@ -117,7 +117,10 @@ disappearing, so indexing still works with no AI keys at all.
 
 Ask also retrieves from team messages (`../chat/README.md`), scoped by the same
 kind of RLS that governs documents: you can only be quoted conversations you are
-a participant in. Documents are ranked first and messages are cited differently,
+a participant in. Direct messages are excluded outright, whether or not you are
+in them — migration `0009` filters both retrieval functions on `is_group`,
+because a private word between two colleagues was never meant to be something
+Ask could quote back. Documents are ranked first and messages are cited differently,
 because "I think we said 500" and the published fee schedule are different
 claims and an answer that renders them identically hides the difference.
 

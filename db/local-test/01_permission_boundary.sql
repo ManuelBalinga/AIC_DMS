@@ -210,7 +210,11 @@ set request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
 select pg_temp.expect('participant sees the thread', count(*)::bigint, 1::bigint) from public.chat_threads;
 select pg_temp.expect('participant sees both participants', count(*)::bigint, 2::bigint) from public.chat_participants;
 select pg_temp.expect('participant sees the message', count(*)::bigint, 1::bigint) from public.chat_messages;
-select pg_temp.expect('participant retrieves it by keyword', count(*)::bigint, 1::bigint)
+-- Migration 0009: a direct message is never a retrieval source. Bob can read
+-- this message — it is his conversation — but Ask cannot reach it. Reading a
+-- conversation and retrieving from it are separate permissions, and this is
+-- the assertion that keeps them separate.
+select pg_temp.expect('a participant does not retrieve a direct message', count(*)::bigint, 0::bigint)
   from public.search_chat_messages('fee schedule', 10);
 
 -- The other half of the insert policy, and the half that is easy to leave out:
@@ -258,6 +262,54 @@ select pg_temp.expect('a participant cannot remove another', count(*)::bigint, 2
 delete from public.chat_participants
   where thread_id = :'thread'::uuid and user_id = '66666666-6666-6666-6666-666666666666';
 select pg_temp.expect('a participant may leave', count(*)::bigint, 0::bigint) from public.chat_threads;
+
+
+-- ---------------------------------------------------------------------------
+-- Chat: a group conversation still is one (migration 0009)
+--
+-- The counter-case to the assertion above, and the reason 0009 filters on
+-- `is_group` rather than switching message retrieval off wholesale. A named
+-- group conversation is a deliberate shared space, closer to a team channel
+-- than to a private word between two colleagues, and Ask is still allowed to
+-- read it — for its participants, and for nobody else.
+--
+-- The body here is deliberately identical to the direct message above. That is
+-- what makes these assertions worth running: the same sentence exists in both a
+-- private and a group conversation, so a count of 1 proves the filter
+-- discriminates on the thread rather than on the text.
+-- ---------------------------------------------------------------------------
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+insert into public.chat_threads (id, created_by, topic, is_group)
+values ('88888888-8888-8888-8888-888888888888',
+        '11111111-1111-1111-1111-111111111111', 'i363 planning', true);
+
+insert into public.chat_participants (thread_id, user_id) values
+  ('88888888-8888-8888-8888-888888888888','11111111-1111-1111-1111-111111111111'),
+  ('88888888-8888-8888-8888-888888888888','77777777-7777-7777-7777-777777777777');
+
+insert into public.chat_messages (thread_id, sender_id, body)
+values ('88888888-8888-8888-8888-888888888888',
+        '11111111-1111-1111-1111-111111111111',
+        'The i363 fee schedule is going up next quarter.');
+
+select pg_temp.expect('a participant retrieves from a group thread', count(*)::bigint, 1::bigint)
+  from public.search_chat_messages('fee schedule', 10);
+
+-- Carol is a member of this one, unlike the direct thread above.
+set request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
+select pg_temp.expect('the other member retrieves it too', count(*)::bigint, 1::bigint)
+  from public.search_chat_messages('fee schedule', 10);
+
+-- Bob left the direct thread and was never in this one.
+set request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
+select pg_temp.expect('a non-member retrieves nothing from a group thread', count(*)::bigint, 0::bigint)
+  from public.search_chat_messages('fee schedule', 10);
+
+-- Group or direct, the administrator is not a participant and gets nothing.
+set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+select pg_temp.expect('administrator retrieves nothing from a group thread', count(*)::bigint, 0::bigint)
+  from public.search_chat_messages('fee schedule', 10);
 
 reset role;
 

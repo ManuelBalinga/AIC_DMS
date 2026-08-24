@@ -23,6 +23,14 @@ import { embedQuery, embeddingsConfigured } from "@/modules/rag/embed";
  * is a deliberate limit: "sounds good to me" is genuinely not retrievable, and
  * inventing context for it by folding in surrounding messages would make it
  * match questions it cannot actually answer.
+ *
+ * Direct messages are skipped entirely. Migration 0009 already refuses to
+ * return them from either retrieval function, so this is the second of two
+ * layers rather than the one holding the line — but it is the layer that keeps
+ * the vector from existing in the first place. A private conversation that was
+ * never embedded cannot be exposed by a later change to a `where` clause, and
+ * declining to compute the vector is also the honest reading of the decision:
+ * a direct message is not a retrieval source, so there is nothing to index.
  */
 export async function embedMessage(messageId: string): Promise<void> {
   if (!embeddingsConfigured()) return;
@@ -31,11 +39,19 @@ export async function embedMessage(messageId: string): Promise<void> {
 
   const { data: message } = await admin
     .from("chat_messages")
-    .select("id, body")
+    .select("id, body, thread:chat_threads!inner(is_group)")
     .eq("id", messageId)
     .maybeSingle();
 
   if (!message) return;
+
+  // `thread` arrives as an object for a to-one relationship, but the generated
+  // types describe embedded resources as possibly-arrays. Normalising here
+  // keeps the guard readable and, more importantly, keeps it fail-closed: an
+  // unreadable or unexpected shape yields `undefined`, which is not `true`, so
+  // the message is left unembedded rather than indexed by accident.
+  const thread = Array.isArray(message.thread) ? message.thread[0] : message.thread;
+  if (thread?.is_group !== true) return;
 
   const embedding = await embedQuery(message.body);
 

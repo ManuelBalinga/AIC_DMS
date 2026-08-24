@@ -44,6 +44,13 @@ Ask retrieves from `chat_messages` alongside `document_chunks`. This is the
 first time an answer can be grounded in something other than a document, so the
 boundaries are drawn tightly:
 
+- **Never a direct message.** Participation is necessary but not sufficient.
+  Migration `0009` filters both retrieval functions on `is_group`, and
+  `embed.ts` declines to compute a vector for a one-to-one message at all, so a
+  private conversation is not a retrieval source however it is queried. Both
+  layers earn their place: the keyword arm reads `body` and needs no vector, so
+  withholding the embedding alone would have hidden a direct message from
+  semantic search while leaving it fully reachable by keyword.
 - **Only your own conversations.** Enforced by the same RLS that governs
   reading them, through a `SECURITY INVOKER` function. You can only ever be
   quoted things you could already open.
