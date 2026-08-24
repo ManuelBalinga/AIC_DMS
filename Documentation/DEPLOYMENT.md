@@ -79,8 +79,41 @@ bypasses Row Level Security entirely — treat it like a database password.
 | `ANTHROPIC_API_KEY` | no | Without it, Ask reports that answering is unconfigured |
 | `ANSWER_MODEL` | no | Which Claude model answers. Defaults to `claude-opus-5`; set `claude-haiku-4-5` in development to iterate faster and cheaper. Safe to change at any time — no re-index |
 | `OPENAI_API_KEY` | no | Without it, uploads are stored but not indexed, and Ask falls back to keyword search |
-| `EMBEDDING_PROVIDER` | no | Defaults to `openai` |
-| `EMBEDDING_MODEL` | no | Defaults to `text-embedding-3-small` |
+| `EMBEDDING_PROVIDER` | no | `openai` (default), `ollama`, or `openai-compatible` |
+| `EMBEDDING_MODEL` | no | Defaults to `text-embedding-3-small` for `openai` and `qwen3-embedding:4b` for `ollama`. **Required** for `openai-compatible` |
+| `EMBEDDING_BASE_URL` | no | Overrides the endpoint. Defaults to OpenAI's for `openai` and `http://127.0.0.1:11434/v1` for `ollama`. **Required** for `openai-compatible` |
+| `EMBEDDING_API_KEY` | no | Key for a non-OpenAI provider. Falls back to `OPENAI_API_KEY`. Omitted entirely for a local Ollama, which wants no key |
+| `EMBEDDING_OMIT_DIMENSIONS` | no | Set `true` only for a provider that rejects the `dimensions` parameter outright. Safe only if the model is natively 1536 wide |
+
+### Choosing an embedding provider
+
+Every option speaks OpenAI's `/v1/embeddings` shape, so changing provider is
+configuration rather than code. What is *not* free to change is the width:
+`document_chunks.embedding` is `vector(1536)`, fixed by migration 0001, and a
+provider emitting anything else needs a schema migration **and a full re-index
+of every document**. `embedAll` refuses a wrong-width vector rather than storing
+it, and says which of the two fixes applies.
+
+Matryoshka-trained models are the way through this: they are trained so a
+shorter prefix is still a usable embedding, so they honour a `dimensions`
+request. `qwen3-embedding` (2560 native at 4b, 4096 at 8b) and Google's
+`gemini-embedding-001` (3072 native) all truncate cleanly to 1536. Most
+open models do not — `nomic-embed-text` is 768, `mxbai-embed-large` and
+`bge-m3` are 1024 — and those genuinely do cost a migration.
+
+**A local Ollama is the only option that is free and private at once.** Nothing
+leaves the machine, there is no key and no per-token cost, so it does not depend
+on how a vendor's free tier treats submitted data. The trade is that it must run
+somewhere the application can reach: fine for a laptop or a self-hosted box,
+impossible on Vercel, where the app would need a hosted provider instead.
+
+> **Read a free tier's data terms before pointing this at real AIC documents.**
+> They are frequently weaker than the paid terms of the same vendor. Google's
+> free Gemini tier, for one, reserves the right to use submitted prompts and
+> outputs to improve its products, with human review possible, and its own terms
+> advise against sending confidential material. A free tier is fine for testing
+> against invented documents; sending AIC's actual files through one is the very
+> thing the privacy question exists to decide.
 
 The AI keys are genuinely optional. The document platform — the part that
 replaces WhatsApp — works completely without them, which is the right failure
