@@ -129,7 +129,59 @@ WhatsApp.
 
 ---
 
-## 5. What is copied from Slack, and what is not
+## 5. Retention: nothing is ever deleted
+
+Manuel's decision, 20 August, and the reasoning is the corporate one: a
+conversation record is evidence. It is how you establish who was told what, and
+when.
+
+### Retention and access are separate questions
+
+These two decisions look like they collide, and they do not:
+
+- Administrators cannot read closed teams or direct messages.
+- Nothing is ever deleted.
+
+**Retention** says the bytes survive. **Access** says who may read them. AIC
+keeps everything; almost nobody can read most of it. A direct message is
+retained permanently *and* unreadable by an administrator. The record exists for
+a lawful process — an investigation with proper authorisation, a court order —
+not for casual browsing.
+
+Stating this explicitly matters, because "we keep everything but nobody can read
+it" sounds contradictory right up until you separate the two ideas.
+
+### What follows
+
+**Delete becomes retract.** A message disappears from the conversation and stays
+in the record, marked *retracted by Ama, 3 March*. There is no hard delete
+anywhere in the product. Anyone who could see the message before can see that it
+existed and was withdrawn.
+
+**Edits are versioned, not overwritten.** If editing replaced the text, the
+audit trail would be a lie: somebody could rewrite what they said and the record
+would agree with them. Every version is kept, and the message carries an
+`edited` marker that opens the history.
+
+**People are deactivated, never deleted** — already true for accounts (migration
+`0007`) and now consistent across the whole product. Their messages stay, their
+name stays on them.
+
+### The one thing worth knowing
+
+A blanket never-delete policy sits awkwardly beside a data-protection right to
+erasure — Ghana's Data Protection Act among others. This is not a reason to
+change the decision, and it is not legal advice.
+
+It is a reason to keep the *capability* even if it is never used: because delete
+is a soft retraction rather than a real one, a genuine erasure remains
+technically possible if AIC is ever lawfully required to perform one. Had the
+distinction never been built, it would not be. Worth Bishop knowing the policy
+exists and is deliberate.
+
+---
+
+## 6. What is copied from Slack, and what is not
 
 ### Copied
 
@@ -160,7 +212,7 @@ start-up channel.
 
 ---
 
-## 6. Where it lives in the app
+## 7. Where it lives in the app
 
 Chat gets its own sidebar **inside `/chat`**, rather than restructuring the whole
 shell. The top navigation gains a **Chat** item with an unread badge.
@@ -186,7 +238,7 @@ Top nav:   Documents   Ask   Chat •3   People            Manuel ▾
 
 ---
 
-## 7. First cut
+## 8. First cut
 
 Agreed scope for the first usable version, once the beta itself is verified:
 
@@ -204,7 +256,7 @@ one-to-one is precisely where documents leak.
 
 ---
 
-## 8. Storage shape
+## 9. Storage shape
 
 Sketched, not fixed. Recorded so the reasoning survives.
 
@@ -224,10 +276,34 @@ Sketched, not fixed. Recorded so the reasoning survives.
 
 ---
 
+## 10. AI retrieval over conversations
+
+Decided 20 August: **open teams are searchable by everyone, including
+non-members.** An open team is already readable by anyone at AIC who cares to
+look, so indexing it adds no exposure and makes Ask meaningfully better — "what
+did we decide about the fee?" starts working across the whole company's open
+discussion.
+
+Closed teams are searchable by their members only. Direct messages are never
+indexed.
+
+### The edge that leaks
+
+Visibility is not fixed for the life of a team, and the index has to follow it.
+
+**Open becomes closed.** The messages are already embedded and retrievable by
+non-members. Unless the visibility change re-scopes the index, closing the team
+does nothing at all — the conversation stays reachable through Ask by exactly
+the people it was just hidden from. This is the failure mode to write a test
+for.
+
+**Closed becomes open.** The reverse needs a warning rather than a fix:
+*Making this open will make its 412 previous messages readable by everyone at
+AIC.* Same pattern as every other consequence in this design — shown at the
+moment of the decision, never discovered afterwards.
+
 ## Still open
 
-- Whether an open team's conversation should be searchable by AI for people who
-  are not members. Leaning yes for open teams, no for closed and never for DMs,
-  but it needs deciding before retrieval is wired up.
-- Message retention. Nothing deletes today. Worth a decision before real
-  conversation accumulates rather than after.
+- Nothing on the design. The remaining unknowns are operational: how large the
+  conversation corpus gets before retrieval quality needs re-tuning, and whether
+  polling is good enough before Realtime is wired.
