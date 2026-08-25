@@ -76,14 +76,51 @@ bypasses Row Level Security entirely — treat it like a database password.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Safe in the browser; RLS still applies |
 | `NEXT_PUBLIC_SITE_URL` | yes | Must match the Supabase Site URL exactly, or invitation links land on the wrong host |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | Server only. Never prefix `NEXT_PUBLIC_` |
-| `ANTHROPIC_API_KEY` | no | Without it, Ask reports that answering is unconfigured |
-| `ANSWER_MODEL` | no | Which Claude model answers. Defaults to `claude-opus-5`; set `claude-haiku-4-5` in development to iterate faster and cheaper. Safe to change at any time — no re-index |
+| `ANSWER_PROVIDER` | no | `anthropic` (default) or `openai-compatible` |
+| `ANTHROPIC_API_KEY` | yes, for `anthropic` | Without it, Ask reports that answering is unconfigured |
+| `ANSWER_BASE_URL` | yes, for `openai-compatible` | e.g. `https://api.groq.com/openai/v1` |
+| `ANSWER_API_KEY` | no | Key for the `openai-compatible` provider |
+| `ANSWER_MODEL` | no | Defaults to `claude-opus-5`; set `claude-haiku-4-5` in development. **Required** for `openai-compatible`. Safe to change at any time — no re-index |
 | `OPENAI_API_KEY` | no | Without it, uploads are stored but not indexed, and Ask falls back to keyword search |
 | `EMBEDDING_PROVIDER` | no | `openai` (default), `ollama`, or `openai-compatible` |
 | `EMBEDDING_MODEL` | no | Defaults to `text-embedding-3-small` for `openai` and `qwen3-embedding:4b` for `ollama`. **Required** for `openai-compatible` |
 | `EMBEDDING_BASE_URL` | no | Overrides the endpoint. Defaults to OpenAI's for `openai` and `http://127.0.0.1:11434/v1` for `ollama`. **Required** for `openai-compatible` |
 | `EMBEDDING_API_KEY` | no | Key for a non-OpenAI provider. Falls back to `OPENAI_API_KEY`. Omitted entirely for a local Ollama, which wants no key |
 | `EMBEDDING_OMIT_DIMENSIONS` | no | Set `true` only for a provider that rejects the `dimensions` parameter outright. Safe only if the model is natively 1536 wide |
+
+### The free stack, for testing and a first deployment
+
+Runs on Vercel, needs no credit card, and costs nothing.
+
+```ini
+# Answering — Groq. Free, no card, and its no-training-on-your-data posture is
+# account-wide rather than a paid-tier feature.
+ANSWER_PROVIDER=openai-compatible
+ANSWER_BASE_URL=https://api.groq.com/openai/v1
+ANSWER_API_KEY=gsk_...
+ANSWER_MODEL=llama-3.3-70b-versatile
+
+# Embeddings — Gemini through its OpenAI-compatible endpoint. Groq has no
+# embedding models, so this half comes from elsewhere.
+EMBEDDING_PROVIDER=openai-compatible
+EMBEDDING_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+EMBEDDING_API_KEY=...
+EMBEDDING_MODEL=gemini-embedding-001
+```
+
+> **Test documents only.** Google's free Gemini tier reserves the right to use
+> submitted prompts and outputs to improve its products, human review included.
+> That is acceptable for invented files while the pipeline is being proven, and
+> not acceptable for AIC's real documents. Groq's half does not carry the same
+> caveat.
+
+**Moving off Gemini later costs a re-index, not a migration.** `gemini-embedding-001`
+truncates to 1536 so the schema never changes, but a vector from one model is
+not comparable with a vector from another — they place text in different
+coordinate spaces, and mixing them degrades retrieval silently rather than
+loudly. Every document has to be embedded again by whichever provider replaces
+it. That is free today, with nothing indexed, and grows with the corpus, so it
+is worth doing before real documents arrive rather than after.
 
 ### Choosing an embedding provider
 

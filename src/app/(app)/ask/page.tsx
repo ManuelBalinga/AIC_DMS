@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireProfile } from "@/modules/auth/session";
 import { getDocumentStats } from "@/modules/documents/queries";
 import { embeddingsConfigured } from "@/modules/rag/embed";
-import { anthropicConfigured } from "@/modules/rag/answer";
+import { answeringConfigured } from "@/modules/rag/answer";
 import { getConversation, getThread, listConversations } from "@/modules/memory/queries";
 import { Alert } from "@/components/ui";
 import { AskPanel, type ThreadMessage } from "./ask-panel";
@@ -49,7 +49,7 @@ export default async function AskPage({
 
   const missing: string[] = [];
   if (!embeddingsConfigured()) missing.push("an embedding provider key");
-  if (!anthropicConfigured()) missing.push("an ANTHROPIC_API_KEY");
+  if (!answeringConfigured()) missing.push("an answering provider");
 
   return (
     <div className="flex flex-col gap-8 lg:flex-row">

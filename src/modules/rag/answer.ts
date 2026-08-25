@@ -1,13 +1,6 @@
 import "server-only";
 
-import Anthropic from "@anthropic-ai/sdk";
-
-import {
-  ANSWER_EFFORT,
-  ANSWER_MAX_TOKENS,
-  ANSWER_MODEL,
-  USE_REFUSAL_FALLBACK,
-} from "@/modules/rag/config";
+import { getAnswerProvider, type ChatMessage } from "@/modules/rag/answer-provider";
 import type { Passage } from "@/modules/rag/retrieve";
 import type { HistoryTurn } from "@/modules/memory/context";
 
@@ -115,9 +108,7 @@ function buildSourceBlock(passages: Passage[]): {
   return { prompt: parts.join("\n\n"), sources };
 }
 
-export function anthropicConfigured(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
-}
+export { answeringConfigured } from "@/modules/rag/answer-provider";
 
 export type AnswerEvent =
   | { type: "sources"; sources: AnswerSource[] }
@@ -149,8 +140,8 @@ function buildMessages(
   question: string,
   passagePrompt: string,
   history: HistoryTurn[],
-): Anthropic.MessageParam[] {
-  const messages: Anthropic.MessageParam[] = [];
+): ChatMessage[] {
+  const messages: ChatMessage[] = [];
 
   const push = (role: "user" | "assistant", content: string) => {
     const previous = messages.at(-1);
@@ -183,11 +174,13 @@ export async function* streamAnswer(
   passages: Passage[],
   memory: AnswerMemory = {},
 ): AsyncGenerator<AnswerEvent> {
-  if (!anthropicConfigured()) {
+  const provider = getAnswerProvider();
+  if (!provider) {
     yield {
       type: "error",
       message:
-        "AI answering is not configured yet — no ANTHROPIC_API_KEY is set on the server.",
+        "AI answering is not configured yet. Set ANSWER_PROVIDER, and the key, " +
+        "base URL and model that provider needs.",
     };
     return;
   }
@@ -215,52 +208,12 @@ export async function* streamAnswer(
     ? `${SYSTEM_PROMPT}\n\nEarlier in this conversation:\n${memory.summary}`
     : SYSTEM_PROMPT;
 
-  const client = new Anthropic();
-
   try {
-    // The beta endpoint is used only for `fallbacks`: Claude Opus 5's safety
-    // classifiers occasionally decline a benign request, and without a fallback
-    // the person asking just gets an empty answer.
-    const stream = USE_REFUSAL_FALLBACK
-      ? client.beta.messages.stream({
-          model: ANSWER_MODEL,
-          max_tokens: ANSWER_MAX_TOKENS,
-          system,
-          thinking: { type: "adaptive" },
-          output_config: { effort: ANSWER_EFFORT },
-          betas: ["server-side-fallback-2026-07-01"],
-          fallbacks: "default",
-          messages,
-        })
-      : client.messages.stream({
-          model: ANSWER_MODEL,
-          max_tokens: ANSWER_MAX_TOKENS,
-          system,
-          thinking: { type: "adaptive" },
-          output_config: { effort: ANSWER_EFFORT },
-          messages,
-        });
-
-    for await (const event of stream) {
-      if (
-        event.type === "content_block_delta" &&
-        event.delta.type === "text_delta"
-      ) {
-        yield { type: "delta", text: event.delta.text };
-      }
-    }
-
-    const final = await stream.finalMessage();
-
-    // A refusal that survived the fallback arrives as a 200 with no text, so it
-    // has to be reported explicitly rather than read as an empty answer.
-    if (final.stop_reason === "refusal") {
-      yield {
-        type: "error",
-        message:
-          "The model declined to answer that question. Rephrasing it usually helps.",
-      };
-      return;
+    for await (const event of provider.stream(system, messages)) {
+      yield event;
+      // A provider-level error is terminal: emitting `done` after it would let
+      // the page render a failed answer as a finished one.
+      if (event.type === "error") return;
     }
 
     yield { type: "done" };
