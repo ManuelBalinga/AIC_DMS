@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 import {
   ACCEPT_ATTRIBUTE,
   MAX_FILE_SIZE_BYTES,
+  STORAGE_BUCKET,
   formatFileSize,
 } from "@/modules/documents/constants";
+import { createClient } from "@/lib/supabase/client";
 import { Alert, Button, Card, Input, Label, Textarea } from "@/components/ui";
 
 export function UploadDocument() {
@@ -36,9 +38,48 @@ export function UploadDocument() {
 
     setPending(true);
     try {
+      // Three steps, because the file no longer travels through the
+      // application: ask for permission to write one object, send the bytes
+      // straight to storage, then record the document. See
+      // `api/documents/upload-url/route.ts` for why.
+      const ticketResponse = await fetch("/api/documents/upload-url", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: file.type,
+          size: file.size,
+        }),
+      });
+
+      if (!ticketResponse.ok) {
+        const payload = await ticketResponse.json().catch(() => ({}));
+        setError(payload.error ?? "The upload could not be started. Try again.");
+        return;
+      }
+
+      const { documentId, storagePath, token } = await ticketResponse.json();
+
+      const supabase = createClient();
+      const { error: uploadError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .uploadToSignedUrl(storagePath, token, file, { contentType: file.type });
+
+      if (uploadError) {
+        setError(`The file could not be uploaded: ${uploadError.message}`);
+        return;
+      }
+
       const response = await fetch("/api/documents", {
         method: "POST",
-        body: formData,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          documentId,
+          fileName: file.name,
+          title: formData.get("title") ?? "",
+          description: formData.get("description") ?? "",
+          tags: formData.get("tags") ?? "",
+        }),
       });
 
       if (!response.ok) {

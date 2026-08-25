@@ -192,16 +192,3 @@ export async function ingestDocument(documentId: string): Promise<IngestResult> 
   }
 }
 
-/**
- * Fire-and-forget ingestion for the upload path.
- *
- * Upload must not block on embedding a 200-page PDF, and it must not fail if
- * indexing does — the document is stored and shareable either way, and the
- * document page surfaces the index status with a retry.
- */
-export function ingestInBackground(documentId: string): void {
-  void ingestDocument(documentId).catch(() => {
-    // ingestDocument already records the failure on the document row; there is
-    // nothing useful left to do with the rejection here.
-  });
-}
