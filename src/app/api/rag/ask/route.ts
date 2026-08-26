@@ -27,6 +27,15 @@ import {
  * question is then stored before generation begins, so a thread whose answer
  * fails still records what was asked.
  */
+/**
+ * One request here covers a follow-up rewrite, retrieval, and a generated
+ * answer streamed a token at a time — comfortably past the short default a
+ * serverless host applies when nothing says otherwise. Being cut off mid-stream
+ * looks to the reader like the answer simply stopped, which is worse than a
+ * clean failure. Sixty seconds is the Vercel Hobby maximum.
+ */
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const profile = await getCurrentProfile();
   if (!profile) {
@@ -47,10 +56,16 @@ export async function POST(request: NextRequest) {
   }
 
   if (!question) {
-    return NextResponse.json({ error: "Ask a question first." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Ask a question first." },
+      { status: 400 },
+    );
   }
   if (question.length > 2000) {
-    return NextResponse.json({ error: "That question is too long." }, { status: 413 });
+    return NextResponse.json(
+      { error: "That question is too long." },
+      { status: 413 },
+    );
   }
 
   const encoder = new TextEncoder();
@@ -86,7 +101,11 @@ export async function POST(request: NextRequest) {
         // its own, but is what the person should see quoted back to them.
         const { query, rewritten } = await resolveQuery(question, history);
 
-        await recordQuestion(conversation.id, question, rewritten ? query : null);
+        await recordQuestion(
+          conversation.id,
+          question,
+          rewritten ? query : null,
+        );
 
         const { passages, degradedTo } = await retrievePassages(query);
 

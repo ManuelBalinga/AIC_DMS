@@ -197,6 +197,18 @@
   requirements that the week line-items had missed (account management and document
   organization). What is left is not construction: it is a live database, real AIC sample
   documents, and the four decisions only Bishop can make — listed in sections 9 and 10.</p>
+  <p><strong>Deployment, 26 August: prepared, not done.</strong> The code is ready to be
+  hosted &mdash; it builds clean with no environment variables at all, the two structural
+  blockers to serverless (the 4.5&nbsp;MB upload ceiling and unbounded function duration)
+  are fixed, and <code>Documentation/VERCEL_SETUP.md</code> is a click-by-click
+  walkthrough for someone who has never deployed anything. What could not be done from
+  here is the linking step: the Vercel access available to this side can create a project
+  but every attempt to <em>read</em> one back is refused, and connecting a project to the
+  GitHub repository verifies itself with exactly that read. Two empty projects were left
+  behind and should be deleted. Importing the repository from the Vercel dashboard is
+  roughly twenty minutes of copying four values, and it is the only thing standing between
+  the current state and a working web address.</p>
+
   <p><strong>Now tracked against the Master Project Plan.</strong> The groups below are
   that document's phases (§8 for the MVP, §11 for the expansion roadmap). Phases 1 and 2
   are complete. Phase 3 is complete as code, with four items that need a live database,
@@ -230,25 +242,25 @@
 <h2>Overall progress</h2>
 
 <div class="stats">
-  <div class="stat"><div class="n">54 / 77</div><div class="l">Deliverables built</div></div>
+  <div class="stat"><div class="n">57 / 80</div><div class="l">Deliverables built</div></div>
   <div class="stat"><div class="n">12 / 14</div><div class="l">Acceptance criteria met</div></div>
   <div class="stat"><div class="n">3</div><div class="l">Verified against a live database</div></div>
   <div class="stat"><div class="n">4</div><div class="l">Open questions for Bishop</div></div>
 </div>
 
 <div class="card">
-  <div class="progress-shell" role="img" aria-label="54 of 77 deliverables built, 5 in progress, 17 not started, 1 waiting on Bishop">
-    <span style="width:70.1%;background:var(--built-dot)"></span>
-    <span style="width:6.5%;background:var(--progress-dot)"></span>
-    <span style="width:22.1%;background:var(--todo-dot)"></span>
-    <span style="width:1.3%;background:var(--blocked-dot)"></span>
+  <div class="progress-shell" role="img" aria-label="57 of 80 deliverables built, 5 in progress, 17 not started, 1 waiting on Bishop">
+    <span style="width:71.25%;background:var(--built-dot)"></span>
+    <span style="width:6.25%;background:var(--progress-dot)"></span>
+    <span style="width:21.25%;background:var(--todo-dot)"></span>
+    <span style="width:1.25%;background:var(--blocked-dot)"></span>
   </div>
   <div class="progress-legend">
-    <span><b>54</b> Built</span>
+    <span><b>57</b> Built</span>
     <span><b>5</b> In progress</span>
     <span><b>17</b> Not started</span>
     <span><b>1</b> Needs Bishop</span>
-    <span><b>77</b> total tracked deliverables</span>
+    <span><b>80</b> total tracked deliverables</span>
   </div>
   <p style="margin:14px 0 0; font-size:13.5px; color:var(--text-muted)">
     The ratio fell from 45/50 to 45/67 across 20 August because two features were scoped that
@@ -540,7 +552,7 @@ text layer indexes to zero passages and reports as much.</p>
     <tr><td class="item">Error handling</td><td class="status"><span class="pill built">Built</span></td><td class="note">Global error boundary and not-found page added. The boundary shows a digest rather than the message on purpose — an unhandled error here can carry a storage path or a database detail.</td></tr>
     <tr><td class="item">Security checks</td><td class="status"><span class="pill progress">In progress</span></td><td class="note"><code>npm run verify:rls</code> is written: it signs in as a user with no grant and asserts they cannot reach the document, its chunks, its keyword hits or its stored bytes. <b>It has never been run</b> — that needs a live project.</td></tr>
     <tr><td class="item">Test with representative AIC documents</td><td class="status"><span class="pill blocked">Needs Bishop</span></td><td class="note">Requires real sample files.</td></tr>
-    <tr><td class="item">Deploy beta</td><td class="status"><span class="pill progress">In progress</span></td><td class="note">A deployment guide covering both environments, the migration order, every variable and the known limits is at <code>Documentation/DEPLOYMENT.md</code>, which now carries a free provider stack that needs no card. Neither environment has been stood up. The two things that would have broken a Vercel deployment outright &mdash; the 4.5 MB upload ceiling and fire-and-forget indexing dying when the invocation freezes &mdash; are both fixed. Environment variables still have to be set in the Vercel dashboard by hand.</td></tr>
+    <tr><td class="item">Deploy beta</td><td class="status"><span class="pill progress">In progress</span></td><td class="note">A deployment guide covering both environments, the migration order, every variable and the known limits is at <code>Documentation/DEPLOYMENT.md</code>, which now carries a free provider stack that needs no card; a click-by-click Vercel walkthrough written for someone who has never deployed anything is at <code>Documentation/VERCEL_SETUP.md</code>. <b>Neither environment has been stood up.</b> The three things that would have broken a Vercel deployment outright &mdash; the 4.5 MB upload ceiling, fire-and-forget indexing dying when the invocation freezes, and the absent function duration ceiling &mdash; are all fixed. Environment variables still have to be set in the Vercel dashboard by hand.<br><br><b>Attempted 26 August; could not be completed from this side.</b> The Vercel tooling available here can create a project but cannot read one back &mdash; every read answers 403 or 404 &mdash; and the step that links a project to the GitHub repository verifies itself with exactly that read, so it fails every time. Two empty projects (<code>aic-dms</code>, <code>aic-dms-web</code>) were created and are connected to nothing; <code>VERCEL_SETUP.md</code> Step 0 is to delete them. Deploying the files directly instead is not an option either: that route requires the entire source tree in a single call, and this one is far past the size a single call can carry. <b>Importing the repository from the Vercel dashboard takes about twenty minutes and is the whole remaining job.</b></td></tr>
     <tr><td class="item">Fix critical issues</td><td class="status"><span class="pill todo">Not started</span></td><td class="note">Cannot begin yet, and that is the point of listing it: no SQL has ever executed against a real Postgres, so the defects this step exists to catch have had no opportunity to appear. Expect a first pass of them the day the migrations run.</td></tr>
     <tr><td class="item">Bishop demonstration &amp; technical documentation</td><td class="status"><span class="pill built">Built</span></td><td class="note">A fifteen-minute demo script at <code>Documentation/DEMO_SCRIPT.md</code>, built around what WhatsApp cannot do, with the three asks at the end and a what-to-say-if-it-breaks table.</td></tr>
 
@@ -606,6 +618,11 @@ text layer indexes to zero passages and reports as much.</p>
     <tr class="group-head"><td colspan="3">API keys and vendor accounts (requested 23 Aug)</td></tr>
     <tr><td class="item">Personal &rarr; company key handover</td><td class="status"><span class="pill built">Built</span></td><td class="note">Documented as <code>DEPLOYMENT.md</code> §3b, plus a line in the pre-launch checklist. Developing against personal Anthropic and OpenAI accounts is reasonable &mdash; neither vendor has a usable free tier, both are cheap at this scale, and waiting on a company account would block every test. <b>The rule while on personal keys is no real AIC documents:</b> whatever is sent sits under a personal account's terms and jurisdiction, which is the arrangement nobody has approved. Invented documents exercise chunking, retrieval and citation just as well. The swap itself is two environment variables and a redeploy; the step that gets forgotten is revoking the personal key afterwards, so it is now a checklist item rather than a memory.</td></tr>
     <tr><td class="item">Undated model identifiers</td><td class="status"><span class="pill built">Built</span></td><td class="note">Two config files pinned <code>claude-haiku-4-5-20251001</code>, a dated snapshot that was a guess at an id rather than a checked one. Now <code>claude-haiku-4-5</code> in both. Worth the fix because a wrong model id passes typecheck, lint and build without complaint and fails at the first real request &mdash; on the day the keys finally arrive, which is the worst possible moment to be debugging a string.</td></tr>
+
+    <tr class="group-head"><td colspan="3">Getting it online (requested 26 Aug)</td></tr>
+    <tr><td class="item">Function duration ceiling</td><td class="status"><span class="pill built">Built</span></td><td class="note">Neither long-running route said how long it was allowed to take, so the host picked its own default. On a serverless platform that default is short. <code>/api/rag/ask</code> streams a generated answer a token at a time over one connection; <code>/api/documents</code> runs extraction and embedding inside <code>after()</code>, which inherits the same ceiling. Both now declare <code>maxDuration = 60</code>, the maximum a Vercel Hobby project allows, and the value is confirmed present in the build output Vercel reads (<code>functions-config-manifest.json</code>). The failure this prevents is the quiet one: an answer cut off mid-sentence reads as an answer that simply stopped, and a half-embedded document reports as a parse failure rather than a timeout.</td></tr>
+    <tr><td class="item">Vercel walkthrough</td><td class="status"><span class="pill built">Built</span></td><td class="note"><code>Documentation/VERCEL_SETUP.md</code>. Written to the standard Manuel asked for &mdash; assume no prior knowledge &mdash; so it explains what deploying is before asking anyone to click anything, and says plainly that Vercel runs the pages while Supabase keeps the data. It covers the two traps that cost an afternoon each: <code>NEXT_PUBLIC_SITE_URL</code> cannot be known until after the first deploy, and any <code>NEXT_PUBLIC_</code> value is written in at <em>build</em> time, so setting one without redeploying changes nothing. The verification step it ends on is the one that matters: sign in as a second account and confirm it <em>cannot</em> see a document nobody shared with it.</td></tr>
+    <tr><td class="item">Environment errors that say where to fix them</td><td class="status"><span class="pill built">Built</span></td><td class="note">A missing variable used to advise copying <code>.env.example</code> to <code>.env.local</code> &mdash; correct locally, useless to somebody reading a Vercel log. The message now names both places, and for a <code>NEXT_PUBLIC_</code> variable adds that the value is baked in at build time and a redeploy is required. Small change; it is the difference between a five-minute fix and an afternoon.</td></tr>
 
     <tr class="group-head"><td colspan="3">Bringing the platform up locally (started 23 Aug, <b>in progress</b>)</td></tr>
     <tr><td class="item">Local environment for Manuel</td><td class="status"><span class="pill progress">In progress</span></td><td class="note"><b>Paused mid-way, deliberately, and resumable.</b> Done so far: the repository cloned to <code>C:\Users\user\AIC_DMS</code> on Windows, the branch checked out, <code>npm install</code> clean at 419 packages and no vulnerabilities, and <code>.env.local</code> created from the template with the Supabase project URL and publishable key filled in.<br><br>Where it stopped: <code>SUPABASE_DB_URL</code> needs the <em>database</em> password, which is not the Supabase account password and cannot be retrieved — it has to be reset from Project Settings &rarr; Database. <code>SUPABASE_SERVICE_ROLE_KEY</code> is still the placeholder and needs the real Secret key.<br><br>Next, in order: reset the database password, finish those two lines, then <code>npm run db:migrate</code> (the live project is on <code>0006</code>; <code>0007</code> and <code>0008</code> have never run against it), then <code>npm run verify:rls</code>, then <code>npm run bootstrap:admin</code>. If the direct <code>db.*.supabase.co</code> host cannot be reached, that address is IPv6-only on newer projects — switch to the Session pooler string. No AI keys are needed for any of this.</td></tr>

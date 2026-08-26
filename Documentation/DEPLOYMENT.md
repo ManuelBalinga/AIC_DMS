@@ -161,6 +161,10 @@ open.
 
 ## 3. Hosting
 
+> **First time?** `VERCEL_SETUP.md` is the same thing as a click-by-click
+> walkthrough — which button, which tab, which value goes where — for Vercel
+> specifically. This section is the reference; that one is the path.
+
 Any host that runs Next.js 16 works. Two constraints that are easy to miss:
 
 - **Ingestion runs inside the upload request's process.** A 200-page PDF can
@@ -169,6 +173,9 @@ Any host that runs Next.js 16 works. Two constraints that are easy to miss:
   but indexing may be killed part-way, leaving the document in `processing`.
   The **Re-index** button on the document page is the recovery path, and moving
   ingestion to a queue is the fix if it becomes routine — see *Known limits*.
+  Both `/api/documents` and `/api/rag/ask` declare `maxDuration = 60`, which is
+  the ceiling a Vercel Hobby project allows; a paid plan can raise the number,
+  and a host that reads the Next.js build output will honour whatever it says.
 - **The `unpdf` and `mammoth` parsers run server-side and need Node**, not an
   edge runtime. The routes that use them are Node-runtime by default; do not
   add `export const runtime = "edge"` to them.

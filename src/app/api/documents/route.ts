@@ -34,6 +34,16 @@ import { ingestDocument } from "@/modules/rag/ingest";
  *     pointing at nothing, which reads to every downstream feature as a file
  *     that failed to parse rather than one that was never uploaded.
  */
+/**
+ * Ingestion runs inside `after`, and `after` inherits this route's duration
+ * ceiling. Left unset, the host picks its own default, which on a serverless
+ * platform is short enough that a large PDF is extracted and embedded only
+ * halfway before the invocation is killed. Sixty seconds is the most a Vercel
+ * Hobby project allows; a paid plan can raise it, and a durable queue removes
+ * the ceiling altogether.
+ */
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const profile = await getCurrentProfile();
   if (!profile) {
@@ -44,7 +54,10 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Expected a JSON body." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Expected a JSON body." },
+      { status: 400 },
+    );
   }
 
   const documentId = typeof body.documentId === "string" ? body.documentId : "";
@@ -55,8 +68,15 @@ export async function POST(request: NextRequest) {
 
   // A malformed id would otherwise become a storage path prefix, so it is
   // checked for shape before being used to build one.
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(documentId)) {
-    return NextResponse.json({ error: "Missing or malformed document id." }, { status: 400 });
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      documentId,
+    )
+  ) {
+    return NextResponse.json(
+      { error: "Missing or malformed document id." },
+      { status: 400 },
+    );
   }
   if (!fileName.trim()) {
     return NextResponse.json({ error: "Missing file name." }, { status: 400 });
@@ -95,7 +115,10 @@ export async function POST(request: NextRequest) {
     return discard("That file is larger than the 50 MB limit.", 413);
   }
   if (!isAcceptedMimeType(actualType)) {
-    return discard(`${actualType || "That file type"} is not supported yet.`, 415);
+    return discard(
+      `${actualType || "That file type"} is not supported yet.`,
+      415,
+    );
   }
 
   // Inserted as the signed-in user so the RLS insert policy still applies.
