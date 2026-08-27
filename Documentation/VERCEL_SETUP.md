@@ -210,10 +210,36 @@ The invitation emails your colleagues receive contain a link back to the site.
 2. **Settings** → **Environment Variables** → edit `NEXT_PUBLIC_SITE_URL` →
    replace the placeholder with that address. No trailing slash.
 3. **This is the part everyone misses.** Go to the **Deployments** tab, find the
-   one at the top, click the **⋯** menu on its right, and choose **Redeploy**.
+   one at the top, click the **⋯** menu on its right, choose **Redeploy**, and
+   **untick "Use existing Build Cache"** in the dialog that appears.
+
    Anything whose name starts with `NEXT_PUBLIC_` is written into the site when
-   the site is *built*, not read while it runs. Changing the value without
-   rebuilding changes nothing at all — the old value is still baked in.
+   the site is *built*, not read while it runs. This is not a figure of speech:
+   in the compiled output the getter reads
+
+   ```js
+   get supabaseUrl(){ return required("https://yourproject.supabase.co", "NEXT_PUBLIC_SUPABASE_URL") }
+   ```
+
+   — a hardcoded string, with no lookup left to perform. A site built before the
+   value existed has `undefined` written into it permanently, and setting the
+   value afterwards changes nothing until it is built again. Unticking the build
+   cache removes the second way to get this wrong, which is Vercel handing you
+   back the same stale bundle.
+
+### Each variable is scoped to an environment
+
+The likeliest reason a variable you can plainly see in the dashboard still reads
+as missing. When you add one, three checkboxes decide where it applies —
+**Production**, **Preview**, **Development** — and they are independent:
+
+- The short address (`aic-dms.vercel.app`) is served by **Production**.
+- A long address with random characters in it is a **Preview** deployment, built
+  from a branch.
+
+A variable ticked only for Production is genuinely absent from a preview build,
+and the error will say so truthfully. Tick all three unless you have a reason
+not to.
 
 ### 4b. Supabase
 
