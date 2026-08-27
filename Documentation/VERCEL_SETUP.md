@@ -147,6 +147,53 @@ specific one: it names the exact variable it could not find.
 
 ---
 
+## Things in the build log that look like problems and are not
+
+A successful build still prints a lot of yellow. Two rules before chasing any of it:
+
+1. **`npm warn` and `warning` never fail a build.** Only a line that says `Error:`
+   does, and the build result at the top of the page says `Ready` or `Error`
+   outright. Read that first.
+2. **The failing line is usually the last one, not the loudest one.** Warnings
+   appear during install, minutes before anything real happens.
+
+### `npm warn allow-scripts … unrs-resolver@1.12.2`
+
+Expected, and safe to leave exactly as it is.
+
+Newer npm refuses to run packages' install scripts unless you have explicitly
+allowed them — a reasonable default, since an install script is arbitrary code
+running on your build machine. It prints this warning to tell you it declined.
+
+The package it declined to run is worth following, because the chain is what
+makes this a non-issue:
+
+```
+eslint-config-next  →  eslint-import-resolver-typescript  →  unrs-resolver
+```
+
+Three facts, each of which alone would settle it:
+
+- **It is a lint tool, not part of the site.** It is a development dependency,
+  and nothing in `src/` imports it.
+- **`next build` does not run ESLint.** Next.js removed linting from the build
+  step in version 16. Linting happens when *we* run `npm run lint`, which
+  happens here and in the repository, not on Vercel.
+- **The script was not doing anything anyway.** `unrs-resolver` ships a
+  compiled binary per platform and npm installs the right one normally. The
+  script is a fallback for the case where that fails; when it has not failed,
+  it exits having done nothing.
+
+It is the only package in the entire dependency tree with an install script, so
+this warning is the whole of that category and there is nothing else behind it.
+
+**Do not run `npm approve-scripts` to silence it.** That grants a package
+permission to execute code on every future install, and the only reason to do
+that is if something needs it. Nothing does. A warning you have understood is
+better than a permission you did not need to grant.
+
+---
+
 ## Step 4: tell the site its own address
 
 Two systems need to know the real web address, and neither can guess it.
