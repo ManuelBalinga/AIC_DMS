@@ -95,10 +95,14 @@ Runs on Vercel, needs no credit card, and costs nothing.
 ```ini
 # Answering — Groq. Free, no card, and its no-training-on-your-data posture is
 # account-wide rather than a paid-tier feature.
+#
+# Model names here go stale fast: Groq deprecated llama-3.3-70b-versatile and
+# llama-3.1-8b-instant on 17 June 2026. Check console.groq.com/docs/deprecations
+# before trusting this line.
 ANSWER_PROVIDER=openai-compatible
 ANSWER_BASE_URL=https://api.groq.com/openai/v1
 ANSWER_API_KEY=gsk_...
-ANSWER_MODEL=llama-3.3-70b-versatile
+ANSWER_MODEL=openai/gpt-oss-120b
 
 # Embeddings — Gemini through its OpenAI-compatible endpoint. Groq has no
 # embedding models, so this half comes from elsewhere.
@@ -107,6 +111,19 @@ EMBEDDING_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
 EMBEDDING_API_KEY=...
 EMBEDDING_MODEL=gemini-embedding-001
 ```
+
+**Ollama Cloud is an equivalent alternative for the answering half**, and is
+reachable from a serverless host in a way a local Ollama is not: it is a hosted
+API at `https://ollama.com/v1` with an API key, not a process on somebody's
+laptop. Set `ANSWER_BASE_URL` to it and `ANSWER_MODEL` to a cloud model such as
+`minimax-m3`. Its free tier is metered by GPU time over rolling 5-hour and
+weekly windows rather than by request count, which is harder to predict than
+Groq's flat daily allowance — worth knowing before a demo.
+
+**It cannot serve the embedding half.** Ollama publishes no embedding models as
+cloud models; `qwen3-embedding` and `embeddinggemma` are local-only. So the
+embedding provider has to be something a deployed application can actually
+reach, which is why Gemini appears above.
 
 > **Test documents only.** Google's free Gemini tier reserves the right to use
 > submitted prompts and outputs to improve its products, human review included.
