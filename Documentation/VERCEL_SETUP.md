@@ -258,6 +258,57 @@ Click **Save**.
 
 ---
 
+## Not every variable needs a rebuild — only the `NEXT_PUBLIC_` ones
+
+Worth knowing, because it decides whether a change takes effect immediately or
+not at all, and the two kinds behave oppositely.
+
+Built with a sentinel value in each and the compiled output inspected:
+
+| | In the compiled output | Read when |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | the value appears as a **hardcoded string**; no `process.env` lookup survives outside the source map | build time — a rebuild is the only way to change it |
+| `ANTHROPIC_API_KEY` | the value appears **nowhere**; five live `process.env.ANTHROPIC_API_KEY` reads survive | on every request |
+
+So the AI keys, the embedding settings and `SUPABASE_SERVICE_ROLE_KEY` are read
+fresh each time a request runs. You still redeploy after adding them on Vercel —
+a deployment carries the environment configuration it was created with — but the
+reason is bookkeeping rather than anything frozen into the bundle. For a
+`NEXT_PUBLIC_` value the rebuild *is* the fix, and no amount of redeploying
+without one will help.
+
+The rule of thumb: `NEXT_PUBLIC_` means *this value is safe for the browser to
+see*, and the only way to get a value into a browser is to write it into the
+files the browser downloads. That is the same fact from the other side.
+
+---
+
+## When the invitation email does not arrive
+
+Expect this rather than treating it as a fault. Invitations go out through
+Supabase's built-in email service, which is rate-limited and documented as not
+for production use — mail lands in spam, or never leaves.
+
+The fallback creates the account by hand, and works because of a trigger rather
+than by luck:
+
+1. **Invite them in the app first** (Team → invite), even if the email fails.
+   That writes a pending row in `invitations` carrying the role you chose.
+2. Supabase → **Authentication** → **Users** → **Add user**. Tick *Auto Confirm
+   User*, set a password, and give it to them directly.
+3. `on_auth_user_created` fires on the new `auth.users` row and creates their
+   profile, reading the role from that pending invitation and falling back to
+   `member` when there is none.
+
+So the order matters only for the role: invite first and they arrive as what you
+chose; skip step 1 and they arrive as a `member`, which an administrator can
+change afterwards from the Team page.
+
+The real fix, before anyone outside the test group is invited, is a proper mail
+provider configured under Authentication → Emails → SMTP.
+
+---
+
 ## Step 5: bring the database up to date
 
 The live site now expects database tables that your Supabase project may not
