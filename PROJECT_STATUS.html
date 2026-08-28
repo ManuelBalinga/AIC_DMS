@@ -168,10 +168,14 @@
     sharing with secure document storage, organization, controlled team access, and an
     AI-powered RAG layer for querying company documents.
   </p>
-  <p class="meta">Status as of <strong>20 August 2026</strong> · Schema live on Supabase; application paths still unproven · Three-week beta target</p>
+  <p class="meta">Status as of <strong>28 August 2026</strong> · Production deployed; account authentication now verified against Supabase · Three-week beta target</p>
 </header>
 
 <div class="banner">
+  <p><strong>Current live state, 28 August.</strong> The Supabase project <code>pduohcdyszjlnmchhvws</code> has all nine migrations applied: 13 tables, 29 policies and row level security on every table. The application is deployed on Vercel. This summary supersedes older setup notes below that describe the pre-deployment state.</p>
+  <p><strong>Accounts.</strong> Manuel is the administrator. Bishop has been provisioned as a member, with a confirmed profile row, and a direct email-and-password sign-in was successful against Supabase on 28 August. This verifies Supabase Auth for that account; it does <em>not</em> yet verify the deployed browser session, invitation-email redirect, or password-recovery email flow.</p>
+  <p><strong>Password changes.</strong> Signed-in users can change their password from <b>Account</b>; the login page also provides <b>Forgot password?</b> for password-recovery requests. Password values are not stored in the application or this status page.</p>
+  <p><strong>RAG and permissions.</strong> AI provider variables remain unset, so indexing correctly reports that it is unconfigured and Ask falls back to keyword search. <code>npm run verify:rls</code> has not yet been run against Supabase, so the live permission boundary remains unverified.</p>
   <p><strong>The schema is live.</strong> All six migrations were applied to the Supabase
   project <code>pduohcdyszjlnmchhvws</code> on 20 August, through the Supabase MCP server.
   Confirmed by inspection afterwards: 8 application tables, <b>row level security enabled on
@@ -520,7 +524,7 @@ text layer indexes to zero passages and reports as much.</p>
     <tr class="group-head"><td colspan="3">Phase 1 — Foundation <span style="font-weight:400;opacity:.7">(master plan §8; Week 1)</span></td></tr>
     <tr><td class="item">Next.js project architecture</td><td class="status"><span class="pill built">Built</span></td><td class="note">App Router, TypeScript, Tailwind. Modules under <code>src/modules</code>.</td></tr>
     <tr><td class="item">Internal login</td><td class="status"><span class="pill built">Built</span></td><td class="note">Email + password. No sign-up route exists. Session refresh in <code>src/proxy.ts</code>.</td></tr>
-    <tr><td class="item">User / invitation foundation</td><td class="status"><span class="pill built">Built</span></td><td class="note">Admin invites by email; invitee sets their own password. Roles carried from the invitation.</td></tr>
+    <tr><td class="item">User / invitation foundation</td><td class="status"><span class="pill built">Built</span></td><td class="note">Admin invites by email; invitee sets their own password. Roles carried from the invitation.<br><span style="font-size:12.5px;color:var(--built-fg)"><b>Verified against Supabase, 28 August.</b> A member account was provisioned with a profile row and successfully authenticated by email and password. Invitation-email delivery and redirect handling remain unverified.</span></td></tr>
     <tr><td class="item">Database schema</td><td class="status"><span class="pill built">Built</span></td><td class="note">Profiles, invitations, documents, document_access, document_chunks — plus RLS policies.<br><span style="font-size:12.5px;color:var(--built-fg)"><b>Verified against Supabase, 20 August.</b> All six migrations applied to the live project. 8 tables, RLS enabled on every one, 14 policies, 19 columns on <code>documents</code>.</span></td></tr>
     <tr><td class="item">Secure document storage</td><td class="status"><span class="pill built">Built</span></td><td class="note">Private bucket, no client-facing policies, 50 MB cap.<br><span style="font-size:12.5px;color:var(--built-fg)"><b>Verified against Supabase, 20 August.</b> Bucket exists, <code>public=false</code>, limit 52428800 bytes. The <em>provisioning</em> is proven; no bytes have been written through it yet.</span></td></tr>
     <tr><td class="item">Document upload</td><td class="status"><span class="pill built">Built</span></td><td class="note">The browser uploads straight to Supabase Storage through a signed URL; the application only ever handles metadata. <b>Rebuilt 25 August for serverless hosting</b> &mdash; Vercel caps a function request body at 4.5 MB at the infrastructure level, so the previous streaming route handler would have rejected almost every real document while the app advertised a 50 MB limit. It is the better shape regardless: pushing 50 MB through an application server to hand it to a storage service spends bandwidth to accomplish nothing. The path is computed server-side and never accepted from the caller, and size and content type are read back from storage rather than believed from the browser, because between the two calls the application sees nothing. Orphaned objects are still cleaned up on failure.</td></tr>
@@ -638,7 +642,7 @@ text layer indexes to zero passages and reports as much.</p>
 <table>
   <thead><tr><th>Criterion</th><th>Status</th></tr></thead>
   <tbody>
-    <tr><td class="item">An authorized user can log in</td><td class="status"><span class="pill built">Built</span></td></tr>
+    <tr><td class="item">An authorized user can log in<br><span style="font-size:12.5px;color:var(--built-fg)">Verified against Supabase on 28 August: a provisioned member completed email-and-password authentication. The deployed browser flow remains unverified.</span></td><td class="status"><span class="pill built">Built</span></td></tr>
     <tr><td class="item">An administrator can invite / create internal users</td><td class="status"><span class="pill built">Built</span></td></tr>
     <tr><td class="item">An authorized user can upload a document</td><td class="status"><span class="pill built">Built</span></td></tr>
     <tr><td class="item">The system stores it and shows it in the user's document area</td><td class="status"><span class="pill built">Built</span></td></tr>

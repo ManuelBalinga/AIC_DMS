@@ -15,6 +15,7 @@
     "verify:rls": "node scripts/verify-rls.mjs",
     "verify:rls:local": "node scripts/verify-rls-local.mjs",
     "verify:embeddings": "node scripts/verify-embeddings.mjs",
+    "verify:answering": "node scripts/verify-answering.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:export": "node scripts/db-export.mjs",
     "db:import": "node scripts/db-import.mjs",
