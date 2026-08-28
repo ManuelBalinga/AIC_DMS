@@ -242,25 +242,25 @@
 <h2>Overall progress</h2>
 
 <div class="stats">
-  <div class="stat"><div class="n">57 / 80</div><div class="l">Deliverables built</div></div>
+  <div class="stat"><div class="n">58 / 81</div><div class="l">Deliverables built</div></div>
   <div class="stat"><div class="n">12 / 14</div><div class="l">Acceptance criteria met</div></div>
   <div class="stat"><div class="n">3</div><div class="l">Verified against a live database</div></div>
   <div class="stat"><div class="n">4</div><div class="l">Open questions for Bishop</div></div>
 </div>
 
 <div class="card">
-  <div class="progress-shell" role="img" aria-label="57 of 80 deliverables built, 5 in progress, 17 not started, 1 waiting on Bishop">
-    <span style="width:71.25%;background:var(--built-dot)"></span>
-    <span style="width:6.25%;background:var(--progress-dot)"></span>
-    <span style="width:21.25%;background:var(--todo-dot)"></span>
-    <span style="width:1.25%;background:var(--blocked-dot)"></span>
+  <div class="progress-shell" role="img" aria-label="58 of 81 deliverables built, 5 in progress, 17 not started, 1 waiting on Bishop">
+    <span style="width:71.6%;background:var(--built-dot)"></span>
+    <span style="width:6.2%;background:var(--progress-dot)"></span>
+    <span style="width:21.0%;background:var(--todo-dot)"></span>
+    <span style="width:1.2%;background:var(--blocked-dot)"></span>
   </div>
   <div class="progress-legend">
-    <span><b>57</b> Built</span>
+    <span><b>58</b> Built</span>
     <span><b>5</b> In progress</span>
     <span><b>17</b> Not started</span>
     <span><b>1</b> Needs Bishop</span>
-    <span><b>80</b> total tracked deliverables</span>
+    <span><b>81</b> total tracked deliverables</span>
   </div>
   <p style="margin:14px 0 0; font-size:13.5px; color:var(--text-muted)">
     The ratio fell from 45/50 to 45/67 across 20 August because two features were scoped that
@@ -550,6 +550,7 @@ text layer indexes to zero passages and reports as much.</p>
     <tr><td class="item">Document preview / opening</td><td class="status"><span class="pill built">Built</span></td><td class="note">In-page preview for PDF, images and text, through the same permission-checked signed-URL route as the buttons. Office formats keep Open/Download rather than being faked through a converter.</td></tr>
     <tr><td class="item">Clean minimalist UI</td><td class="status"><span class="pill built">Built</span></td><td class="note">All eight screens done, light and dark, with loading skeletons on the authenticated shell so navigation never looks stalled.</td></tr>
     <tr><td class="item">Error handling</td><td class="status"><span class="pill built">Built</span></td><td class="note">Global error boundary and not-found page added. The boundary shows a digest rather than the message on purpose — an unhandled error here can carry a storage path or a database detail.</td></tr>
+    <tr><td class="item">Embedding provider proven before use</td><td class="status"><span class="pill built">Built</span></td><td class="note">Added 28 August, because the failure it catches does not look like one. <code>npm run verify:embeddings</code> asks the configured provider for a single embedding and refuses anything that is not exactly 1536 wide, naming the model and the only two ways out &mdash; a Matryoshka model that honours <code>dimensions</code>, or a schema migration plus a full re-index of every document. It also rejects an all-zero vector, which is what some providers return in place of an error. <b>The dangerous case is the one no code can detect:</b> vectors from two different models are the right width and still not comparable, because they place text in different coordinate spaces, so a corpus embedded by one and queried by another returns confident nonsense rather than an error. The script says so on success as well as on failure. It earned its place immediately &mdash; run against the new Gemini configuration it returned <code>HTTP 404</code> before a single document had been indexed.</td></tr>
     <tr><td class="item">Security checks</td><td class="status"><span class="pill progress">In progress</span></td><td class="note"><code>npm run verify:rls</code> is written: it signs in as a user with no grant and asserts they cannot reach the document, its chunks, its keyword hits or its stored bytes. <b>It has never been run</b> — that needs a live project.</td></tr>
     <tr><td class="item">Test with representative AIC documents</td><td class="status"><span class="pill blocked">Needs Bishop</span></td><td class="note">Requires real sample files.</td></tr>
     <tr><td class="item">Deploy beta</td><td class="status"><span class="pill progress">In progress</span></td><td class="note">A deployment guide covering both environments, the migration order, every variable and the known limits is at <code>Documentation/DEPLOYMENT.md</code>, which now carries a free provider stack that needs no card; a click-by-click Vercel walkthrough written for someone who has never deployed anything is at <code>Documentation/VERCEL_SETUP.md</code>. <b>Neither environment has been stood up.</b> The three things that would have broken a Vercel deployment outright &mdash; the 4.5 MB upload ceiling, fire-and-forget indexing dying when the invocation freezes, and the absent function duration ceiling &mdash; are all fixed. Environment variables still have to be set in the Vercel dashboard by hand.<br><br><b>Attempted 26 August; could not be completed from this side.</b> The Vercel tooling available here can create a project but cannot read one back &mdash; every read answers 403 or 404 &mdash; and the step that links a project to the GitHub repository verifies itself with exactly that read, so it fails every time. Two empty projects (<code>aic-dms</code>, <code>aic-dms-web</code>) were created and are connected to nothing; <code>VERCEL_SETUP.md</code> Step 0 is to delete them. Deploying the files directly instead is not an option either: that route requires the entire source tree in a single call, and this one is far past the size a single call can carry. <b>Importing the repository from the Vercel dashboard takes about twenty minutes and is the whole remaining job.</b></td></tr>
