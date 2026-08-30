@@ -329,3 +329,22 @@ page carries a counter for exactly this, and it has been kept honest.
 ---
 
 <!-- New entries go below this line, oldest first. Append; never edit above. -->
+
+### 2026-08-30 — Manuel + Claude
+
+**Onboarding prompt written for Timi; DEVCOLLAB pushed to both branches.**
+
+Added `Documentation/COLLABORATOR_ONBOARDING.md` — a prompt Timi pastes into
+his first chat with his assistant. It carries the two things this project is
+easiest to get wrong: permissions live in Postgres policies rather than in
+TypeScript, and **RLS fails silently**, so a broken permission shows up as an
+empty page rather than an error. It also names the built-versus-verified
+distinction, since an assistant with no history here would otherwise report
+"done" the moment the types compile.
+
+`main` and `Claude-Dev` are now identical, so Timi sees the same file whichever
+he clones.
+
+- Files: `Documentation/COLLABORATOR_ONBOARDING.md`, `DEVCOLLAB.md`
+- Status: done. Repository access for Timi is still outstanding — he cannot
+  clone a private repo until he is added as a collaborator on GitHub.
