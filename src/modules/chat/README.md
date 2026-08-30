@@ -3,6 +3,10 @@
 Team messaging — the thing the platform exists to replace WhatsApp with — and
 the retrieval layer that lets Ask quote it back to the people who were there.
 
+This documents the narrower shipped `chat_*` implementation. The agreed future
+Teams model—open/closed teams, team grants, retention, retraction and versioned
+edits—remains in `Documentation/TEAM_COMMUNICATION.md`.
+
 | File | Responsibility |
 | --- | --- |
 | `limits.ts` | Length limits, shared with the client components that enforce them |
@@ -77,7 +81,9 @@ questions it cannot answer.
 - Realtime delivery. A thread updates when the page revalidates, not when the
   other person types. Supabase Realtime on `chat_messages` is the obvious next
   step and inherits the same RLS.
-- Editing and deleting a sent message. The policies allow both; no UI calls them.
+- Editing and deleting a sent message. The policies currently allow overwrite
+  and hard delete, but no UI calls them. This conflicts with the agreed future
+  retention model, which requires versioned edits and retraction instead.
 - Attachments. Sharing a document into a thread should hand over a link and a
   grant, not a copy of the file — that needs the access module, not this one.
 - Group threads can be created by adding a participant to a direct thread, but

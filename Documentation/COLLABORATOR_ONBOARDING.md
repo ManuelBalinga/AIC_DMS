@@ -81,12 +81,14 @@ of the status page.
 
 ### Working agreements
 
-- Branch: `Claude-Dev`. Merge to `main` when something is finished.
+- Branches are collaborator-specific: Timi works on `Timi-Dev`; Claude web work
+  uses `Claude-Dev`. Never change or merge into `main` without explicit approval.
 - Never commit `.env.local`. It's gitignored; keep it that way. Never paste key
   values into chat — read them from the environment.
 - `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS completely. Treat it like a database
   password. It must never be prefixed `NEXT_PUBLIC_`.
-- Run `npm run lint`, `npm run typecheck` and `npm test` before you commit.
+- Run `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` before
+  you call a deliverable Built or commit it.
 - `npm run verify:rls` creates and deletes throwaway users. Development project
   only — never point it at production.
 

@@ -1,82 +1,85 @@
-# What I need from you
+# What remains open
 
-Everything I can build without a database is built. This is what is left, and
-who it is waiting on.
+The Supabase project exists, all nine migrations are applied, the application is
+deployed, and member authentication has been exercised against Supabase. This
+file tracks the work that remains unverified or requires an AIC decision.
 
-The backend question itself is settled in
-[`DATABASE_DECISION.md`](./DATABASE_DECISION.md) — Supabase now, Neon as a
-proven exit rather than a starting point — and that document has the
-step-by-step setup. This one is just the asks.
+The backend choice is settled in [`DATABASE_DECISION.md`](./DATABASE_DECISION.md):
+Supabase is the current database, auth and storage provider; the portable schema
+keeps Neon or plain Postgres available as a future exit.
 
-## Blocking verification
+## Verification still required
 
-Nothing on `PROJECT_STATUS.html` has ever run against a real Postgres. Every
-row marked **Built** is code-complete and unproven. These two items are what
-convert the whole page from a plan into a status.
+### 1. Run the live permission-boundary suite
 
-**1. A Supabase project, and its three values for `.env.local`**
+`npm run verify:rls` has not been run against the development Supabase project.
+It creates throwaway users and objects, so it must never target production. This
+proves Supabase Auth, PostgREST, Storage and RLS deny access in the hosted
+environment rather than only in the local Postgres harness.
 
-`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-`SUPABASE_SERVICE_ROLE_KEY`. `DATABASE_DECISION.md` §4 walks through creating
-it, running the six migrations, and bootstrapping your administrator account.
+### 2. Complete the deployed browser flow
 
-> Send these privately — not in a git commit, not in a chat log. The
-> service-role key bypasses every permission rule in the platform.
+Walk the full flow with two accounts:
 
-Once they exist, roughly forty minutes of work becomes possible that is not
-possible now: run the migrations, run `npm run verify:rls` (the only thing that
-turns the security model from a claim into a result), and walk the full flow —
-invite, sign in, upload, watch indexing finish, share, ask, check a citation,
-revoke, delete.
+1. Invite a member and complete the invitation redirect.
+2. Sign in, change a password and exercise password recovery.
+3. Upload an invented or sanitized document and wait for indexing.
+4. Share it and confirm the second account can open and search it.
+5. Ask a question and inspect the source citation.
+6. Revoke access and confirm the document and its passages disappear.
+7. Delete the test document and confirm its stored bytes are removed.
 
-**2. Representative AIC documents — five or six real files**
+### 3. Test representative AIC formats
 
-The parsers were written against the document types the plan *names*, not
-against files that actually circulate. Until real ones go through ingestion,
-"supports PDF, DOCX, XLSX, PPTX" is an untested claim, and the summariser and
-tagger have never seen real input either.
+The parsers support PDF, DOCX, XLSX, PPTX, TXT, Markdown and CSV in code, but
+they have not been validated against the files AIC actually circulates. Five or
+six representative samples are needed. Until provider privacy is approved and
+company-controlled accounts are active, use sanitized copies containing no
+confidential AIC material.
 
-This is also the item most likely to produce surprises. If AIC's documents turn
-out to be photographs of printed pages — which WhatsApp sharing makes very
-likely — none of them will index at all, because that needs OCR and OCR is not
-built. Better to learn that now than during the demo.
+If the real files are scans or photographs without a text layer, they need OCR,
+which is deliberately outside the current beta.
 
-## Decisions only you or Bishop can make
+## Decisions only AIC or Bishop can make
 
-**3. The LLM privacy question.** Answering a question sends document text to
-Anthropic. It is the only point where AIC content leaves your control, and it
-has been open since the first plan. Without an answer the platform still runs —
-Ask degrades to keyword search, summaries and tag suggestions are skipped — but
-that is the half of the product Bishop is most interested in.
+### AI provider and privacy
 
-**4. The email domain** for team accounts, and whether invitations should be
+External answer and embedding providers receive selected passages or document
+chunks. AIC must approve the provider, account type, retention terms and whether
+real documents may be sent. A local Ollama deployment keeps content on the
+machine but cannot be reached from a normal Vercel deployment.
+
+### Staff email domain
+
+Confirm the email domain staff will use and whether invitations should be
 restricted to it.
 
-**5. ~~Two roles or three.~~ Answered 20 August: two.** No student/tutor model —
-this platform is corporate, and the three-layer scheme from the July design
-review is out permanently. Depth comes from *document* roles instead (viewer /
-commenter / editor / owner), so a person holds one platform role and a different
-document role on every file shared with them. See
-[`ROLE_MODEL.md`](./ROLE_MODEL.md).
+### Product name
 
-**6. A platform name**, if you want one before the demo. Currently "AIC
-Documents", in 13 places in code.
+The working name is **AIC Documents**. Confirm or replace it before the public
+demonstration.
 
-## What I can build next without any of the above
+## Answered decisions
 
-Phase 4 and Phase 5 are largely backend-agnostic, since they reuse the chunks
-and embeddings ingestion already produces. In rough value order:
+- **Platform roles:** administrator and member. There is no student/tutor
+  hierarchy. Document-level roles provide viewer, commenter, editor and owner
+  behavior; see [`ROLE_MODEL.md`](./ROLE_MODEL.md).
+- **Current backend:** Supabase. Neon remains a tested migration target, not a
+  second live backend.
 
-| Next | Why it is worth doing | Phase |
-| --- | --- | --- |
-| Re-ranking retrieved passages | The clearest remaining win for answer quality | 4 |
-| Audit logging | Cannot reconstruct history retroactively — worth having *before* real documents go in | 5, §14 |
-| Indexing-status dashboard, failed-ingestion monitoring | Becomes genuinely useful the moment real documents start failing | 5 |
-| Document comparison, information extraction | Rounds out Phase 4 | 4 |
-| Departments and permission groups | Commits to schema decisions, so item 5 above should be settled first | 5 |
+## Candidate work after verification
 
-My recommendation is to do these **after** a database exists rather than
-before. Right now every one of them would add unverified code on top of
-unverified code, and the ratio of built-to-proven is already the main risk on
-this project. Say so if you would rather I keep building regardless — it is a
-reasonable call if the backend is going to take a while.
+Use verification results to choose the next work rather than extending the beta
+only to keep building.
+
+| Candidate | Why it may matter |
+| --- | --- |
+| Retrieval re-ranking | Improves answer quality once real failures are measurable |
+| Audit logging | Preserves operational history before real documents enter the system |
+| Indexing monitoring | Makes failed ingestion visible at useful volume |
+| Document comparison and structured extraction | Extends the intelligence layer |
+| Full Teams model | Implements open/closed teams, team grants and retained conversations |
+| Offline access | Adds leased cached reading, queued upload and revocation checks |
+
+The last two have complete design documents but remain outside the original
+three-week beta.

@@ -6,8 +6,10 @@ thing WhatsApp cannot do.
 
 **Before you start:** two accounts signed in on two browsers (or one normal and
 one private window). Call them **you** (administrator) and **the colleague**
-(member). Have two or three real AIC documents to hand — a product document, an
-update, and an i363 item — plus one document the colleague should *not* see.
+(member). Have two or three invented or sanitized representative documents to
+hand — a product document, an update, and an i363 item — plus one document the
+colleague should *not* see. Use real AIC content only after privacy approval and
+company-controlled provider accounts are active.
 
 ---
 
@@ -103,9 +105,9 @@ Be straight about the edges. It buys credibility for everything above.
 
 - Scanned documents with no text layer cannot be read yet — that needs OCR, and
   choosing an OCR tool needs real AIC scans to test against.
-- Answering sends the relevant passages to Anthropic's API. **This is the
-  decision that needs Bishop**: whether that is acceptable for AIC's documents,
-  or whether it needs a different arrangement.
+- External answering sends the relevant passages to the configured provider.
+  **This is the decision that needs Bishop**: which provider and account terms
+  are acceptable for AIC's documents, or whether it needs a local arrangement.
 - Roles are administrator and member at the platform level, and viewer,
   commenter, editor or owner on each document. The student/tutor/admin
   structure once floated is out permanently — this platform is corporate.

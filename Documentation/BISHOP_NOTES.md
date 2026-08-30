@@ -92,7 +92,7 @@ The core idea is that four things normally lock a schema to its provider —
 `auth.users`, `auth.uid()`, `storage.*`, and the `authenticated` role — and each
 is isolated to one place. The important one is `app.current_user_id()`: every
 RLS policy asks "who is calling?", that is the only question providers answer
-differently, and absorbing it into one function means the ~20 policies below it
+differently, and absorbing it into one function means the policies below it
 are identical across providers. Without that, a provider move means rewriting
 every policy, which is where permission bugs come from.
 

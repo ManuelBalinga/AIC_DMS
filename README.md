@@ -20,8 +20,8 @@ Supabase rather than Neon, and the full setup walkthrough are in
 | Auth | Supabase Auth, invitation-only (no public sign-up) |
 | File storage | Supabase Storage, private bucket, server-signed URLs only |
 | Permissions | Postgres Row Level Security |
-| Retrieval | `pgvector` (HNSW) for semantic search, Postgres full-text for keyword, over documents *and* the asker's own conversations |
-| Generation | Claude Opus 5 via `@anthropic-ai/sdk` |
+| Retrieval | `pgvector` (HNSW) for semantic search and Postgres full-text search over accessible documents and group conversations; direct messages are excluded |
+| Generation | Configurable answer provider; Claude Opus 5 is the default |
 | Conversation memory | Postgres — threads, turns and citations, owner-only under RLS |
 | Team messaging | Postgres — threads, participants and messages, participant-only under RLS |
 
@@ -37,15 +37,16 @@ retrieval code forgets to filter.
 npm test
 ```
 
-87 unit tests on `node:test`, with no test-framework dependency: Node 22 strips
+112 unit tests on `node:test`, with no test-framework dependency: Node strips
 the TypeScript natively, and a small resolve hook in `tests/` teaches it the
 `@/*` alias so the tests exercise the real source files rather than a copy.
 
 They cover the logic where a bug is silent — chunking (including that a chunk
 never spans two pages, which is what makes a page citation honest), memory
 windowing and citation stripping, filename sanitisation, and the migration
-script's SQL escaping. Anything needing a database is covered by
-`npm run verify:rls` instead, which needs a live project.
+script's SQL escaping. Database policy logic is covered locally by
+`npm run verify:rls:local`; `npm run verify:rls` remains the authority against
+the development Supabase project.
 
 ## Messaging, and what Ask may quote
 
@@ -56,8 +57,8 @@ document reading away from administrators in migration 0007: managing access and
 reading contents are different powers, and reading a colleague's private messages
 is further still.
 
-Ask retrieves from those messages alongside documents, scoped by the same kind of
-RLS, so you can only ever be quoted a conversation you are in. Documents are
+Ask retrieves from group messages alongside documents, scoped by the same kind of
+RLS. Direct messages are deliberately never indexed or retrieved. Documents are
 ranked first and cited differently, because "I think we said 500" and the
 published fee schedule are different claims. See
 [`src/modules/chat/README.md`](./src/modules/chat/README.md).
@@ -71,9 +72,8 @@ almost no meaning on its own, so retrieving on it directly returns noise, and
 the model then answers from noise. See
 [`src/modules/memory/README.md`](./src/modules/memory/README.md).
 
-Threads are owner-only, with no administrator exception. An administrator can
-already read any document; reading what a colleague privately asked about one is
-a different power, and nothing here needs it.
+Threads are owner-only, with no administrator exception. Access to a document
+does not grant access to another person's private Ask history.
 
 ## Moving to another Postgres provider
 
@@ -113,6 +113,9 @@ SQL Editor in this order:
 4. `supabase/migrations/0004_rag.sql` — retrieval functions and the vector index
 5. `supabase/migrations/0005_memory.sql` — conversation threads, turns and citations
 6. `supabase/migrations/0006_intelligence.sql` — summaries, tag suggestions, related documents
+7. `supabase/migrations/0007_roles_and_comments.sql` — document roles, comments, deactivation
+8. `supabase/migrations/0008_chat_and_context.sql` — team messaging and message retrieval
+9. `supabase/migrations/0009_direct_messages_are_never_indexed.sql` — excludes DMs from Ask
 
 ### 2. Configure environment
 
@@ -178,15 +181,19 @@ src/
       account/           Own name and password
       admin/team/        Invitations and roles (administrators only)
     auth/                Invitation callback, password setup, recovery
-    api/documents/       Upload + signed-URL download
+    api/documents/       Signed upload, metadata registration and download
     api/rag/ask/         Streaming answer endpoint
   modules/               Feature modules (plan §7)
     auth/                Session helpers and guards
     users/               Team roster and invitations
     documents/           Document queries, actions, format rules
     access/              Per-document grants
+    comments/            Document comments and replies
     search/              Full-text search inside document content
     rag/                 Extraction, chunking, embedding, retrieval, answers
+    memory/              Ask threads, replay windows and rolling summaries
+    intelligence/        Summaries, tag suggestions, related documents
+    chat/                Team messages and group-message retrieval
   lib/
     supabase/            client / server / admin clients
     types/               Database types
@@ -205,12 +212,13 @@ under `src/modules`, not editing the document module.
   requests to `/login`; the allowlist of public paths is at the top of that file.
 - **Reads and writes run as the signed-in user.** `lib/supabase/server.ts` uses
   the anon key, so RLS applies to every query.
-- **The service-role client is used in exactly three places**: sending
-  invitations, writing document bytes, and minting signed download URLs. Each
-  call site checks the caller's permission first.
-- **The storage bucket is private and has no client-facing policies.** Browsers
-  never address it directly; downloads go through `/api/documents/[id]/download`,
-  which verifies access and returns a 60-second signed URL.
+- **The service-role client is confined to privileged operations** such as auth
+  administration, signed storage operations, ingestion and operational scripts.
+  Each user-facing call site checks the caller before using it.
+- **The storage bucket is private and has no broad client-facing policies.** The
+  browser uploads only through a short-lived signed URL minted after server-side
+  validation; downloads pass through a permission check before receiving a
+  60-second signed URL.
 - **Missing and forbidden are indistinguishable.** An unauthorised document
   returns 404, so the API cannot be used to probe for document existence.
 - **AI retrieval inherits document permissions from the database.** The two
@@ -243,9 +251,8 @@ cp .env.example .env.local
 then fill in the four Supabase values. Nothing is committed — `.env.local`
 stays ignored in the cloud exactly as it does locally.
 
-Until a real Supabase project exists, placeholder values are enough to let the
-app boot and the login and recovery screens render; anything that touches the
-database will fail, which is expected.
+For a fresh checkout, placeholder values are enough to let the app build. Pages
+that query Supabase require real development-project values at runtime.
 
 ## Agent skills
 
@@ -273,7 +280,12 @@ npm run dev         # development server
 npm run build       # production build
 npm run lint        # eslint
 npm run typecheck   # tsc --noEmit
+npm test            # 112 unit tests
+npm run db:migrate  # apply pending migrations in order
+npm run verify:rls:local # destructive throwaway-Postgres policy suite
 npm run verify:rls  # permission-boundary test against a live project
+npm run verify:embeddings # embedding provider smoke test
+npm run verify:answering  # answer provider smoke test
 npm run bootstrap:admin -- <email>   # create the first administrator
 npm run db:export   # dump all records to portable JSONL
 npm run db:import   # load an export into another Postgres provider
@@ -290,13 +302,8 @@ a **development** project.
    `src/modules/rag/extract.ts` were written against the stated document types,
    not against real files. Real samples are what turn that from a guess into a
    tested claim.
-2. **The AI provider, on privacy grounds.** Answer generation sends the relevant
-   passages to Anthropic; embedding sends chunk text to the embedding provider.
-   This is the only point at which document content leaves AIC's control.
+2. **The AI provider, on privacy grounds.** External answer and embedding
+   providers receive relevant passages or chunks. Provider choice and account
+   ownership determine where AIC content leaves AIC's control.
 3. **The email domain** team accounts will use.
-4. **Two roles or three.** The plan says administrator / document owner / team
-member, plus document roles of viewer, commenter, editor and owner. The
-   student/tutor structure once floated is out permanently: this platform is
-   corporate. See `Documentation/ROLE_MODEL.md`.
-   to serve the training centre, `user_role` needs a third value now rather than
-   as a migration later.
+4. **The platform name.** The working product name remains “AIC Documents.”

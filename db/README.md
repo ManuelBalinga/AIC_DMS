@@ -41,7 +41,7 @@ pooled connection cannot carry one request's identity into the next request's
 queries — which on a connection-pooled provider is the difference between a
 permission system and a coin flip.
 
-Because that one function absorbs the difference, the ~20 RLS policies below it
+Because that one function absorbs the difference, the RLS policies below it
 are byte-identical across providers. Without it, a provider move means
 rewriting every policy, which is where permission bugs come from.
 
@@ -114,7 +114,7 @@ load.
 ## Keeping the two schemas honest
 
 `portable-schema.sql` and `supabase/migrations/` describe the same tables and
-can drift apart. They are reconciled by hand today, which is a real cost, and it
-is the price of not having committed to one provider. When a migration adds a
-column, add it here in the same commit — a portable schema discovered to be
-three migrations stale at the moment you need it is not a portable schema.
+can drift apart. Changes are authored in both places, and the schema-parity unit
+test refuses to pass when tables, columns or functions diverge. When a migration
+adds a column, add it here in the same commit — a portable schema discovered to
+be stale at the moment you need it is not a portable schema.

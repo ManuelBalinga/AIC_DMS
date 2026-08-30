@@ -12,10 +12,9 @@ to "there is a web address my colleagues can open".
 
 ## What "deploying" actually means here
 
-Right now AIC DMS only runs on a computer where somebody has typed `npm run
-dev`. Close the laptop and it is gone. Deploying means handing the code to a
-company that runs computers for a living, so that it is running all the time at
-a web address.
+AIC DMS is already deployed. This runbook explains how that deployment works,
+how to reproduce it for a new environment, and how to recover it if the Vercel
+project must be recreated.
 
 **Vercel** is that company. It is made by the same people who make Next.js,
 which is what this project is built with, so it needs almost no configuration.
@@ -41,17 +40,17 @@ another.
 
 ---
 
-## Step 0: clear away two half-made projects
+## Historical cleanup check
 
-**Do this first.** While setting this up I created two Vercel projects from a
+During the first deployment attempt, tooling created two possible empty Vercel projects from a
 tool that could not finish the job — it could create them, but the part that
 connects a project to GitHub kept failing (Vercel's API answered "not found"
 every time it tried to check, which is the same answer it gives me when I try to
 read *anything* about your Vercel account — the access I was given can create
 things but not read them back).
 
-So there are almost certainly two empty projects sitting in your account that
-are connected to nothing:
+If either obsolete shell still exists and is connected to nothing, it may be
+removed after confirming it is not the live deployment:
 
 - `aic-dms`
 - `aic-dms-web`
@@ -309,10 +308,11 @@ provider configured under Authentication → Emails → SMTP.
 
 ---
 
-## Step 5: bring the database up to date
+## Step 5: verify the database is up to date
 
-The live site now expects database tables that your Supabase project may not
-have yet. Several migrations were written after you first set the project up.
+The current Supabase project has all nine migrations applied. For a new or
+recovered environment, use `npm run db:migrate`; the files below are the most
+recent additions and are listed for verification, not as pending current work.
 
 Supabase → **SQL Editor** → **New query**. For each file below, in this exact
 order: open it in GitHub, copy the whole thing, paste it into the editor, click
@@ -367,10 +367,11 @@ Bishop.
 
 **The permission model has never been tested against the real Supabase.** There
 is a command, `npm run verify:rls`, that signs in as a user with no access and
-proves it cannot read a document, its extracted text, or its stored file. It has
-been run against a local copy of the database and passes 45 checks there. It has
-never been run against your actual project, because it needs the `service_role`
-key and I must not be given that key.
+proves it cannot read a document, its extracted text, or its stored file. The
+local suite contains 49 checks; 45 were recorded as passing before the four
+direct-message exclusion checks were added. It has never been run against the
+hosted project. Keep the service-role value in your own `.env.local`; never send
+it through chat.
 
 Running it is one command from your own machine, with the key in `.env.local`:
 

@@ -1,8 +1,12 @@
 # Team communication — how it will work
 
-Decided with Manuel, 20 August 2026. Nothing here is built yet. This is the
-agreed shape, written down before any schema exists, because two of these
-choices are expensive to reverse once there is data in them.
+Decided with Manuel, 20 August 2026. The full Teams model here is not built. A
+narrower participant-based messaging system shipped in migrations `0008` and
+`0009`: direct and group threads, unread state, group-message retrieval and
+exclusion of direct messages from Ask. Open/closed teams, team document grants,
+retention, retraction and versioned editing remain future work. This document is
+the agreed target because those choices are expensive to reverse once data
+exists.
 
 The brief was "imitate Slack, for a corporate setting". What follows copies
 Slack's shape where it earns its place and departs from it in three specific

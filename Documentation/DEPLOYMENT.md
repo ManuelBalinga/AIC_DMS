@@ -30,6 +30,7 @@ because a bad migration in development would then take production with it.
    supabase/migrations/0006_intelligence.sql
    supabase/migrations/0007_roles_and_comments.sql
    supabase/migrations/0008_chat_and_context.sql
+   supabase/migrations/0009_direct_messages_are_never_indexed.sql
    ```
 
    Run them one at a time and read the result of each. `0001` enables the
@@ -40,8 +41,9 @@ because a bad migration in development would then take production with it.
 
    Or apply them all in one command with `npm run db:migrate`, which needs
    `SUPABASE_DB_URL`. Either way, rehearse first: `npm run verify:rls:local`
-   applies the same migrations to a throwaway local Postgres and runs the 45
-   permission assertions against them. That rehearsal is what caught the
+   applies the same migrations to a throwaway local Postgres and runs 49
+   permission assertions. The last recorded full run covered 45; the four
+   added with `0009` still need to be executed locally. That rehearsal caught the
    `array_to_string` defect in `0003` before it reached Supabase.
 3. **Authentication → URL Configuration**
    - Site URL: the environment's own URL.
@@ -53,11 +55,17 @@ because a bad migration in development would then take production with it.
 5. **Authentication → Rate limits**: leave the defaults. The password-recovery
    endpoint is public and the default limit is what stops it being used to spray
    email at AIC staff.
-6. Create the first administrator by hand — the invitation flow needs one to
-   exist before it can invite anybody:
+6. Create the first administrator — the invitation flow needs one to exist
+   before it can invite anybody:
+
+   ```bash
+   npm run bootstrap:admin -- you@example.com
+   ```
+
+   For recovery only, the equivalent manual operation is:
 
    ```sql
-   -- After creating your account under Authentication → Users → Add user
+   -- After creating the account under Authentication → Users → Add user
    update public.profiles
    set role = 'administrator'
    where email = 'you@example.com';
@@ -254,6 +262,8 @@ actually gate a launch.
 ```bash
 npm run typecheck
 npm run lint
+npm test
+npm run build
 npm run verify:rls
 ```
 
@@ -266,13 +276,15 @@ Then walk the flow by hand, because no script covers the parts a person sees:
 
 1. Invite a colleague from **Team**; confirm the email arrives.
 2. Accept the invitation, set a password, land on the dashboard.
-3. Upload a real AIC document. Watch the index status reach *Searchable by AI*.
+3. Upload an invented or sanitized representative document. Use real AIC
+   content only after privacy approval and company-controlled provider accounts
+   are active. Watch the index status reach *Searchable by AI*.
 4. Share it; confirm it appears for the other account.
 5. Ask a question whose answer is in that document; check the citation links to
    the right document and page.
 6. Revoke access; confirm the document disappears and the answer stops citing it.
-7. Confirm `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` belong to the **company**
-   accounts, not to anybody's personal one (§3b).
+7. Confirm every configured answer and embedding provider credential belongs to
+   a **company-controlled** account, not to anybody's personal one (§3b).
 
 ---
 
@@ -288,6 +300,6 @@ Stated here so they are chosen rather than discovered.
 - **The embedding vector width is fixed at 1536 by the schema.** Switching
   embedding provider to one with a different width is a migration plus a
   re-index of every document, not a config change.
-- **Answer generation sends passages to Anthropic.** This is the one place
-  document content leaves AIC's control, and it is the open question in §9 of
-  the plan.
+- **External answer generation sends passages to the configured provider.**
+  Embedding likewise sends chunks to its configured provider. Provider choice,
+  account ownership and data terms remain the open privacy question in §9.

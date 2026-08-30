@@ -51,7 +51,7 @@ document, whole — and its callers check the caller's rights first
 | Chunking strategy? | ~3200 characters with 400 of overlap, split on paragraph → sentence → hard boundaries, never spanning a page. Characters not tokens: tokenising during ingestion would mean a network round trip per document, and ~4 chars/token is close enough for prose. |
 | pgvector or a dedicated vector database? | pgvector, with an HNSW index. At AIC's scale a separate vector store would add an operational component and a second permission model for no retrieval benefit — and the second permission model is exactly the risk this design avoids. |
 | Embedding model? | `text-embedding-3-small` by default: its native 1536 width matches the column the schema already commits to. `EMBEDDING_PROVIDER` also accepts `ollama` (local, free, no key, nothing leaving the machine) and `openai-compatible` (any other vendor speaking the same shape). All three go through one request function, so the choice is configuration rather than code. The width is the part that is not free to change — a provider that cannot emit 1536 needs a schema migration *and* a full re-index, so prefer a Matryoshka model that honours `dimensions`. See `Documentation/DEPLOYMENT.md`. |
-| Which LLM? | Claude Opus 5. **Open for Bishop on privacy grounds** — this is the only point at which document content leaves AIC's control. |
+| Which LLM? | A configurable answer provider; Claude Opus 5 is the default. **Open for Bishop on privacy grounds** — external answer and embedding providers receive selected AIC content. |
 | How are citations represented? | The model cites `[n]` against numbered passages; the UI turns each into a link to the source document and page. Sources are also listed under the answer with an excerpt. |
 | Behaviour with no answer in the corpus? | Say so and name what is missing. The system prompt forbids falling back on general knowledge, and a question with no retrieved passages short-circuits before generation. |
 
@@ -62,9 +62,9 @@ document, whole — and its callers check the caller's rights first
 - **A format with no parser, or a scan with no text layer** — the document is
   marked `failed` with the reason shown on its page, next to a **Re-index**
   button.
-- **A model refusal** — Claude Opus 5's classifiers occasionally decline benign
-  requests, so requests carry a server-side fallback. A refusal that survives it
-  is reported rather than shown as an empty answer.
+- **A model refusal** — the Anthropic provider can occasionally decline benign
+  requests, so it carries a server-side fallback. Any refusal that survives its
+  provider handling is reported rather than shown as an empty answer.
 
 ## Which model can change, and which cannot
 
@@ -111,7 +111,8 @@ header naming its document, tags, summary and page. Two properties matter:
 This is why ingestion now summarises *before* embedding rather than after: the
 summary is an input to the header. When there is no summary — no API key, or a
 summariser outage — the header degrades to title, tags and page rather than
-disappearing, so indexing still works with no AI keys at all.
+disappearing. Indexing still requires a configured embedding provider, but it
+does not require a summarisation key.
 
 ## Retrieval over conversations
 

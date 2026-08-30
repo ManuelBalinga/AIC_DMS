@@ -25,7 +25,7 @@ question → resume thread → load window → resolve follow-up → retrieve
 | --- | --- | --- |
 | Working | Recent turns replayed with each question | `conversation_messages`, windowed by `buildHistoryWindow` |
 | Long-term | A rolling summary of turns that aged out | `conversations.summary` |
-| Semantic | Knowledge the model does not hold — the documents | `document_chunks` + pgvector, in the RAG module |
+| Semantic | Knowledge the model does not hold — documents and accessible group messages | `document_chunks`, `chat_messages` and pgvector, in the RAG module |
 
 The third one is not this module's job, and the split matters: retrieval answers
 *what is true*, this module answers *what we were talking about*. Confusing them
@@ -58,10 +58,9 @@ that looks right and is not is worse than no citation at all.
 
 ## Why threads are owner-only
 
-`conversations` and its two child tables have no administrator exception,
-unlike `documents`. An administrator can already read any document; being able
-to read what a colleague privately asked about one is a different power, and
-nothing in the platform needs it. Questions are frequently more revealing than
+`conversations` and its two child tables have no administrator exception. A
+document grant does not include another person's private Ask history. Questions
+are frequently more revealing than
 the documents they are about.
 
 ## On read/write volume

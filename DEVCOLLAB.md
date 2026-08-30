@@ -348,3 +348,34 @@ he clones.
 - Files: `Documentation/COLLABORATOR_ONBOARDING.md`, `DEVCOLLAB.md`
 - Status: done. Repository access for Timi is still outstanding — he cannot
   clone a private repo until he is added as a collaborator on GitHub.
+
+### 2026-08-30 — Timi + Codex
+
+**Established Timi's development baseline and reconciled the project records with the live state.**
+
+Worked exclusively on `Timi-Dev`. Installed the locked Node dependencies
+and ran the full repository checks: lint, typecheck, all 112 unit tests and the
+Next.js production build pass. The first install was incomplete on Windows
+(`csstype` was truncated and `hermes-parser` lacked its entry file), so the
+generated `node_modules` directory was removed and rebuilt with `npm ci`; the
+clean install reports 419 packages and no vulnerabilities.
+
+Reconciled the status page, setup guides, runbooks and module READMEs against the
+authoritative plan, current code, git history and this log. They now agree that
+all nine migrations are applied, deployment exists, the unit suite has 112
+tests, Ask retrieves group messages but never direct messages, and hosted RLS
+plus the complete browser flow remain unverified. Deployment moved to Built and
+the personal-machine setup row was removed from the client-facing status page,
+leaving 59 of 80 tracked deliverables Built. Attribution remains here rather
+than in `PROJECT_STATUS.html`, as required.
+
+Removed only five unreferenced Create Next App SVGs and one duplicate build
+ignore rule. Preserved every plan, migration, history file, future Teams/offline
+design and the isolated Deep Agents experiment. `.env.local` is absent
+in this checkout, so no live Supabase command was attempted; credentials must be
+retrieved from approved dashboards and the live RLS suite must target a
+development project only.
+
+- Files: `PROJECT_STATUS.html`, `README.md`, `.env.example`, `Documentation/`, `db/`, `src/modules/*/README.md`, `public/*.svg`, `DEVCOLLAB.md`
+- Commits: this `Timi-Dev` commit
+- Status: done; hosted RLS, deployed browser flow and representative-document testing remain unverified

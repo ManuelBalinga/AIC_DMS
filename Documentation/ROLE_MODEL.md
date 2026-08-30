@@ -47,10 +47,10 @@ Two, and deliberately not more.
 
 ### The administrator change is not cosmetic
 
-Today `can_read_document` ends with `or public.is_administrator(...)`, so every
-administrator can read every document in AIC. Removing that clause is right for
-a platform that will hold HR letters and salary reviews — but it forces a
-distinction the schema does not currently make:
+Before migration `0007`, `can_read_document` ended with an administrator clause,
+so every administrator could read every document. Removing it was right for a
+platform that may hold HR letters and salary reviews, and forced a distinction
+the original schema did not make:
 
 | An administrator needs to | Which means seeing |
 | --- | --- |
@@ -159,11 +159,11 @@ revocable by accident.
 The enum omits `owner` on purpose: a value that must never appear in the column
 is a value someone will eventually insert.
 
-### What has to change with it
+### What changed with it
 
-The permission helpers become role-aware. Today there are two —
-`can_read_document` and `can_manage_document`. They become three, and every
-policy switches to the new ones:
+The permission helpers became role-aware. The original two were
+`can_read_document` and `can_manage_document`. They became three, and every
+policy switched to the new ones:
 
 ```sql
 can_read_document(doc, user)     -- CHANGED: any grant, or owner. No longer admin.
@@ -373,10 +373,10 @@ has been shared that should not have been.
 **You cannot demote yourself.** Already built, already enforced server-side.
 Keep it.
 
-**The last administrator cannot be demoted or removed.** Not currently
-enforced — today's rule only stops you demoting *yourself*, so two
-administrators can demote each other down to zero and nobody can ever invite
-anyone again. This should be a database-level check, not a UI one.
+**The last administrator cannot be demoted or removed.** Migration `0007`
+enforces this with a database trigger on demotion and deactivation; it cannot be
+bypassed by two administrators demoting each other until nobody can invite
+anyone again. This is a database-level check, not a UI one.
 
 **Removing someone raises a question the platform cannot answer alone.** People
 own documents. Deleting the person cascades to their documents — which is

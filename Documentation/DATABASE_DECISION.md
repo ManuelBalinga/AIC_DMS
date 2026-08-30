@@ -86,13 +86,13 @@ schema with the four provider-specific dependencies isolated:
 | Locked to Supabase | Portable form |
 | --- | --- |
 | `auth.users` | `app_users`, a table this schema owns |
-| `auth.uid()` in ~20 RLS policies | `app.current_user_id()`, one adapter function |
+| `auth.uid()` throughout the RLS policies | `app.current_user_id()`, one adapter function |
 | `storage.objects` | `documents.storage_path`, an opaque string |
 | the `authenticated` role | the `app_user` role |
 
 The adapter function is the whole trick. Every policy asks the same question —
 *who is calling?* — and that is the only question providers answer differently.
-Absorb it in one function and the twenty policies below it are byte-identical
+Absorb it in one function and the policies below it are byte-identical
 everywhere. Without it, moving provider means rewriting every policy, and
 rewritten permission rules are where permission bugs come from.
 
@@ -153,6 +153,9 @@ supabase/migrations/0003_organization.sql  tags and keyword search
 supabase/migrations/0004_rag.sql           retrieval functions, vector index
 supabase/migrations/0005_memory.sql        conversation memory
 supabase/migrations/0006_intelligence.sql  summaries, tag suggestions, related documents
+supabase/migrations/0007_roles_and_comments.sql  document roles, comments, deactivation
+supabase/migrations/0008_chat_and_context.sql  messaging and group-message retrieval
+supabase/migrations/0009_direct_messages_are_never_indexed.sql  DM retrieval exclusion
 ```
 
 `0001` enables the `vector` extension; if it fails, nothing after it works.

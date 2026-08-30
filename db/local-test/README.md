@@ -14,14 +14,16 @@ anything real.
 
 | | |
 | --- | --- |
-| ✅ The six migrations apply cleanly, in order | The runner is the same one used against Supabase |
-| ✅ The RLS policy logic is correct | An outsider sees nothing; a granted user sees the document but cannot re-share it; a revoked user sees nothing again |
+| ✅ All nine migrations apply cleanly, in order | The runner is the same one used against Supabase |
+| ✅ The RLS policy logic is correct | 49 assertions cover document roles, administrator non-read access, messaging isolation, write refusal and direct-message retrieval exclusion |
 | ✅ `handle_new_user` mirrors auth users into profiles | The bootstrap step depends on this |
 | ❌ Supabase's own grants and ownership behave the same | Different roles, different owners |
 | ❌ PostgREST exposes only what it should | Not present here at all |
 
 `npm run verify:rls` against a real project remains the authority. This is the
 cheap check that catches a broken policy in seconds rather than after a deploy.
+The last recorded full local run covered 45 assertions; four assertions added
+with migration `0009` still require a Postgres 15+ instance with pgvector.
 
 ## Why a stand-in is needed
 
