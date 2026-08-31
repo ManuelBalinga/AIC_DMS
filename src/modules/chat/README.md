@@ -3,9 +3,10 @@
 Team messaging — the thing the platform exists to replace WhatsApp with — and
 the retrieval layer that lets Ask quote it back to the people who were there.
 
-This documents the evolving `chat_*` implementation. Migrations `0011`&ndash;`0014`
+This documents the evolving `chat_*` implementation. Migrations `0011`&ndash;`0015`
 cover collaboration and retention, durable Direct/Team identity, open/closed
-visibility, Team document grants and permission-aware document references.
+visibility, Team document grants, permission-aware document references and
+thread-to-document promotion.
 
 | File | Responsibility |
 | --- | --- |
@@ -14,6 +15,7 @@ visibility, Team document grants and permission-aware document references.
 | `queries.ts` | Reads: the inbox, a thread, its messages, unread counts |
 | `actions.ts` | Writes: start, send, rename, add, mark read, leave |
 | `presentation.ts` | Client-safe message types, names and reply-tree grouping |
+| `promotion.ts` | Builds a safe, immutable Markdown snapshot for document ingestion |
 | `embed.ts` | Makes a sent message semantically retrievable, after the fact |
 
 ## Why the tables are called `chat_*`
@@ -103,6 +105,25 @@ locked card, review the document's sharing panel or cancel the reference. The
 final send recomputes access so a membership change between warning and click
 cannot silently widen disclosure. Direct messages may reference a document but
 can never grant permissions.
+
+## Promotion is the way out of chat
+
+Migration `0015` and the conversation action turn the full thread—not only the
+100-message display window—into a normal Markdown document. The promoter owns
+it, supplies its title and tags, and the existing ingestion pipeline extracts,
+chunks and indexes it. A Team promotion receives one Viewer grant for the Team
+in the same database transaction; a Direct promotion stays owner-only.
+
+The snapshot records authors, timestamps, edit markers and reply ancestry.
+Retractions remain tombstones, retained versions are never copied, and
+document-reference cards are deliberately omitted because copying a title that
+only the promoter can see into a Team-readable document would leak metadata.
+Message Markdown and HTML are escaped before storage.
+
+The same migration protects every document row's private-storage binding. An
+insert must point to the uploader-owned document path, the file binding cannot
+be rewritten later, and an Editor cannot make themself the owner. Administrator
+ownership transfer remains the only permitted owner change.
 
 ## Not done
 

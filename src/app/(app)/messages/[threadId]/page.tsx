@@ -17,6 +17,9 @@ import { getTeamDocumentGrantCount } from "@/modules/access/queries";
 import { ConversationView } from "./conversation-view";
 import { JoinTeamButton } from "../join-team-button";
 import { DirectSettings, TeamSettings } from "./thread-settings";
+import { PromotionForm } from "./promotion-form";
+
+export const maxDuration = 60;
 
 export default async function ThreadPage({
   params,
@@ -99,15 +102,24 @@ export default async function ThreadPage({
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">As an administrator you can manage who belongs to this closed team, but its conversation remains private to members.</p>
         </Card>
       ) : (
-        <ConversationView
-          threadId={thread.id}
-          messages={messages}
-          participants={thread.participants}
-          currentUserId={profile.id}
-          canParticipate={thread.viewerIsParticipant}
-          referenceableDocuments={referenceableDocuments}
-          teamVisibility={isTeam ? thread.visibility : null}
-        />
+        <>
+          {thread.viewerIsParticipant ? (
+            <PromotionForm
+              threadId={thread.id}
+              defaultTitle={`${threadName(thread, profile.id)} discussion`}
+              isTeam={isTeam}
+            />
+          ) : null}
+          <ConversationView
+            threadId={thread.id}
+            messages={messages}
+            participants={thread.participants}
+            currentUserId={profile.id}
+            canParticipate={thread.viewerIsParticipant}
+            referenceableDocuments={referenceableDocuments}
+            teamVisibility={isTeam ? thread.visibility : null}
+          />
+        </>
       )}
 
       <p className="text-xs text-neutral-400 dark:text-neutral-500">

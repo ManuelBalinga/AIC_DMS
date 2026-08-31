@@ -485,6 +485,19 @@ export type Database = {
         Args: { target_thread_id: string; target_document_id: string };
         Returns: number;
       };
+      promote_chat_thread_to_document: {
+        Args: {
+          target_thread_id: string;
+          new_document_id: string;
+          document_title: string;
+          document_description: string;
+          document_file_name: string;
+          document_storage_path: string;
+          document_size_bytes: number;
+          document_tags?: string[];
+        };
+        Returns: string;
+      };
       create_team: {
         Args: {
           team_name: string;

@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/modules/auth/session";
 import {
   MAX_MESSAGE_LENGTH,
@@ -11,6 +13,14 @@ import {
   MAX_TOPIC_LENGTH,
 } from "@/modules/chat/config";
 import { embedMessageInBackground } from "@/modules/chat/embed";
+import { STORAGE_BUCKET, MAX_FILE_SIZE_BYTES, parseTags, sanitiseFileName } from "@/modules/documents/constants";
+import { ingestDocument } from "@/modules/rag/ingest";
+import {
+  buildPromotedThreadMarkdown,
+  MAX_PROMOTION_TITLE_LENGTH,
+  PROMOTION_PAGE_SIZE,
+  type PromotionMessage,
+} from "@/modules/chat/promotion";
 import type { ActionState } from "@/lib/action-state";
 import type {
   ChatReactionEmoji,
@@ -199,6 +209,134 @@ export type SendMessageState = ActionState & {
     canGrantTeam: boolean;
   };
 };
+
+/**
+ * Snapshot a conversation into the ordinary document lifecycle.
+ *
+ * Reads happen as the caller, so RLS—not the service client—decides which
+ * conversation may be copied. The service client is used only to place the
+ * generated Markdown bytes in the private bucket. The RPC then creates the
+ * document and, for a Team, its Viewer grant in one database transaction.
+ */
+export async function promoteThreadToDocument(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const profile = await requireProfile();
+  const threadId = String(formData.get("thread_id") ?? "").trim();
+  const title = String(formData.get("title") ?? "").trim();
+  const tags = parseTags(String(formData.get("tags") ?? ""));
+
+  if (!threadId) return { error: "Missing conversation." };
+  if (!title) return { error: "Give the document a title." };
+  if (title.length > MAX_PROMOTION_TITLE_LENGTH || /[\r\n]/.test(title)) {
+    return { error: `Keep the title to ${MAX_PROMOTION_TITLE_LENGTH} characters on one line.` };
+  }
+
+  const supabase = await createClient();
+  const [{ data: thread }, { data: membership }] = await Promise.all([
+    supabase
+      .from("chat_threads")
+      .select("id, kind, topic")
+      .eq("id", threadId)
+      .maybeSingle(),
+    supabase
+      .from("chat_participants")
+      .select("user_id")
+      .eq("thread_id", threadId)
+      .eq("user_id", profile.id)
+      .maybeSingle(),
+  ]);
+
+  if (!thread || !membership) {
+    return { error: "Only a conversation participant can promote it." };
+  }
+
+  const messages: PromotionMessage[] = [];
+  for (let offset = 0; ; offset += PROMOTION_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .select(`
+        id, body, parent_id, created_at, edited_at, retracted_at,
+        sender:profiles!chat_messages_sender_id_fkey (full_name, email)
+      `)
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(offset, offset + PROMOTION_PAGE_SIZE - 1)
+      .returns<PromotionMessage[]>();
+
+    if (error) return { error: "The conversation could not be read." };
+    messages.push(...(data ?? []));
+    if ((data?.length ?? 0) < PROMOTION_PAGE_SIZE) break;
+  }
+
+  if (messages.length === 0) {
+    return { error: "Write at least one message before promoting this conversation." };
+  }
+
+  const documentId = crypto.randomUUID();
+  const promotedAt = new Date().toISOString();
+  const threadLabel = thread.kind === "team" ? thread.topic?.trim() || "Untitled team" : "Direct conversation";
+  const markdown = buildPromotedThreadMarkdown({
+    title,
+    threadKind: thread.kind,
+    threadName: threadLabel,
+    promotedAt,
+    messages,
+  });
+  const sizeBytes = Buffer.byteLength(markdown, "utf8");
+  if (sizeBytes > MAX_FILE_SIZE_BYTES) {
+    return { error: "This conversation is too large for the 50 MB document limit." };
+  }
+
+  const date = promotedAt.slice(0, 10);
+  const fileName = sanitiseFileName(`${threadLabel.toLowerCase().replace(/\s+/g, "-")}-${date}.md`);
+  const storagePath = `${profile.id}/${documentId}/${fileName}`;
+  const admin = createAdminClient();
+  const { error: uploadError } = await admin.storage
+    .from(STORAGE_BUCKET)
+    .upload(storagePath, Buffer.from(markdown, "utf8"), {
+      contentType: "text/markdown",
+      upsert: false,
+    });
+
+  if (uploadError) return { error: "The document file could not be created." };
+
+  const description = thread.kind === "team"
+    ? `Conversation snapshot promoted from Team #${threadLabel} on ${date}.`
+    : `Private conversation snapshot promoted on ${date}.`;
+  const { data: promotedId, error: promotionError } = await supabase.rpc(
+    "promote_chat_thread_to_document",
+    {
+      target_thread_id: threadId,
+      new_document_id: documentId,
+      document_title: title,
+      document_description: description,
+      document_file_name: fileName,
+      document_storage_path: storagePath,
+      document_size_bytes: sizeBytes,
+      document_tags: tags,
+    },
+  );
+
+  if (promotionError || promotedId !== documentId) {
+    await admin.storage.from(STORAGE_BUCKET).remove([storagePath]);
+    return { error: "The conversation could not be promoted." };
+  }
+
+  after(async () => {
+    try {
+      await ingestDocument(documentId);
+    } catch {
+      // ingestDocument records the failure on the document itself.
+    }
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/messages/${threadId}`);
+  redirect(`/documents/${documentId}`);
+}
 
 export async function toggleReaction(formData: FormData): Promise<void> {
   const profile = await requireProfile();

@@ -1,11 +1,12 @@
 # Team communication — how it will work
 
 Decided with Manuel, 20 August 2026. The durable Teams foundation is now built
-through migrations `0008`&ndash;`0014`: strict two-person Direct messages,
+through migrations `0008`&ndash;`0015`: strict two-person Direct messages,
 open/closed Teams, governed membership, unread state, retrieval rules,
 one-level replies, mentions, reactions, retained edit history, retraction and
 membership-derived Team document grants and permission-aware document references
-with title-free locked cards. Thread promotion and realtime delivery remain future work. The new migrations
+with title-free locked cards, plus full-thread promotion into governed documents.
+Realtime delivery remains future work. The new migrations
 are rollback-rehearsed but not deployed to the sole hosted project.
 
 The brief was "imitate Slack, for a corporate setting". What follows copies
@@ -250,9 +251,9 @@ Agreed scope for the first usable version, once the beta itself is verified:
 replies · `@mentions` · unread state · reactions · sharing a document with a
 team.
 
-**Deferred to a second pass:** promote-a-thread-to-a-document · conversations in
-AI retrieval · notification digests · real-time delivery (polling first if it
-buys time).
+**Deferred to a second pass:** notification digests · real-time delivery
+(polling first if it buys time). Thread promotion and conversation retrieval
+have now been completed.
 
 The reasoning for including DMs in the first cut rather than deferring them:
 without one-to-one messaging people keep using WhatsApp for exactly that, and

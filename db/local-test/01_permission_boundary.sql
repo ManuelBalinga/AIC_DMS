@@ -64,7 +64,9 @@ select pg_temp.expect('handle_new_user mirrored both users into profiles', count
 -- A document owned by the first user, with one chunk.
 insert into public.documents (id, owner_id, title, file_name, storage_path, mime_type, size_bytes, tags)
 values ('33333333-3333-3333-3333-333333333333','11111111-1111-1111-1111-111111111111',
-        'Confidential fee schedule','fees.pdf','owner/fees.pdf','application/pdf',1024, array['i363']);
+        'Confidential fee schedule','fees.pdf',
+        '11111111-1111-1111-1111-111111111111/33333333-3333-3333-3333-333333333333/fees.pdf',
+        'application/pdf',1024, array['i363']);
 
 insert into public.document_chunks (document_id, chunk_index, content)
 values ('33333333-3333-3333-3333-333333333333', 0, 'The i363 fee is 500 cedis.');
@@ -146,6 +148,14 @@ select pg_temp.expect('editor may comment',
 select pg_temp.expect('editor may not re-share',
   public.can_manage_document('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555'), false);
 
+set role authenticated;
+set request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
+select pg_temp.expect_error('an Editor cannot make themself the document owner',
+  $q$update public.documents
+       set owner_id = '55555555-5555-5555-5555-555555555555'
+     where id = '33333333-3333-3333-3333-333333333333'$q$, '42501');
+
+reset role;
 update public.document_access set role = 'viewer'
   where user_id = '55555555-5555-5555-5555-555555555555';
 select pg_temp.expect('viewer may read',
@@ -221,6 +231,28 @@ insert into public.chat_messages (thread_id, sender_id, body)
 values (:'thread'::uuid, '11111111-1111-1111-1111-111111111111',
         'The i363 fee schedule is going up next quarter.');
 
+select public.promote_chat_thread_to_document(
+  :'thread'::uuid,
+  'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+  'Private decision', 'Private conversation snapshot.',
+  'private-decision.md',
+  '11111111-1111-1111-1111-111111111111/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/private-decision.md',
+  256, array['decision']
+);
+select pg_temp.expect('DM promotion creates no Team grant', count(*)::bigint, 0::bigint)
+  from public.document_team_access
+  where document_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+select pg_temp.expect_error('a document row cannot bind another storage path',
+  $q$insert into public.documents (
+    id, owner_id, title, file_name, storage_path, mime_type, size_bytes
+  ) values (
+    'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    '11111111-1111-1111-1111-111111111111',
+    'Forged', 'private-decision.md',
+    '66666666-6666-6666-6666-666666666666/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/private-decision.md',
+    'text/markdown', 256
+  )$q$, '23514');
+
 select pg_temp.expect('sender sees their own message', count(*)::bigint, 1::bigint) from public.chat_messages;
 select pg_temp.expect('the trigger counted the message', message_count, 1)
   from public.chat_threads where id = :'thread'::uuid;
@@ -230,6 +262,8 @@ set request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
 select pg_temp.expect('participant sees the thread', count(*)::bigint, 1::bigint) from public.chat_threads;
 select pg_temp.expect('participant sees both participants', count(*)::bigint, 2::bigint) from public.chat_participants;
 select pg_temp.expect('participant sees the message', count(*)::bigint, 1::bigint) from public.chat_messages;
+select pg_temp.expect('a DM co-participant does not inherit its promoted document', count(*)::bigint, 0::bigint)
+  from public.documents where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 -- Migration 0009: a direct message is never a retrieval source. Bob can read
 -- this message — it is his conversation — but Ask cannot reach it. Reading a
 -- conversation and retrieving from it are separate permissions, and this is
@@ -316,6 +350,11 @@ values ('88888888-8888-8888-8888-888888888888',
         'The i363 fee schedule is going up next quarter.')
 returning id as group_message \gset
 
+select public.create_team(
+  'Open promotion boundary', 'Readable company-wide, writable by members.',
+  'open', '{}'::uuid[]
+) as open_team \gset
+
 select pg_temp.expect('a participant retrieves from a group thread', count(*)::bigint, 1::bigint)
   from public.search_chat_messages('fee schedule', 10);
 
@@ -334,10 +373,13 @@ select pg_temp.expect_error('a direct conversation cannot receive document acces
                     '11111111-1111-1111-1111-111111111111')$q$, :'thread'), '23514');
 
 insert into public.documents
-  (owner_id, title, file_name, storage_path, mime_type, size_bytes, tags)
+  (id, owner_id, title, file_name, storage_path, mime_type, size_bytes, tags)
 values
-  ('11111111-1111-1111-1111-111111111111', 'Restricted reference test',
-   'reference.txt', 'owner/reference.txt', 'text/plain', 32, array['reference'])
+  ('dddddddd-dddd-dddd-dddd-dddddddddddd',
+   '11111111-1111-1111-1111-111111111111', 'Restricted reference test',
+   'reference.txt',
+   '11111111-1111-1111-1111-111111111111/dddddddd-dddd-dddd-dddd-dddddddddddd/reference.txt',
+   'text/plain', 32, array['reference'])
 returning id as reference_doc \gset
 
 select pg_temp.expect('a closed Team reports one reader without document access',
@@ -450,6 +492,19 @@ select pg_temp.expect('a non-member does not inherit Team document chunks', coun
 select pg_temp.expect_error('a closed-Team outsider cannot query document references',
   $q$select * from public.list_chat_document_references(
     '88888888-8888-8888-8888-888888888888')$q$, '42501');
+select pg_temp.expect_error('a closed-Team outsider cannot promote it',
+  $q$select public.promote_chat_thread_to_document(
+    '88888888-8888-8888-8888-888888888888',
+    '12121212-1212-1212-1212-121212121212', 'Closed theft', 'No',
+    'closed-theft.md',
+    '66666666-6666-6666-6666-666666666666/12121212-1212-1212-1212-121212121212/closed-theft.md',
+    10, '{}'::text[])$q$, '42501');
+select pg_temp.expect_error('an open-Team reader cannot promote without joining',
+  format($q$select public.promote_chat_thread_to_document(
+    %L, '13131313-1313-1313-1313-131313131313', 'Open theft', 'No',
+    'open-theft.md',
+    '66666666-6666-6666-6666-666666666666/13131313-1313-1313-1313-131313131313/open-theft.md',
+    10, '{}'::text[])$q$, :'open_team'), '42501');
 select pg_temp.expect_denied('a non-member cannot react to a message',
   format($q$insert into public.chat_reactions (message_id, user_id, emoji)
             values (%L, '66666666-6666-6666-6666-666666666666', '👍')$q$, :'reply_message'));
@@ -467,6 +522,13 @@ select pg_temp.expect('administrator sees no reactions', count(*)::bigint, 0::bi
 select pg_temp.expect_error('a closed-Team administrator cannot query document references',
   $q$select * from public.list_chat_document_references(
     '88888888-8888-8888-8888-888888888888')$q$, '42501');
+select pg_temp.expect_error('a non-member administrator cannot promote a closed Team',
+  $q$select public.promote_chat_thread_to_document(
+    '88888888-8888-8888-8888-888888888888',
+    '14141414-1414-1414-1414-141414141414', 'Admin theft', 'No',
+    'admin-theft.md',
+    '44444444-4444-4444-4444-444444444444/14141414-1414-1414-1414-141414141414/admin-theft.md',
+    10, '{}'::text[])$q$, '42501');
 
 -- Retraction is the only ordinary-user removal operation. It leaves a visible
 -- tombstone, clears derived search data, hides version history, and cannot be
@@ -477,6 +539,31 @@ select public.send_chat_message(
   'Grant Team Viewer access and send in one transaction.', null, '{}'::uuid[],
   array[:'reference_doc'::uuid], 'grant_team'
 ) as granted_reference_message \gset
+
+select public.promote_chat_thread_to_document(
+  '88888888-8888-8888-8888-888888888888',
+  'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+  'i363 Team decision', 'Promoted conversation snapshot.',
+  'i363-team-decision.md',
+  '11111111-1111-1111-1111-111111111111/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/i363-team-decision.md',
+  512, array['team', 'decision']
+);
+select pg_temp.expect('promotion creates an owned Markdown document', count(*)::bigint, 1::bigint)
+  from public.documents
+  where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    and owner_id = '11111111-1111-1111-1111-111111111111'
+    and mime_type = 'text/markdown';
+select pg_temp.expect('Team promotion creates one Viewer grant', count(*)::bigint, 1::bigint)
+  from public.document_team_access
+  where document_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    and team_id = '88888888-8888-8888-8888-888888888888'
+    and role = 'viewer';
+select pg_temp.expect_error('promotion rejects a mismatched storage path',
+  $q$select public.promote_chat_thread_to_document(
+    '88888888-8888-8888-8888-888888888888',
+    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'Bad path', 'No',
+    'bad.md', 'someone-else/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee/bad.md',
+    10, '{}'::text[])$q$, '22023');
 
 update public.chat_messages
    set retracted_at = now(),
@@ -538,6 +625,16 @@ select pg_temp.expect('a later Team grant dynamically unlocks both old and new c
     and title = 'Restricted reference test';
 select pg_temp.expect('the atomic Team grant unlocks the referenced document', count(*)::bigint, 1::bigint)
   from public.documents where id = :'reference_doc'::uuid;
+select pg_temp.expect('a Team member reads the promoted Team document', count(*)::bigint, 1::bigint)
+  from public.documents where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+select pg_temp.expect('a Team member does not inherit a promoted DM document', count(*)::bigint, 0::bigint)
+  from public.documents where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+select pg_temp.expect_error('a non-participant cannot promote a direct conversation',
+  format($q$select public.promote_chat_thread_to_document(
+    %L, 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'Stolen', 'No',
+    'stolen.md',
+    '77777777-7777-7777-7777-777777777777/ffffffff-ffff-ffff-ffff-ffffffffffff/stolen.md',
+    10, '{}'::text[])$q$, :'thread'), '42501');
 
 -- Leaving a Team removes inherited document access immediately without
 -- changing the grant row or any unrelated direct-message membership.
@@ -549,6 +646,8 @@ select pg_temp.expect('leaving a Team removes inherited document metadata', coun
   from public.documents where id = '33333333-3333-3333-3333-333333333333';
 select pg_temp.expect('leaving a Team removes inherited document chunks', count(*)::bigint, 0::bigint)
   from public.document_chunks where document_id = '33333333-3333-3333-3333-333333333333';
+select pg_temp.expect('leaving a Team removes promoted-document access', count(*)::bigint, 0::bigint)
+  from public.documents where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
 reset role;
 

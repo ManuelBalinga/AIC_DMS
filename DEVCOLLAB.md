@@ -557,3 +557,58 @@ because the free-plan project has no disposable Supabase branch.
 - Files: `supabase/migrations/0014_permission_aware_document_references.sql`, `db/portable-schema.sql`, `db/local-test/01_permission_boundary.sql`, `src/lib/types/database.ts`, `src/modules/chat/actions.ts`, `src/modules/chat/queries.ts`, `src/modules/chat/presentation.ts`, `src/modules/chat/README.md`, `src/app/(app)/messages/[threadId]/composer.tsx`, `src/app/(app)/messages/[threadId]/conversation-view.tsx`, `src/app/(app)/messages/[threadId]/page.tsx`, `src/components/ui/index.tsx`, `tests/document-references.test.ts`, `tests/chat-collaboration.test.ts`, `PROJECT_STATUS.html`, `README.md`, `Documentation/TEAM_COMMUNICATION.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/VERCEL_SETUP.md`, `db/local-test/README.md`, `DEVCOLLAB.md`
 - Hosted changes: none; all migration installation and behavior checks were explicitly rolled back
 - Status: code-complete and rollback-rehearsed; migrations `0010`–`0014`, browser verification and the full hosted RLS suite remain open
+
+### 2026-08-31 — Timi + Codex
+
+**Completed the next actionable Phase 5 deliverable: promote a conversation to
+a governed document, and closed the adjacent document-binding security gap.**
+
+Worked exclusively on `Timi-Dev`. Migration
+`0015_thread_document_promotion.sql` adds an authenticated participant-only RPC
+that creates a normal owned Markdown document and, for a Team, its Viewer grant
+in one database transaction. Direct-message promotions remain owner-only because
+DMs are never permission groups. The conversation page now offers a compact
+title-and-tags form; the server snapshots the complete thread in pages rather
+than copying only the 100-message display window, writes it to the existing
+private bucket, cleans the object up if registration fails, and schedules the
+existing ingestion entry point. No retrieval, answering or RAG implementation
+was changed.
+
+The snapshot preserves authors, timestamps, edit markers, retraction tombstones
+and reply ancestry. It does not copy governed document-reference cards, whose
+titles may be visible to the promoter but not the Team receiving the snapshot.
+Message bodies, names, titles and Team labels are escaped so Markdown or raw
+HTML from chat cannot reshape the promoted document.
+
+The migration also fixes a pre-existing authorization gap found during review.
+An authenticated user could previously insert a document row pointing at a
+different private storage path, or an Editor could update `owner_id` and become
+the owner. A private database trigger now requires the owner/document/file path
+binding on insert, makes file-binding columns immutable, and permits ownership
+transfer only to an administrator. The existing administrator transfer workflow
+continues to work.
+
+The live hosted schema remains on migrations `0001`–`0009`. The current chat
+source queries `parent_id`, `retracted_at`, collaboration tables, Team columns,
+Team grants, document references and the promotion RPC introduced across
+`0011`–`0015`; deploying code before the database would fail at runtime.
+`PROJECT_STATUS.html`, `OPEN_REQUESTS.md` and `VERCEL_SETUP.md` now state the
+hard deployment order: apply the complete reviewed `0010`–`0015` sequence,
+deploy the matching application, then browser-test. No migration was deployed.
+
+The attribution audit found zero `Timi` references in `PROJECT_STATUS.html` or
+its generated public copy. Personal work attribution remains here only. The
+status page now reports 70 of 81 deliverables Built, 151 passing tests and 112
+executable permission assertions.
+
+Migrations `0010`–`0015` parse-installed together on hosted PostgreSQL inside
+`BEGIN`/`ROLLBACK`. A separate real-role rehearsal proved Team inheritance,
+immediate withdrawal after member removal, DM isolation, non-member
+administrator denial, Editor ownership-escalation denial and forged
+storage-binding denial. Every transaction rolled back; no hosted schema or data
+change persisted. Lint, typecheck, all 151 tests, schema parity and the Next.js
+16 production build pass.
+
+- Files: `supabase/migrations/0015_thread_document_promotion.sql`, `db/portable-schema.sql`, `db/local-test/01_permission_boundary.sql`, `src/lib/types/database.ts`, `src/modules/chat/actions.ts`, `src/modules/chat/promotion.ts`, `src/modules/chat/README.md`, `src/app/(app)/messages/[threadId]/page.tsx`, `src/app/(app)/messages/[threadId]/promotion-form.tsx`, `tests/thread-promotion.test.ts`, `PROJECT_STATUS.html`, `README.md`, `Documentation/TEAM_COMMUNICATION.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/VERCEL_SETUP.md`, `db/local-test/README.md`, `DEVCOLLAB.md`
+- Hosted changes: none; all migration installation and behavior checks were explicitly rolled back
+- Status: code-complete and rollback-rehearsed; migrations `0010`–`0015` must precede application deployment, and browser verification plus the full hosted RLS suite remain open

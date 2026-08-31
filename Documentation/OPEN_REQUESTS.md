@@ -3,10 +3,16 @@
 The Supabase project exists, migrations `0001`–`0009` are applied, the
 application is deployed, and member authentication has been exercised against
 Supabase. Migrations `0010_security_hardening.sql` through
-`0014_permission_aware_document_references.sql` are built and passed transactional hosted
+`0015_thread_document_promotion.sql` are built and passed transactional hosted
 rehearsals, but have not been deployed because this project has no Supabase
 development branch. This file tracks the work that remains
 unverified or requires an AIC decision.
+
+The current chat source must not be deployed ahead of those migrations. It
+queries columns, tables and RPCs introduced across `0011`–`0015`; the hosted
+schema is still on `0009`, so a code-first deploy would fail at runtime. The
+safe order is database migrations first, matching application deployment
+second, browser verification third.
 
 The backend choice is settled in [`DATABASE_DECISION.md`](./DATABASE_DECISION.md):
 Supabase is the current database, auth and storage provider; the portable schema
@@ -16,7 +22,7 @@ keeps Neon or plain Postgres available as a future exit.
 
 ### 0. Approve a safe hosted-database target
 
-The MCP audit found no Supabase development branches. Before migrations `0010`&ndash;`0014`
+The MCP audit found no Supabase development branches. Before migrations `0010`&ndash;`0015`
 or the destructive hosted RLS suite runs, either create a development branch or
 explicitly approve the main hosted project as the target. The RLS suite creates
 and deletes throwaway users and data, so the development branch is preferred.
