@@ -2,8 +2,8 @@
 
 The Supabase project exists, migrations `0001`–`0009` are applied, the
 application is deployed, and member authentication has been exercised against
-Supabase. Migrations `0010_security_hardening.sql` and
-`0011_message_collaboration.sql` are built and passed transactional hosted
+Supabase. Migrations `0010_security_hardening.sql` through
+`0013_team_document_access.sql` are built and passed transactional hosted
 rehearsals, but have not been deployed because this project has no Supabase
 development branch. This file tracks the work that remains
 unverified or requires an AIC decision.
@@ -16,7 +16,7 @@ keeps Neon or plain Postgres available as a future exit.
 
 ### 0. Approve a safe hosted-database target
 
-The MCP audit found no Supabase development branches. Before migrations `0010`&ndash;`0011`
+The MCP audit found no Supabase development branches. Before migrations `0010`&ndash;`0013`
 or the destructive hosted RLS suite runs, either create a development branch or
 explicitly approve the main hosted project as the target. The RLS suite creates
 and deletes throwaway users and data, so the development branch is preferred.

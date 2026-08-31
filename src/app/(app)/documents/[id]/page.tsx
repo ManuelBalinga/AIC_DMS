@@ -10,7 +10,11 @@ import {
   formatFileSize,
 } from "@/modules/documents/constants";
 import { deleteDocument } from "@/modules/documents/actions";
-import { listDocumentGrants } from "@/modules/access/queries";
+import {
+  listDocumentGrants,
+  listDocumentTeamGrants,
+  listShareableTeams,
+} from "@/modules/access/queries";
 import { listTeamMembers } from "@/modules/users/queries";
 import { getRelatedDocuments } from "@/modules/intelligence/queries";
 import { listCommentThreads } from "@/modules/comments/queries";
@@ -56,9 +60,14 @@ export default async function DocumentPage({
   const canManage =
     document.owner_id === profile.id || profile.role === "administrator";
 
-  const [grants, teamMembers] = canManage
-    ? await Promise.all([listDocumentGrants(document.id), listTeamMembers()])
-    : [[], []];
+  const [grants, teamGrants, teamMembers, teams] = canManage
+    ? await Promise.all([
+        listDocumentGrants(document.id),
+        listDocumentTeamGrants(document.id),
+        listTeamMembers(),
+        listShareableTeams(),
+      ])
+    : [[], [], [], []];
 
   // Permission-aware through RLS on the underlying chunks, so this runs for
   // every viewer rather than only for managers.
@@ -79,6 +88,8 @@ export default async function DocumentPage({
   const shareableMembers = teamMembers.filter(
     (member) => member.id !== document.owner_id && !grantedIds.has(member.id),
   );
+  const grantedTeamIds = new Set(teamGrants.map((grant) => grant.team_id));
+  const shareableTeams = teams.filter((team) => !grantedTeamIds.has(team.id));
 
   return (
     <div className="space-y-6">
@@ -235,7 +246,9 @@ export default async function DocumentPage({
           <SharePanel
             documentId={document.id}
             grants={grants}
+            teamGrants={teamGrants}
             shareableMembers={shareableMembers}
+            shareableTeams={shareableTeams}
           />
 
           <Card className="flex flex-wrap items-center justify-between gap-3 border-red-200 p-5 dark:border-red-900">

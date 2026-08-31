@@ -464,3 +464,50 @@ unverified.
 - Files: `supabase/migrations/0011_message_collaboration.sql`, `db/portable-schema.sql`, `db/local-test/01_permission_boundary.sql`, `src/lib/types/database.ts`, `src/modules/chat/`, `src/app/(app)/messages/[threadId]/`, `tests/chat-collaboration.test.ts`, `PROJECT_STATUS.html`, `README.md`, `Documentation/TEAM_COMMUNICATION.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/VERCEL_SETUP.md`, `DEVCOLLAB.md`
 - Hosted changes: none; all SQL rehearsal work was explicitly rolled back
 - Status: code-complete and rollback-rehearsed; migrations `0010`–`0011`, browser verification and the full hosted RLS suite remain open
+
+### 2026-08-31 — Timi + Codex
+
+**Reconciled the messaging foundation with the agreed Phase 5 Teams model and
+added membership-derived document sharing.**
+
+Worked exclusively on `Timi-Dev`. Migration `0012_teams_foundation.sql` evolves
+the existing chat tables in place into durable Direct and Team kinds. Direct
+messages are now fixed, participant-only two-person conversations; Teams have a
+name, purpose, open/closed visibility, governed membership and separate
+metadata/content authority. Open Teams are discoverable and readable by active
+staff. Closed Teams are hidden from ordinary non-members, while administrators
+can manage membership without reading messages. Ask retrieves only policy-
+visible Team messages and never a DM. Historical rows are migrated
+conservatively so malformed or group-shaped records become closed Teams rather
+than being discarded. The staff administration route is now `/admin/people`,
+with permanent redirects from the legacy `/admin/team` routes.
+
+Migration `0013_team_document_access.sql` adds one durable document grant per
+Team. Permissions follow current membership at query time: joining inherits the
+Team's Viewer, Commenter or Editor access and removal withdraws it immediately.
+Direct and Team grants compose, with the higher effective role winning; Direct
+messages are rejected as permission groups. The document sharing panel now
+accepts people or Teams and labels the source of each grant. Team membership
+management shows the inherited-document count and requires confirmation before
+adding a person who will gain those documents.
+
+The Supabase and portable PostgreSQL schemas remain in parity. The local RLS
+harness now contains 91 executable assertions, including fixed two-person DMs,
+closed-Team isolation and membership-derived document access. The full pending
+migration sequence through `0013` installed successfully on hosted PostgreSQL
+inside rollback-only transactions. The behavior rehearsal exercised Team
+creation, closed/open visibility, administrator metadata-only access, Team
+document inheritance and immediate withdrawal on member removal. It also caught
+and corrected two pre-deployment defects: missing policy-helper execution grants
+and Team creation's `INSERT ... RETURNING` policy timing. No hosted schema or
+data change persisted.
+
+Lint, typecheck, all 137 tests, schema parity and the Next.js 16 production build
+pass. `PROJECT_STATUS.html` moved five Phase 5 deliverables to Built and now
+reports 68 of 81. Built does not mean deployed or browser-verified: the sole
+hosted project remains on migrations `0001`–`0009`, and deployment still needs
+an explicitly approved target.
+
+- Files: `supabase/migrations/0012_teams_foundation.sql`, `supabase/migrations/0013_team_document_access.sql`, `db/portable-schema.sql`, `db/local-test/01_permission_boundary.sql`, `src/modules/chat/`, `src/modules/access/`, `src/app/(app)/messages/`, `src/app/(app)/documents/[id]/`, `src/app/(app)/admin/people/`, `tests/teams-foundation.test.ts`, `tests/team-document-access.test.ts`, `PROJECT_STATUS.html`, `README.md`, `Documentation/TEAM_COMMUNICATION.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/VERCEL_SETUP.md`, `DEVCOLLAB.md`
+- Hosted changes: none; every SQL installation and behavior rehearsal was explicitly rolled back
+- Status: code-complete and rollback-rehearsed; migrations `0010`–`0013`, browser verification and the full hosted RLS suite remain open

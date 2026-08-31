@@ -39,8 +39,9 @@ export async function embedMessage(messageId: string): Promise<void> {
 
   const { data: message } = await admin
     .from("chat_messages")
-    .select("id, body, thread:chat_threads!inner(is_group)")
+    .select("id, body, thread:chat_threads!inner(kind)")
     .eq("id", messageId)
+    .is("retracted_at", null)
     .maybeSingle();
 
   if (!message) return;
@@ -51,7 +52,7 @@ export async function embedMessage(messageId: string): Promise<void> {
   // unreadable or unexpected shape yields `undefined`, which is not `true`, so
   // the message is left unembedded rather than indexed by accident.
   const thread = Array.isArray(message.thread) ? message.thread[0] : message.thread;
-  if (thread?.is_group !== true) return;
+  if (thread?.kind !== "team") return;
 
   const embedding = await embedQuery(message.body);
 

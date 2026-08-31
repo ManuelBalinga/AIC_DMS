@@ -168,12 +168,21 @@ export type MessageCitation = {
  * a turn in somebody's Ask thread with the model — different table, different
  * privacy rules, deliberately different name.
  */
+export type ChatThreadKind = "direct" | "team";
+export type ChatTeamVisibility = "open" | "closed";
+
 export type ChatThread = {
   id: string;
   created_by: string | null;
-  /** Null for a direct message, where the participants are the subject. */
+  /** Team name. Null for a direct message, where the participants are the subject. */
   topic: string | null;
+  kind: ChatThreadKind;
+  /** Legacy compatibility flag maintained by the database from `kind`. */
   is_group: boolean;
+  /** Team purpose; direct messages do not carry one. */
+  purpose: string | null;
+  /** Team discovery boundary; null for direct messages. */
+  visibility: ChatTeamVisibility | null;
   message_count: number;
   last_message_at: string;
   created_at: string;
@@ -200,6 +209,14 @@ export type ChatMessage = {
   edited_at: string | null;
   retracted_at: string | null;
   retracted_by: string | null;
+}
+
+export type DocumentTeamAccess = {
+  document_id: string;
+  team_id: string;
+  role: DocumentRole;
+  granted_by: string | null;
+  created_at: string;
 }
 
 export type ChatMention = {
@@ -354,6 +371,13 @@ export type Database = {
         Update: Partial<ChatMessage>;
         Relationships: Relationship[];
       };
+      document_team_access: {
+        Row: DocumentTeamAccess;
+        Insert: Pick<DocumentTeamAccess, "document_id" | "team_id"> &
+          Partial<Omit<DocumentTeamAccess, "document_id" | "team_id">>;
+        Update: Partial<DocumentTeamAccess>;
+        Relationships: Relationship[];
+      };
       chat_mentions: {
         Row: ChatMention;
         Insert: Pick<ChatMention, "message_id" | "mentioned_user_id"> &
@@ -423,6 +447,31 @@ export type Database = {
         };
         Returns: string;
       };
+      create_team: {
+        Args: {
+          team_name: string;
+          team_purpose: string;
+          team_visibility: ChatTeamVisibility;
+          initial_member_ids?: string[];
+        };
+        Returns: string;
+      };
+      join_team: {
+        Args: { target_thread_id: string };
+        Returns: undefined;
+      };
+      add_team_member: {
+        Args: { target_thread_id: string; target_user_id: string };
+        Returns: undefined;
+      };
+      remove_team_member: {
+        Args: { target_thread_id: string; target_user_id: string };
+        Returns: undefined;
+      };
+      team_document_grant_count: {
+        Args: { target_team_id: string };
+        Returns: number;
+      };
       match_chat_messages: {
         Args: {
           query_embedding: number[] | string;
@@ -447,6 +496,8 @@ export type Database = {
       message_role: MessageRole;
       citation_kind: CitationKind;
       document_role: DocumentRole;
+      chat_thread_kind: ChatThreadKind;
+      chat_team_visibility: ChatTeamVisibility;
     };
     CompositeTypes: Record<never, never>;
   };

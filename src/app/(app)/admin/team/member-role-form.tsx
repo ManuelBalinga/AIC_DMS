@@ -31,7 +31,7 @@ export function MemberRoleForm({
       <form action={formAction} className="flex items-center gap-2">
         <input type="hidden" name="user_id" value={userId} />
         <Select name="role" defaultValue={currentRole} className="w-40">
-          <option value="member">Team member</option>
+          <option value="member">Member</option>
           <option value="administrator">Administrator</option>
         </Select>
         <SaveButton />

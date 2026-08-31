@@ -12,3 +12,6 @@ export const MAX_MESSAGE_LENGTH = 4000;
 
 /** Longest a group thread's name may be. */
 export const MAX_TOPIC_LENGTH = 120;
+
+/** Enough room to explain a team's remit without turning settings into a document. */
+export const MAX_TEAM_PURPOSE_LENGTH = 500;

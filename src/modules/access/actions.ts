@@ -104,3 +104,80 @@ export async function revokeDocumentAccess(
   revalidatePath(`/documents/${documentId}`);
   return { success: "Access revoked." };
 }
+
+/** Grant the whole Team one durable role; membership is resolved by Postgres. */
+export async function grantTeamDocumentAccess(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const profile = await requireProfile();
+  const documentId = String(formData.get("document_id") ?? "").trim();
+  const teamId = String(formData.get("team_id") ?? "").trim();
+  const role = String(formData.get("role") ?? "viewer") as DocumentRole;
+
+  if (!documentId || !teamId) return { error: "Choose a Team." };
+  if (!DOCUMENT_ROLES.includes(role)) return { error: "Choose a valid role." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("document_team_access").insert({
+    document_id: documentId,
+    team_id: teamId,
+    role,
+    granted_by: profile.id,
+  });
+
+  if (error?.code === "23505") return { error: "That Team already has access." };
+  if (error) return { error: "You are not allowed to share with that Team." };
+
+  revalidatePath(`/documents/${documentId}`);
+  return { success: "Team access granted." };
+}
+
+export async function changeTeamDocumentRole(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireProfile();
+  const documentId = String(formData.get("document_id") ?? "").trim();
+  const teamId = String(formData.get("team_id") ?? "").trim();
+  const role = String(formData.get("role") ?? "") as DocumentRole;
+
+  if (!documentId || !teamId) return { error: "Missing Team grant." };
+  if (!DOCUMENT_ROLES.includes(role)) return { error: "Choose a valid role." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("document_team_access")
+    .update({ role })
+    .eq("document_id", documentId)
+    .eq("team_id", teamId)
+    .select("team_id")
+    .maybeSingle();
+
+  if (error || !data) return { error: "That Team role could not be changed." };
+
+  revalidatePath(`/documents/${documentId}`);
+  return { success: "Team role updated." };
+}
+
+export async function revokeTeamDocumentAccess(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireProfile();
+  const documentId = String(formData.get("document_id") ?? "").trim();
+  const teamId = String(formData.get("team_id") ?? "").trim();
+  if (!documentId || !teamId) return { error: "Missing Team grant." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("document_team_access")
+    .delete()
+    .eq("document_id", documentId)
+    .eq("team_id", teamId);
+
+  if (error) return { error: "That Team access could not be removed." };
+
+  revalidatePath(`/documents/${documentId}`);
+  return { success: "Team access removed." };
+}

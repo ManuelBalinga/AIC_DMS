@@ -23,12 +23,14 @@ function MessageBubble({
   threadId,
   currentUserId,
   canReply,
+  interactive,
   onReply,
 }: {
   message: MessageWithSender;
   threadId: string;
   currentUserId: string;
   canReply: boolean;
+  interactive: boolean;
   onReply: (message: MessageWithSender) => void;
 }) {
   const mine = message.sender_id === currentUserId;
@@ -114,6 +116,13 @@ function MessageBubble({
         <div className="mt-1 flex flex-wrap items-center gap-1">
           {EMOJIS.map((emoji) => {
             const reaction = counts.get(emoji);
+            if (!interactive) {
+              return reaction ? (
+                <span key={emoji} className="rounded-full border border-neutral-200 px-2 py-0.5 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+                  {emoji} {reaction.count}
+                </span>
+              ) : null;
+            }
             return (
               <form key={emoji} action={toggleReaction}>
                 <input type="hidden" name="thread_id" value={threadId} />
@@ -133,7 +142,7 @@ function MessageBubble({
               </form>
             );
           })}
-          {canReply ? (
+          {interactive && canReply ? (
             <button
               type="button"
               onClick={() => onReply(message)}
@@ -142,7 +151,7 @@ function MessageBubble({
               Reply
             </button>
           ) : null}
-          {mine ? (
+          {interactive && mine ? (
             <>
               <button
                 type="button"
@@ -202,11 +211,13 @@ export function ConversationView({
   messages,
   participants,
   currentUserId,
+  canParticipate,
 }: {
   threadId: string;
   messages: MessageWithSender[];
   participants: ChatPerson[];
   currentUserId: string;
+  canParticipate: boolean;
 }) {
   const [replyTo, setReplyTo] = useState<{ id: string; label: string } | null>(null);
   const cancelReply = useCallback(() => setReplyTo(null), []);
@@ -234,6 +245,7 @@ export function ConversationView({
                   threadId={threadId}
                   currentUserId={currentUserId}
                   canReply
+                  interactive={canParticipate}
                   onReply={beginReply}
                 />
                 {message.replies.length > 0 ? (
@@ -245,6 +257,7 @@ export function ConversationView({
                           threadId={threadId}
                           currentUserId={currentUserId}
                           canReply={false}
+                          interactive={canParticipate}
                           onReply={beginReply}
                         />
                       </li>
@@ -257,14 +270,18 @@ export function ConversationView({
         )}
       </Card>
 
-      <div id="message-composer">
-        <Composer
-          threadId={threadId}
-          people={mentionablePeople}
-          replyTo={replyTo}
-          onCancelReply={cancelReply}
-        />
-      </div>
+      {canParticipate ? (
+        <div id="message-composer">
+          <Composer
+            threadId={threadId}
+            people={mentionablePeople}
+            replyTo={replyTo}
+            onCancelReply={cancelReply}
+          />
+        </div>
+      ) : (
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">Join this open team to write, reply, mention colleagues or react.</p>
+      )}
     </>
   );
 }

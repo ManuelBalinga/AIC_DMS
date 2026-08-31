@@ -5,21 +5,29 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/modules/auth/session";
-import { MAX_MESSAGE_LENGTH, MAX_TOPIC_LENGTH } from "@/modules/chat/config";
+import {
+  MAX_MESSAGE_LENGTH,
+  MAX_TEAM_PURPOSE_LENGTH,
+  MAX_TOPIC_LENGTH,
+} from "@/modules/chat/config";
 import { embedMessageInBackground } from "@/modules/chat/embed";
 import type { ActionState } from "@/lib/action-state";
-import type { ChatReactionEmoji } from "@/lib/types/database";
+import type {
+  ChatReactionEmoji,
+  ChatTeamVisibility,
+} from "@/lib/types/database";
 
 const REACTION_EMOJIS: ChatReactionEmoji[] = ["👍", "❤️", "🎉", "👀", "✅"];
+const TEAM_VISIBILITIES: ChatTeamVisibility[] = ["open", "closed"];
 
 /**
  * Writes over team messaging.
  *
  * Permission is enforced by policy rather than by these functions. Sending
- * checks `is_chat_participant` *and* that the sender is the caller, both in the
- * `chat_messages_insert` policy — so a forged `thread_id` or `sender_id` in a
- * form post fails at the database, not at a validation branch somebody might
- * later delete.
+ * checks the request-aware `can_post_chat_message` helper and that the sender
+ * is the caller in `chat_messages_insert`, so a forged `thread_id` or
+ * `sender_id` fails at the database rather than at a validation branch somebody
+ * might later delete.
  */
 
 export async function startDirectThread(
@@ -50,6 +58,64 @@ export async function startDirectThread(
 
   revalidatePath("/messages");
   redirect(`/messages/${threadId}`);
+}
+
+/** Creates the team and its creator membership in one database transaction. */
+export async function createTeam(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireProfile();
+
+  const name = String(formData.get("name") ?? "").trim();
+  const purpose = String(formData.get("purpose") ?? "").trim();
+  const visibility = String(
+    formData.get("visibility") ?? "closed",
+  ) as ChatTeamVisibility;
+
+  if (!name) return { error: "Give the team a name." };
+  if (name.length > MAX_TOPIC_LENGTH) {
+    return { error: `Keep the team name under ${MAX_TOPIC_LENGTH} characters.` };
+  }
+  if (purpose.length > MAX_TEAM_PURPOSE_LENGTH) {
+    return {
+      error: `Keep the purpose under ${MAX_TEAM_PURPOSE_LENGTH} characters.`,
+    };
+  }
+  if (!TEAM_VISIBILITIES.includes(visibility)) {
+    return { error: "Choose whether the team is open or closed." };
+  }
+
+  const supabase = await createClient();
+  const { data: threadId, error } = await supabase.rpc("create_team", {
+    team_name: name,
+    team_purpose: purpose,
+    team_visibility: visibility,
+  });
+
+  if (error || !threadId) return { error: "That team could not be created." };
+
+  revalidatePath("/messages");
+  redirect(`/messages/${threadId}`);
+}
+
+export async function joinTeam(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireProfile();
+  const threadId = String(formData.get("thread_id") ?? "").trim();
+  if (!threadId) return { error: "Missing team." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("join_team", {
+    target_thread_id: threadId,
+  });
+  if (error) return { error: "That open team could not be joined." };
+
+  revalidatePath("/messages");
+  revalidatePath(`/messages/${threadId}`);
+  return { success: "Joined the team." };
 }
 
 export async function sendMessage(
@@ -199,34 +265,7 @@ export async function markThreadRead(threadId: string): Promise<void> {
   revalidatePath("/messages");
 }
 
-export async function renameThread(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  await requireProfile();
-
-  const threadId = String(formData.get("thread_id") ?? "").trim();
-  const topic = String(formData.get("topic") ?? "").trim();
-
-  if (!threadId) return { error: "Missing conversation." };
-  if (topic.length > MAX_TOPIC_LENGTH) {
-    return { error: `Keep a name under ${MAX_TOPIC_LENGTH} characters.` };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("chat_threads")
-    .update({ topic: topic || null })
-    .eq("id", threadId);
-
-  if (error) return { error: "That conversation could not be renamed." };
-
-  revalidatePath(`/messages/${threadId}`);
-  revalidatePath("/messages");
-  return { success: "Renamed." };
-}
-
-export async function addParticipant(
+export async function addTeamMember(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -235,25 +274,82 @@ export async function addParticipant(
   const threadId = String(formData.get("thread_id") ?? "").trim();
   const userId = String(formData.get("user_id") ?? "").trim();
 
-  if (!threadId || !userId) return { error: "Missing conversation or person." };
+  if (!threadId || !userId) return { error: "Choose a team member." };
 
   const supabase = await createClient();
+  const { error } = await supabase.rpc("add_team_member", {
+    target_thread_id: threadId,
+    target_user_id: userId,
+  });
 
-  const { error: joinError } = await supabase
-    .from("chat_participants")
-    .insert({ thread_id: threadId, user_id: userId });
-
-  if (joinError) {
-    return { error: "That person could not be added." };
-  }
-
-  // A thread with a third person in it is no longer a direct message, and must
-  // stop being reusable as one — otherwise `find_or_create_direct_thread` could
-  // hand two people a conversation a third is quietly reading.
-  await supabase.from("chat_threads").update({ is_group: true }).eq("id", threadId);
+  if (error) return { error: "That person could not be added to the team." };
 
   revalidatePath(`/messages/${threadId}`);
-  return { success: "Added to the conversation." };
+  revalidatePath("/messages");
+  return { success: "Added to the team." };
+}
+
+export async function removeTeamMember(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireProfile();
+  const threadId = String(formData.get("thread_id") ?? "").trim();
+  const userId = String(formData.get("user_id") ?? "").trim();
+  if (!threadId || !userId) return { error: "Missing team or person." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("remove_team_member", {
+    target_thread_id: threadId,
+    target_user_id: userId,
+  });
+  if (error) return { error: "That person could not be removed from the team." };
+
+  revalidatePath(`/messages/${threadId}`);
+  revalidatePath("/messages");
+  return { success: "Removed from the team." };
+}
+
+export async function updateTeamDetails(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireProfile();
+  const threadId = String(formData.get("thread_id") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const purpose = String(formData.get("purpose") ?? "").trim();
+  const visibility = String(
+    formData.get("visibility") ?? "closed",
+  ) as ChatTeamVisibility;
+
+  if (!threadId) return { error: "Missing team." };
+  if (!name) return { error: "Give the team a name." };
+  if (name.length > MAX_TOPIC_LENGTH) {
+    return { error: `Keep the team name under ${MAX_TOPIC_LENGTH} characters.` };
+  }
+  if (purpose.length > MAX_TEAM_PURPOSE_LENGTH) {
+    return {
+      error: `Keep the purpose under ${MAX_TEAM_PURPOSE_LENGTH} characters.`,
+    };
+  }
+  if (!TEAM_VISIBILITIES.includes(visibility)) {
+    return { error: "Choose whether the team is open or closed." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("chat_threads")
+    .update({ topic: name, purpose: purpose || null, visibility })
+    .eq("id", threadId)
+    .eq("kind", "team")
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) return { error: "Those team settings could not be saved." };
+
+  revalidatePath(`/messages/${threadId}`);
+  revalidatePath("/messages");
+  return { success: "Team settings saved." };
 }
 
 /**

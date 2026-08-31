@@ -6,12 +6,16 @@ import { markThreadRead } from "@/modules/chat/actions";
 import {
   displayName,
   getThread,
+  listContactablePeople,
   listMessages,
   threadName,
 } from "@/modules/chat/queries";
+import { Card } from "@/components/ui";
+import { getTeamDocumentGrantCount } from "@/modules/access/queries";
 
 import { ConversationView } from "./conversation-view";
-import { ThreadSettings } from "./thread-settings";
+import { JoinTeamButton } from "../join-team-button";
+import { DirectSettings, TeamSettings } from "./thread-settings";
 
 export default async function ThreadPage({
   params,
@@ -21,18 +25,32 @@ export default async function ThreadPage({
   const { threadId } = await params;
   const profile = await requireProfile();
 
-  const thread = await getThread(threadId);
+  const thread = await getThread(threadId, profile.id);
 
   // Null covers both "no such thread" and "not yours", deliberately. A
   // distinguishable response would confirm that a conversation exists, which is
   // itself something the viewer is not entitled to know.
   if (!thread) notFound();
 
-  const messages = await listMessages(threadId);
+  const isTeam = thread.kind === "team";
+  const canReadConversation = thread.viewerIsParticipant ||
+    (isTeam && thread.visibility === "open");
+  const membershipOnly = isTeam && thread.visibility === "closed" &&
+    !thread.viewerIsParticipant && profile.role === "administrator";
+
+  if (!canReadConversation && !membershipOnly) notFound();
+
+  const [messages, people, teamDocumentCount] = await Promise.all([
+    canReadConversation ? listMessages(threadId) : Promise.resolve([]),
+    isTeam ? listContactablePeople(profile.id) : Promise.resolve([]),
+    isTeam && (thread.viewerIsParticipant || profile.role === "administrator")
+      ? getTeamDocumentGrantCount(threadId)
+      : Promise.resolve(0),
+  ]);
 
   // Opening a thread is reading it. Deliberately not awaited into the render
   // path's critical section — a failed read-receipt must not blank the page.
-  await markThreadRead(threadId);
+  if (thread.viewerIsParticipant) await markThreadRead(threadId);
 
   return (
     <div className="space-y-6">
@@ -45,25 +63,53 @@ export default async function ThreadPage({
             ← Messages
           </Link>
           <h1 className="mt-1 text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
-            {threadName(thread, profile.id)}
+            {isTeam ? "# " : ""}{threadName(thread, profile.id)}
           </h1>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-            {thread.participants.map((person) => displayName(person)).join(", ")}
+            {isTeam && thread.purpose ? thread.purpose : thread.participants.map((person) => displayName(person)).join(", ")}
           </p>
         </div>
-        <ThreadSettings threadId={thread.id} topic={thread.topic} />
+        {isTeam ? (
+          thread.viewerIsParticipant || profile.role === "administrator" ? (
+            <TeamSettings
+              threadId={thread.id}
+              name={thread.topic ?? "Untitled team"}
+              purpose={thread.purpose}
+              visibility={thread.visibility ?? "closed"}
+              participants={thread.participants}
+              people={people}
+              currentUserId={profile.id}
+              viewerIsParticipant={thread.viewerIsParticipant}
+              canEditDetails={thread.created_by === profile.id || profile.role === "administrator"}
+              teamDocumentCount={teamDocumentCount}
+            />
+          ) : (
+            <JoinTeamButton threadId={thread.id} />
+          )
+        ) : (
+          <DirectSettings />
+        )}
       </div>
 
-      <ConversationView
-        threadId={thread.id}
-        messages={messages}
-        participants={thread.participants}
-        currentUserId={profile.id}
-      />
+      {membershipOnly ? (
+        <Card className="p-5">
+          <h2 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Membership management</h2>
+          <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">As an administrator you can manage who belongs to this closed team, but its conversation remains private to members.</p>
+        </Card>
+      ) : (
+        <ConversationView
+          threadId={thread.id}
+          messages={messages}
+          participants={thread.participants}
+          currentUserId={profile.id}
+          canParticipate={thread.viewerIsParticipant}
+        />
+      )}
 
       <p className="text-xs text-neutral-400 dark:text-neutral-500">
-        Ask can quote these messages back to you and the others in this
-        conversation, and to nobody else.
+        {isTeam
+          ? "Ask can use Team discussions within the same visibility boundary."
+          : "Direct messages are never used as an Ask source."}
       </p>
     </div>
   );

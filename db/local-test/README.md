@@ -14,17 +14,18 @@ anything real.
 
 | | |
 | --- | --- |
-| ⚠️ Migrations `0001`–`0009` completed the last full local run; `0010` passed a rollback-only rehearsal on hosted Supabase | The runner is the same one used against Supabase; rerun all ten locally before deployment |
-| ✅ The RLS policy logic is correct | 49 assertions cover document roles, administrator non-read access, messaging isolation, write refusal and direct-message retrieval exclusion |
+| ⚠️ Migrations `0001`–`0009` completed the last full local run; `0010`–`0013` passed rollback-only hosted rehearsals | The runner is the same one used against Supabase; rerun all thirteen locally before deployment |
+| ✅ The RLS policy logic is correct | 91 executable assertions cover document roles, administrator non-read access, direct/Team isolation, Team-inherited access, write refusal and retrieval boundaries |
 | ✅ `handle_new_user` mirrors auth users into profiles | The bootstrap step depends on this |
 | ❌ Supabase's own grants and ownership behave the same | Different roles, different owners |
 | ❌ PostgREST exposes only what it should | Not present here at all |
 
 `npm run verify:rls` against a real project remains the authority. This is the
 cheap check that catches a broken policy in seconds rather than after a deploy.
-The last recorded full local run covered 45 assertions; four assertions added
-with migration `0009`, plus migration `0010`, still require a complete local
-run on a Postgres 15+ instance with pgvector.
+The harness now contains 91 executable assertion calls. The recorded count was
+stale; it has been recalculated directly from the SQL rather than incremented
+from an old baseline. The full sequence still requires a complete local run on
+a Postgres 15+ instance with pgvector.
 
 ## Why a stand-in is needed
 

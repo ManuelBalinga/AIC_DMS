@@ -14,12 +14,10 @@ export { displayName, type ChatPerson, type MessageWithSender } from "@/modules/
 /**
  * Reads over team messaging.
  *
- * No permission filter in this file, for the same structural reason as every
- * other read layer here: `chat_threads_select`, `chat_participants_select` and
- * `chat_messages_select` all call `is_chat_participant`, so Postgres has
- * removed other people's conversations before this code sees a row. There is no
- * administrator exception to remember, because there is no administrator clause
- * to forget.
+ * No permission filter lives in this file. `chat_threads_select` exposes open
+ * Teams and administrator-visible closed-Team metadata; `chat_messages_select`
+ * separately exposes content only inside its reading boundary. Postgres has
+ * already removed forbidden rows before this layer sees them.
  */
 
 export type ThreadSummary = ChatThread & {
@@ -29,6 +27,8 @@ export type ThreadSummary = ChatThread & {
   lastReadAt: string | null;
   unreadCount: number;
   latestMessage: { body: string; sender_id: string | null; created_at: string } | null;
+  /** Open teams and administrator metadata may be visible without membership. */
+  viewerIsParticipant: boolean;
 };
 
 const MESSAGE_SELECT = `
@@ -99,6 +99,12 @@ export async function listThreads(viewerId: string): Promise<ThreadSummary[]> {
   for (const row of messageRows ?? []) {
     if (!latest.has(row.thread_id)) latest.set(row.thread_id, row);
 
+    const viewerIsParticipant =
+      participants
+        .get(row.thread_id)
+        ?.some((person) => person.id === viewerId) ?? false;
+    if (!viewerIsParticipant) continue;
+
     // Your own messages are never unread, whatever the timestamps say — you
     // were there when they were sent.
     const readAt = lastRead.get(row.thread_id) ?? null;
@@ -113,17 +119,22 @@ export async function listThreads(viewerId: string): Promise<ThreadSummary[]> {
     lastReadAt: lastRead.get(thread.id) ?? null,
     unreadCount: unread.get(thread.id) ?? 0,
     latestMessage: latest.get(thread.id) ?? null,
+    viewerIsParticipant: participants
+      .get(thread.id)
+      ?.some((person) => person.id === viewerId) ?? false,
   }));
 }
 
 /**
- * One thread, or null when the viewer is not in it.
+ * One thread, or null when it is outside the viewer's discovery boundary.
  *
- * "Not in it" and "does not exist" deliberately produce the same answer. A
- * distinguishable 403 would confirm that a given conversation exists, which is
- * itself something the viewer is not entitled to know.
+ * "Not visible" and "does not exist" deliberately produce the same answer. A
+ * distinguishable 403 would confirm that a hidden conversation exists.
  */
-export async function getThread(threadId: string): Promise<ThreadSummary | null> {
+export async function getThread(
+  threadId: string,
+  viewerId: string,
+): Promise<ThreadSummary | null> {
   const supabase = await createClient();
 
   const { data: thread } = await supabase
@@ -146,6 +157,9 @@ export async function getThread(threadId: string): Promise<ThreadSummary | null>
     lastReadAt: null,
     unreadCount: 0,
     latestMessage: null,
+    viewerIsParticipant: (participantRows ?? []).some(
+      (row) => row.user_id === viewerId,
+    ),
   };
 }
 
@@ -190,7 +204,7 @@ export async function listContactablePeople(viewerId: string): Promise<ChatPerso
 
 /** What a thread is called in a list: its topic, or who else is in it. */
 export function threadName(thread: ThreadSummary, viewerId: string): string {
-  if (thread.topic?.trim()) return thread.topic.trim();
+  if (thread.kind === "team") return thread.topic?.trim() || "Untitled team";
 
   const others = thread.participants.filter((person) => person.id !== viewerId);
   if (others.length === 0) return "Just you";

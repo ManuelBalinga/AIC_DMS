@@ -272,7 +272,7 @@ select pg_temp.expect('administrator sees no messages', count(*)::bigint, 0::big
 select pg_temp.expect('administrator retrieves nothing by keyword', count(*)::bigint, 0::bigint)
   from public.search_chat_messages('fee schedule', 10);
 
--- ---- BOB cannot evict ALICE, but may leave himself ------------------------
+-- ---- A direct conversation's two-person identity cannot be changed --------
 set request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
 delete from public.chat_participants
   where thread_id = :'thread'::uuid and user_id = '11111111-1111-1111-1111-111111111111';
@@ -281,11 +281,12 @@ select pg_temp.expect('a participant cannot remove another', count(*)::bigint, 2
 
 delete from public.chat_participants
   where thread_id = :'thread'::uuid and user_id = '66666666-6666-6666-6666-666666666666';
-select pg_temp.expect('a participant may leave', count(*)::bigint, 0::bigint) from public.chat_threads;
+select pg_temp.expect('a direct participant cannot leave', count(*)::bigint, 2::bigint)
+  from public.chat_participants where thread_id = :'thread'::uuid;
 
 
 -- ---------------------------------------------------------------------------
--- Chat: a group conversation still is one (migration 0009)
+-- Chat: a closed Team conversation is an explicit retrieval source
 --
 -- The counter-case to the assertion above, and the reason 0009 filters on
 -- `is_group` rather than switching message retrieval off wholesale. A named
@@ -300,9 +301,10 @@ select pg_temp.expect('a participant may leave', count(*)::bigint, 0::bigint) fr
 -- ---------------------------------------------------------------------------
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 
-insert into public.chat_threads (id, created_by, topic, is_group)
+insert into public.chat_threads (id, created_by, topic, is_group, kind, visibility, purpose)
 values ('88888888-8888-8888-8888-888888888888',
-        '11111111-1111-1111-1111-111111111111', 'i363 planning', true);
+        '11111111-1111-1111-1111-111111111111', 'i363 planning', true,
+        'team', 'closed', 'Coordinate the i363 rollout.');
 
 insert into public.chat_participants (thread_id, user_id) values
   ('88888888-8888-8888-8888-888888888888','11111111-1111-1111-1111-111111111111'),
@@ -316,6 +318,20 @@ returning id as group_message \gset
 
 select pg_temp.expect('a participant retrieves from a group thread', count(*)::bigint, 1::bigint)
   from public.search_chat_messages('fee schedule', 10);
+
+-- Team document access follows current membership. The grant is one durable
+-- row; it is not copied into a per-person ACL. Direct conversations are never
+-- valid permission groups.
+insert into public.document_team_access (document_id, team_id, role, granted_by)
+values ('33333333-3333-3333-3333-333333333333',
+        '88888888-8888-8888-8888-888888888888', 'viewer',
+        '11111111-1111-1111-1111-111111111111');
+select pg_temp.expect('a Team manager sees the inherited-document warning count',
+  public.team_document_grant_count('88888888-8888-8888-8888-888888888888'), 1::bigint);
+select pg_temp.expect_error('a direct conversation cannot receive document access',
+  format($q$insert into public.document_team_access (document_id, team_id, role, granted_by)
+            values ('33333333-3333-3333-3333-333333333333', %L, 'viewer',
+                    '11111111-1111-1111-1111-111111111111')$q$, :'thread'), '23514');
 
 -- ---------------------------------------------------------------------------
 -- Chat collaboration and retention (migration 0011)
@@ -377,6 +393,13 @@ select pg_temp.expect('a failed mention rolls its message back too', count(*)::b
 set request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
 select pg_temp.expect('the other member retrieves it too', count(*)::bigint, 1::bigint)
   from public.search_chat_messages('revised i363 fee schedule', 10);
+select pg_temp.expect('a Team member inherits its document', count(*)::bigint, 1::bigint)
+  from public.documents where id = '33333333-3333-3333-3333-333333333333';
+select pg_temp.expect('a Team member inherits access to its chunks', count(*)::bigint, 1::bigint)
+  from public.document_chunks where document_id = '33333333-3333-3333-3333-333333333333';
+select pg_temp.expect('a Team viewer cannot comment',
+  public.can_comment_on_document('33333333-3333-3333-3333-333333333333',
+                                 '77777777-7777-7777-7777-777777777777'), false);
 select pg_temp.expect('a participant sees edit history', count(*)::bigint, 1::bigint)
   from public.chat_message_versions where message_id = :'group_message'::uuid;
 select pg_temp.expect('a mentioned participant sees their mention', count(*)::bigint, 1::bigint)
@@ -387,7 +410,7 @@ values (:'reply_message'::uuid, '77777777-7777-7777-7777-777777777777', '👍');
 select pg_temp.expect('a participant can react once', count(*)::bigint, 1::bigint)
   from public.chat_reactions where message_id = :'reply_message'::uuid;
 
--- Bob left the direct thread and was never in this one.
+-- Bob remains in his direct thread and was never in this Team.
 set request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
 select pg_temp.expect('a non-member retrieves nothing from a group thread', count(*)::bigint, 0::bigint)
   from public.search_chat_messages('revised i363 fee schedule', 10);
@@ -397,6 +420,10 @@ select pg_temp.expect('a non-member sees no mentions', count(*)::bigint, 0::bigi
   from public.chat_mentions;
 select pg_temp.expect('a non-member sees no reactions', count(*)::bigint, 0::bigint)
   from public.chat_reactions;
+select pg_temp.expect('a non-member does not inherit a Team document', count(*)::bigint, 0::bigint)
+  from public.documents where id = '33333333-3333-3333-3333-333333333333';
+select pg_temp.expect('a non-member does not inherit Team document chunks', count(*)::bigint, 0::bigint)
+  from public.document_chunks where document_id = '33333333-3333-3333-3333-333333333333';
 select pg_temp.expect_denied('a non-member cannot react to a message',
   format($q$insert into public.chat_reactions (message_id, user_id, emoji)
             values (%L, '66666666-6666-6666-6666-666666666666', '👍')$q$, :'reply_message'));
@@ -470,6 +497,17 @@ select pg_temp.expect('a participant cannot read retained retracted text', count
   from public.chat_message_versions where message_id = :'group_message'::uuid;
 select pg_temp.expect('reactions remain visible on an unretracted reply', count(*)::bigint, 1::bigint)
   from public.chat_reactions where message_id = :'reply_message'::uuid;
+
+-- Leaving a Team removes inherited document access immediately without
+-- changing the grant row or any unrelated direct-message membership.
+select public.remove_team_member(
+  '88888888-8888-8888-8888-888888888888',
+  '77777777-7777-7777-7777-777777777777'
+);
+select pg_temp.expect('leaving a Team removes inherited document metadata', count(*)::bigint, 0::bigint)
+  from public.documents where id = '33333333-3333-3333-3333-333333333333';
+select pg_temp.expect('leaving a Team removes inherited document chunks', count(*)::bigint, 0::bigint)
+  from public.document_chunks where document_id = '33333333-3333-3333-3333-333333333333';
 
 reset role;
 

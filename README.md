@@ -118,6 +118,8 @@ SQL Editor in this order:
 9. `supabase/migrations/0009_direct_messages_are_never_indexed.sql` — excludes DMs from Ask
 10. `supabase/migrations/0010_security_hardening.sql` — private policy helpers, least-privilege Data API/RPC grants and foreign-key indexes
 11. `supabase/migrations/0011_message_collaboration.sql` — replies, mentions, reactions, versioned edits and retraction
+12. `supabase/migrations/0012_teams_foundation.sql` — durable Direct/Team identity, open/closed visibility and governed membership
+13. `supabase/migrations/0013_team_document_access.sql` — membership-derived document grants for Teams
 
 ### 2. Configure environment
 

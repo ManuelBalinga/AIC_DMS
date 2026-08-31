@@ -5,7 +5,11 @@ import "server-only";
  * forms enforce exactly the numbers the actions do. Re-exported here so server
  * code has one place to look.
  */
-export { MAX_MESSAGE_LENGTH, MAX_TOPIC_LENGTH } from "@/modules/chat/limits";
+export {
+  MAX_MESSAGE_LENGTH,
+  MAX_TEAM_PURPOSE_LENGTH,
+  MAX_TOPIC_LENGTH,
+} from "@/modules/chat/limits";
 
 /** Messages loaded when a thread is opened, newest-last. */
 export const THREAD_PAGE_SIZE = 100;

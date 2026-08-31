@@ -1,12 +1,12 @@
 # Team communication — how it will work
 
-Decided with Manuel, 20 August 2026. The full Teams model here is not built. The
-participant-based messaging system now covers direct/group threads, unread
-state, retrieval rules, one-level replies, mentions, reactions, retained edit
-history and retraction through migrations `0008`&ndash;`0011`. Open/closed teams,
-team document grants, governed document references and realtime delivery remain
-future work. This document is the agreed target because those choices are
-expensive to reverse once data exists.
+Decided with Manuel, 20 August 2026. The durable Teams foundation is now built
+through migrations `0008`&ndash;`0013`: strict two-person Direct messages,
+open/closed Teams, governed membership, unread state, retrieval rules,
+one-level replies, mentions, reactions, retained edit history, retraction and
+membership-derived Team document grants. Permission-aware document references,
+thread promotion and realtime delivery remain future work. The new migrations
+are rollback-rehearsed but not deployed to the sole hosted project.
 
 The brief was "imitate Slack, for a corporate setting". What follows copies
 Slack's shape where it earns its place and departs from it in three specific

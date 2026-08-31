@@ -43,8 +43,8 @@ export default async function AppLayout({
               ) : null}
             </Link>
             {isAdmin ? (
-              <Link href="/admin/team" className={NAV_LINK}>
-                Team
+              <Link href="/admin/people" className={NAV_LINK}>
+                People
               </Link>
             ) : null}
           </nav>

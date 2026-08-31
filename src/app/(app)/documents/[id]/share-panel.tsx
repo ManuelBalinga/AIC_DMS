@@ -5,11 +5,18 @@ import { useFormStatus } from "react-dom";
 
 import {
   changeDocumentRole,
+  changeTeamDocumentRole,
   grantDocumentAccess,
+  grantTeamDocumentAccess,
   revokeDocumentAccess,
+  revokeTeamDocumentAccess,
 } from "@/modules/access/actions";
 import { emptyActionState } from "@/lib/action-state";
-import type { DocumentGrant } from "@/modules/access/queries";
+import type {
+  DocumentGrant,
+  DocumentTeamGrant,
+  ShareableTeam,
+} from "@/modules/access/queries";
 import type { DocumentRole, Profile } from "@/lib/types/database";
 import { Alert, Button, Card, Label, Select } from "@/components/ui";
 
@@ -47,11 +54,15 @@ function RevokeButton() {
 export function SharePanel({
   documentId,
   grants,
+  teamGrants,
   shareableMembers,
+  shareableTeams,
 }: {
   documentId: string;
   grants: DocumentGrant[];
+  teamGrants: DocumentTeamGrant[];
   shareableMembers: Profile[];
+  shareableTeams: ShareableTeam[];
 }) {
   const [grantState, grantAction] = useActionState(
     grantDocumentAccess,
@@ -65,6 +76,18 @@ export function SharePanel({
     changeDocumentRole,
     emptyActionState,
   );
+  const [teamGrantState, teamGrantAction] = useActionState(
+    grantTeamDocumentAccess,
+    emptyActionState,
+  );
+  const [teamRevokeState, teamRevokeAction] = useActionState(
+    revokeTeamDocumentAccess,
+    emptyActionState,
+  );
+  const [teamRoleState, teamRoleAction] = useActionState(
+    changeTeamDocumentRole,
+    emptyActionState,
+  );
 
   return (
     <Card className="p-5">
@@ -72,9 +95,14 @@ export function SharePanel({
         Who can see this
       </h2>
       <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-        Only you and the people listed here. Administrators can change who has
-        access but cannot read the document unless you share it with them.
+        Share directly with one person or with a Team. Team membership is live:
+        joining inherits its documents and leaving withdraws them. Administrators
+        can manage access but cannot read unless they receive a grant.
       </p>
+
+      <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+        Share with a person
+      </h3>
 
       <form action={grantAction} className="mt-4 flex flex-wrap items-end gap-3">
         <input type="hidden" name="document_id" value={documentId} />
@@ -134,6 +162,48 @@ export function SharePanel({
         </div>
       ) : null}
 
+      <div className="mt-6 border-t border-neutral-200 pt-5 dark:border-neutral-800">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+          Share with a Team
+        </h3>
+        <form action={teamGrantAction} className="mt-3 flex flex-wrap items-end gap-3">
+          <input type="hidden" name="document_id" value={documentId} />
+          <div className="min-w-56 flex-1 space-y-1.5">
+            <Label htmlFor="team_id">Team</Label>
+            <Select id="team_id" name="team_id" required disabled={shareableTeams.length === 0}>
+              {shareableTeams.length === 0 ? (
+                <option value="">Every available Team already has access</option>
+              ) : (
+                <>
+                  <option value="">Choose a Team...</option>
+                  {shareableTeams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.topic || "Untitled Team"} ({team.visibility})
+                    </option>
+                  ))}
+                </>
+              )}
+            </Select>
+          </div>
+          <div className="w-44 space-y-1.5">
+            <Label htmlFor="team_role">Can</Label>
+            <Select id="team_role" name="role" defaultValue="viewer">
+              {ROLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label} — {option.hint.toLowerCase()}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <GrantButton />
+        </form>
+        {teamGrantState.error ? <div className="mt-3"><Alert tone="error">{teamGrantState.error}</Alert></div> : null}
+        {teamGrantState.success ? <div className="mt-3"><Alert tone="success">{teamGrantState.success}</Alert></div> : null}
+        {teamRevokeState.error ? <div className="mt-3"><Alert tone="error">{teamRevokeState.error}</Alert></div> : null}
+        {teamRoleState.error ? <div className="mt-3"><Alert tone="error">{teamRoleState.error}</Alert></div> : null}
+        {teamRoleState.success ? <div className="mt-3"><Alert tone="success">{teamRoleState.success}</Alert></div> : null}
+      </div>
+
       {grants.length > 0 ? (
         <ul className="mt-5 divide-y divide-neutral-200 border-t border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
           {grants.map((grant) => (
@@ -150,6 +220,9 @@ export function SharePanel({
                     {grant.profile.email}
                   </p>
                 ) : null}
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  Source: Direct grant
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <form action={roleAction}>
@@ -186,6 +259,50 @@ export function SharePanel({
           Not shared with anyone yet.
         </p>
       )}
+
+      {teamGrants.length > 0 ? (
+        <div className="mt-6">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+            Team access
+          </h3>
+          <ul className="mt-2 divide-y divide-neutral-200 border-t border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+            {teamGrants.map((grant) => (
+              <li key={grant.team_id} className="flex items-center justify-between gap-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-neutral-900 dark:text-neutral-100">
+                    {grant.team?.topic || "Private Team"}
+                  </p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    Source: Team membership{grant.team?.visibility ? ` · ${grant.team.visibility}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <form action={teamRoleAction}>
+                    <input type="hidden" name="document_id" value={documentId} />
+                    <input type="hidden" name="team_id" value={grant.team_id} />
+                    <Select
+                      name="role"
+                      defaultValue={grant.role}
+                      aria-label={`What ${grant.team?.topic || "this Team"} can do`}
+                      className="w-32 text-xs"
+                      onChange={(event) => event.currentTarget.form?.requestSubmit()}
+                    >
+                      {ROLE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </Select>
+                  </form>
+                  <form action={teamRevokeAction}>
+                    <input type="hidden" name="document_id" value={documentId} />
+                    <input type="hidden" name="team_id" value={grant.team_id} />
+                    <RevokeButton />
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </Card>
   );
 }

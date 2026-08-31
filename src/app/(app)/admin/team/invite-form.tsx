@@ -22,7 +22,7 @@ export function InviteForm() {
   return (
     <Card className="p-5">
       <h2 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-        Invite a team member
+        Invite a person
       </h2>
       <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
         They receive an email link and choose their own password.
@@ -43,7 +43,7 @@ export function InviteForm() {
         <div className="w-40 space-y-1.5">
           <Label htmlFor="role">Role</Label>
           <Select id="role" name="role" defaultValue="member">
-            <option value="member">Team member</option>
+            <option value="member">Member</option>
             <option value="administrator">Administrator</option>
           </Select>
         </div>

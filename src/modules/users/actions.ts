@@ -68,7 +68,7 @@ export async function inviteTeamMember(
     return { error: `Could not send the invitation: ${inviteError.message}` };
   }
 
-  revalidatePath("/admin/team");
+  revalidatePath("/admin/people");
   return { success: `Invitation sent to ${email}.` };
 }
 
@@ -91,7 +91,7 @@ export async function revokeInvitation(
 
   if (error) return { error: "Could not revoke that invitation." };
 
-  revalidatePath("/admin/team");
+  revalidatePath("/admin/people");
   return { success: "Invitation revoked." };
 }
 
@@ -117,7 +117,8 @@ export async function changeMemberRole(
 
   if (error) return { error: "Could not update that role." };
 
-  revalidatePath("/admin/team");
+  revalidatePath("/admin/people");
+  revalidatePath(`/admin/people/${userId}`);
   return { success: "Role updated." };
 }
 
@@ -160,7 +161,8 @@ export async function setMemberActive(
       : "Could not change that person's access." };
   }
 
-  revalidatePath("/admin/team");
+  revalidatePath("/admin/people");
+  revalidatePath(`/admin/people/${userId}`);
   return { success: active ? "Access restored." : "Access ended." };
 }
 
@@ -193,7 +195,8 @@ export async function transferDocumentOwnership(
 
   if (error || !data) return { error: "Could not transfer that document." };
 
-  revalidatePath("/admin/team");
+  revalidatePath("/admin/people");
+  revalidatePath("/admin/people/[userId]", "page");
   revalidatePath(`/documents/${documentId}`);
   return { success: "Ownership transferred." };
 }
