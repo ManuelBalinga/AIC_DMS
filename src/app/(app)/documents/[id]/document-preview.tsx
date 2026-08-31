@@ -13,16 +13,6 @@ import { Button, Card } from "@/components/ui";
  * files) are not faked with a converter; they keep the Open/Download path.
  */
 
-const PREVIEWABLE_PREFIXES = ["image/", "text/"];
-const PREVIEWABLE_TYPES = ["application/pdf"];
-
-export function isPreviewable(mimeType: string): boolean {
-  return (
-    PREVIEWABLE_TYPES.includes(mimeType) ||
-    PREVIEWABLE_PREFIXES.some((prefix) => mimeType.startsWith(prefix))
-  );
-}
-
 export function DocumentPreview({
   documentId,
   mimeType,

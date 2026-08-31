@@ -31,6 +31,26 @@ export function isAcceptedMimeType(mimeType: string): boolean {
   return mimeType in ACCEPTED_MIME_TYPES;
 }
 
+/**
+ * Formats a browser renders natively, so the preview can be an iframe.
+ *
+ * Lives here rather than beside the preview component because a server
+ * component has to ask the question before deciding whether to render that
+ * component at all. Exporting it from a "use client" module made the document
+ * page throw at runtime — a server module cannot call into a client one, and
+ * the failure surfaced as the whole page erroring rather than as a missing
+ * preview.
+ */
+const NATIVELY_PREVIEWABLE_PREFIXES = ["image/", "text/"];
+const NATIVELY_PREVIEWABLE_TYPES = ["application/pdf"];
+
+export function isPreviewable(mimeType: string): boolean {
+  return (
+    NATIVELY_PREVIEWABLE_TYPES.includes(mimeType) ||
+    NATIVELY_PREVIEWABLE_PREFIXES.some((prefix) => mimeType.startsWith(prefix))
+  );
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
