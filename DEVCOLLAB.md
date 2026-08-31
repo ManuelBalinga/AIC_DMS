@@ -612,3 +612,55 @@ change persisted. Lint, typecheck, all 151 tests, schema parity and the Next.js
 - Files: `supabase/migrations/0015_thread_document_promotion.sql`, `db/portable-schema.sql`, `db/local-test/01_permission_boundary.sql`, `src/lib/types/database.ts`, `src/modules/chat/actions.ts`, `src/modules/chat/promotion.ts`, `src/modules/chat/README.md`, `src/app/(app)/messages/[threadId]/page.tsx`, `src/app/(app)/messages/[threadId]/promotion-form.tsx`, `tests/thread-promotion.test.ts`, `PROJECT_STATUS.html`, `README.md`, `Documentation/TEAM_COMMUNICATION.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/VERCEL_SETUP.md`, `db/local-test/README.md`, `DEVCOLLAB.md`
 - Hosted changes: none; all migration installation and behavior checks were explicitly rolled back
 - Status: code-complete and rollback-rehearsed; migrations `0010`–`0015` must precede application deployment, and browser verification plus the full hosted RLS suite remain open
+
+### 2026-08-31 — Timi + Codex
+
+**Completed the next incomplete Phase 5 deliverable: live chat delivery and
+quiet in-app notifications.**
+
+Worked exclusively on `Timi-Dev`. Migration
+`0016_chat_realtime_notifications.sql` adds `chat_messages` and the new
+`chat_notifications` table to Supabase Realtime with idempotent publication
+checks. The browser treats socket payloads only as invalidation signals and
+re-runs the ordinary server queries, so RLS and the full sender, mention,
+reaction, version and governed-reference projections remain authoritative.
+New messages, edits and retractions now update the conversation, inbox and
+navigation counts without polling.
+
+Notifications are durable but deliberately quiet: only mentions and replies
+create them. They copy no message body or permission-sensitive title, collapse
+a reply-plus-mention for the same message into one row, exclude self-events,
+link to the exact retained message and are selectable or markable only by their
+recipient. Their RLS policy also re-checks conversation access, so removing a
+person from a closed Team immediately hides its historical notifications.
+Authenticated callers have no insert or delete privilege and can update only
+`read_at`; an immutable-identity trigger provides a second database guard.
+
+The pass also closed a read-receipt race found during review. Previously the
+page fetched messages and then wrote `now()`, which could mark a message that
+arrived between those operations as read before it was rendered. The new
+`mark_chat_thread_read` RPC advances monotonically only through the ID of the
+last message the page actually displayed.
+
+No retrieval, answering, embedding or RAG implementation was changed. The
+provider recommendation remains configuration-only and real AIC documents
+must not be sent to unpaid Gemini services without the required privacy
+approval.
+
+The complete migration chain `0010`–`0016` parse-installed successfully on
+hosted PostgreSQL inside `BEGIN`/`ROLLBACK`; no hosted schema or data change
+persisted. A later optional behavior rehearsal lost the MCP transport before
+returning and is not counted as evidence; its uncommitted transaction was
+discarded on disconnect. The full destructive local RLS harness could not run
+because this session has no `LOCAL_DB_URL`, so live two-browser and full RLS
+verification remain explicit deployment gates.
+
+Lint, typecheck, all 155 tests, schema parity and the Next.js 16 production
+build pass. `PROJECT_STATUS.html` and its public artifact contain no personal
+work attribution and now report 71 of 81 deliverables Built. The deployment
+gate was extended accordingly: migrations `0010`–`0016` must be applied
+before the matching chat build is deployed.
+
+- Files: `supabase/migrations/0016_chat_realtime_notifications.sql`, `db/portable-schema.sql`, `src/lib/types/database.ts`, `src/modules/chat/actions.ts`, `src/modules/chat/queries.ts`, `src/modules/chat/realtime-refresh.tsx`, `src/modules/chat/README.md`, `src/app/(app)/layout.tsx`, `src/app/(app)/notification-center.tsx`, `src/app/(app)/messages/[threadId]/page.tsx`, `src/app/(app)/messages/[threadId]/conversation-view.tsx`, `tests/chat-realtime-notifications.test.ts`, `PROJECT_STATUS.html`, `README.md`, `Documentation/TEAM_COMMUNICATION.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/VERCEL_SETUP.md`, `db/local-test/README.md`, `DEVCOLLAB.md`
+- Hosted changes: none; the successful migration rehearsal was rolled back, and the disconnected optional rehearsal could not commit
+- Status: code-complete and rollback-rehearsed; migrations `0010`–`0016` must precede application deployment, with browser verification and the full hosted RLS suite still open

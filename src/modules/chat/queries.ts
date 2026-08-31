@@ -207,6 +207,45 @@ export async function countUnread(viewerId: string): Promise<number> {
   return threads.reduce((total, thread) => total + thread.unreadCount, 0);
 }
 
+export type ChatNotificationSummary = {
+  id: string;
+  thread_id: string;
+  message_id: string;
+  kind: "mention" | "reply";
+  created_at: string;
+  actor: ChatPerson | null;
+  thread: Pick<ChatThread, "kind" | "topic">;
+};
+
+export async function listUnreadChatNotifications(): Promise<{
+  notifications: ChatNotificationSummary[];
+  count: number;
+}> {
+  const supabase = await createClient();
+  const [{ data, error }, { count }] = await Promise.all([
+    supabase
+      .from("chat_notifications")
+      .select(`
+        id, thread_id, message_id, kind, created_at,
+        actor:profiles!chat_notifications_actor_id_fkey (id, full_name, email),
+        thread:chat_threads!chat_notifications_thread_id_fkey (kind, topic)
+      `)
+      .is("read_at", null)
+      .order("created_at", { ascending: false })
+      .limit(12)
+      .returns<ChatNotificationSummary[]>(),
+    supabase
+      .from("chat_notifications")
+      .select("id", { count: "exact", head: true })
+      .is("read_at", null),
+  ]);
+
+  return {
+    notifications: error ? [] : data ?? [],
+    count: count ?? 0,
+  };
+}
+
 /** Everyone the viewer could start a conversation with. */
 export async function listContactablePeople(viewerId: string): Promise<ChatPerson[]> {
   const supabase = await createClient();

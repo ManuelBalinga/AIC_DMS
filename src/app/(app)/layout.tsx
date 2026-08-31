@@ -2,8 +2,13 @@ import Link from "next/link";
 
 import { requireProfile } from "@/modules/auth/session";
 import { signOut } from "@/modules/auth/actions";
-import { countUnread } from "@/modules/chat/queries";
+import {
+  listThreads,
+  listUnreadChatNotifications,
+} from "@/modules/chat/queries";
+import { ChatRealtimeRefresh } from "@/modules/chat/realtime-refresh";
 import { Button } from "@/components/ui";
+import { NotificationCenter } from "./notification-center";
 
 const NAV_LINK =
   "rounded-lg px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100";
@@ -15,7 +20,15 @@ export default async function AppLayout({
 }) {
   const profile = await requireProfile();
   const isAdmin = profile.role === "administrator";
-  const unread = await countUnread(profile.id);
+  const [threads, notificationResult] = await Promise.all([
+    listThreads(profile.id),
+    listUnreadChatNotifications(),
+  ]);
+  const participantThreads = threads.filter((thread) => thread.viewerIsParticipant);
+  const unread = participantThreads.reduce(
+    (total, thread) => total + thread.unreadCount,
+    0,
+  );
 
   return (
     <div className="flex min-h-screen flex-col bg-neutral-50 dark:bg-neutral-950">
@@ -50,6 +63,10 @@ export default async function AppLayout({
           </nav>
 
           <div className="flex items-center gap-3">
+            <NotificationCenter
+              notifications={notificationResult.notifications}
+              count={notificationResult.count}
+            />
             <Link
               href="/account"
               className="hidden text-sm text-neutral-500 hover:text-neutral-900 sm:inline dark:text-neutral-400 dark:hover:text-neutral-100"
@@ -66,6 +83,10 @@ export default async function AppLayout({
       </header>
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+      <ChatRealtimeRefresh
+        currentUserId={profile.id}
+        participantThreadIds={participantThreads.map((thread) => thread.id).join(",")}
+      />
     </div>
   );
 }

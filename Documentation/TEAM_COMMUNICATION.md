@@ -1,7 +1,7 @@
 # Team communication — how it will work
 
 Decided with Manuel, 20 August 2026. The durable Teams foundation is now built
-through migrations `0008`&ndash;`0015`: strict two-person Direct messages,
+through migrations `0008`&ndash;`0016`: strict two-person Direct messages,
 open/closed Teams, governed membership, unread state, retrieval rules,
 one-level replies, mentions, reactions, retained edit history, retraction and
 membership-derived Team document grants and permission-aware document references

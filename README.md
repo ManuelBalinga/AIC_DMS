@@ -122,6 +122,7 @@ SQL Editor in this order:
 13. `supabase/migrations/0013_team_document_access.sql` — membership-derived document grants for Teams
 14. `supabase/migrations/0014_permission_aware_document_references.sql` — governed message references with title-free locked cards
 15. `supabase/migrations/0015_thread_document_promotion.sql` — conversation snapshots as governed documents plus immutable storage binding
+16. `supabase/migrations/0016_chat_realtime_notifications.sql` — live chat invalidation, quiet mention/reply notifications and race-safe read receipts
 
 ### 2. Configure environment
 

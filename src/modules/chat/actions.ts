@@ -431,17 +431,48 @@ export async function retractMessage(formData: FormData): Promise<void> {
  * badge is a cosmetic problem, and an error banner over a conversation the
  * person is already reading is a worse one.
  */
-export async function markThreadRead(threadId: string): Promise<void> {
-  const profile = await requireProfile();
+export async function markThreadRead(
+  threadId: string,
+  throughMessageId: string | null,
+): Promise<void> {
+  await requireProfile();
   const supabase = await createClient();
 
-  await supabase
-    .from("chat_participants")
-    .update({ last_read_at: new Date().toISOString() })
-    .eq("thread_id", threadId)
-    .eq("user_id", profile.id);
+  await supabase.rpc("mark_chat_thread_read", {
+    target_thread_id: threadId,
+    through_message_id: throughMessageId,
+  });
 
   revalidatePath("/messages");
+}
+
+export async function openChatNotification(formData: FormData): Promise<void> {
+  await requireProfile();
+  const notificationId = String(formData.get("notification_id") ?? "").trim();
+  if (!notificationId) return;
+
+  const supabase = await createClient();
+  const { data: notification } = await supabase
+    .from("chat_notifications")
+    .select("thread_id, message_id")
+    .eq("id", notificationId)
+    .is("read_at", null)
+    .maybeSingle<{ thread_id: string; message_id: string }>();
+
+  if (!notification) return;
+
+  const { data: updated } = await supabase
+    .from("chat_notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("id", notificationId)
+    .select("id")
+    .maybeSingle();
+
+  if (!updated) return;
+  revalidatePath("/messages");
+  redirect(
+    `/messages/${notification.thread_id}#message-${notification.message_id}`,
+  );
 }
 
 export async function addTeamMember(

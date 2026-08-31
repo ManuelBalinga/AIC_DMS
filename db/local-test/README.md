@@ -14,7 +14,7 @@ anything real.
 
 | | |
 | --- | --- |
-| ⚠️ Migrations `0001`–`0009` completed the last full local run; `0010`–`0015` passed rollback-only hosted rehearsals | The runner is the same one used against Supabase; rerun all fifteen locally before deployment |
+| ⚠️ Migrations `0001`–`0009` completed the last full local run; `0010`–`0016` passed rollback-only hosted rehearsals | The runner is the same one used against Supabase; rerun all sixteen locally before deployment |
 | ✅ The RLS policy logic is correct | 112 executable assertions cover document roles, administrator non-read access, direct/Team isolation, Team-inherited access, locked references, thread promotion, storage binding, write refusal and retrieval boundaries |
 | ✅ `handle_new_user` mirrors auth users into profiles | The bootstrap step depends on this |
 | ❌ Supabase's own grants and ownership behave the same | Different roles, different owners |

@@ -55,7 +55,9 @@ export default async function ThreadPage({
 
   // Opening a thread is reading it. Deliberately not awaited into the render
   // path's critical section — a failed read-receipt must not blank the page.
-  if (thread.viewerIsParticipant) await markThreadRead(threadId);
+  if (thread.viewerIsParticipant) {
+    await markThreadRead(threadId, messages.at(-1)?.id ?? null);
+  }
 
   return (
     <div className="space-y-6">

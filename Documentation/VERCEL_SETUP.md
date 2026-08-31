@@ -311,13 +311,13 @@ provider configured under Authentication → Emails → SMTP.
 ## Step 5: verify the database is up to date
 
 The current Supabase project has migrations `0001`–`0009` applied. Migrations
-`0010_security_hardening.sql` through `0015_thread_document_promotion.sql` are built and transactionally rehearsed but remain
+`0010_security_hardening.sql` through `0016_chat_realtime_notifications.sql` are built and transactionally rehearsed but remain
 pending until a development branch or explicit main-project approval exists.
 For a new or recovered environment, use `npm run db:migrate`; the files below
 are listed in order for verification.
 
 > **Migration-first deployment gate:** do not deploy the current chat build
-> before migrations `0010`–`0015` are applied successfully. The live database
+> before migrations `0010`–`0016` are applied successfully. The live database
 > on `0009` has no `chat_messages.parent_id`, `retracted_at`, collaboration
 > tables, durable Team columns, Team document grants, reference projection or
 > promotion RPC. Deploying the source first makes its PostgREST queries fail at
@@ -337,6 +337,7 @@ supabase/migrations/0012_teams_foundation.sql
 supabase/migrations/0013_team_document_access.sql
 supabase/migrations/0014_permission_aware_document_references.sql
 supabase/migrations/0015_thread_document_promotion.sql
+supabase/migrations/0016_chat_realtime_notifications.sql
 ```
 
 Each one is written to be safe to run twice, so if you are unsure whether you

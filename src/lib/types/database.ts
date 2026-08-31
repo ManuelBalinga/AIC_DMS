@@ -258,6 +258,16 @@ export type ChatMessageVersion = {
   edited_by: string | null;
   created_at: string;
 }
+export type ChatNotification = {
+  id: string;
+  recipient_id: string;
+  actor_id: string | null;
+  thread_id: string;
+  message_id: string;
+  kind: "mention" | "reply";
+  read_at: string | null;
+  created_at: string;
+}
 
 /** One row of `match_chat_messages` / `search_chat_messages`. */
 export type RetrievedMessage = {
@@ -423,6 +433,12 @@ export type Database = {
         Update: Partial<ChatMessageVersion>;
         Relationships: Relationship[];
       };
+      chat_notifications: {
+        Row: ChatNotification;
+        Insert: never;
+        Update: Pick<ChatNotification, "read_at">;
+        Relationships: Relationship[];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -472,6 +488,13 @@ export type Database = {
           reference_mode?: "require_access" | "locked" | "grant_team";
         };
         Returns: string;
+      };
+      mark_chat_thread_read: {
+        Args: {
+          target_thread_id: string;
+          through_message_id: string | null;
+        };
+        Returns: undefined;
       };
       list_chat_document_references: {
         Args: { target_thread_id: string };

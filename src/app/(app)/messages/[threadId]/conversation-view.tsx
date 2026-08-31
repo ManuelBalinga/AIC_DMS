@@ -60,7 +60,10 @@ function MessageBubble({
   }
 
   return (
-    <div className={`max-w-[88%] ${mine ? "ml-auto" : "mr-auto"}`}>
+    <div
+      id={`message-${message.id}`}
+      className={`max-w-[88%] scroll-mt-20 ${mine ? "ml-auto" : "mr-auto"}`}
+    >
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         {mine ? "You" : displayName(message.sender)}
         {" · "}

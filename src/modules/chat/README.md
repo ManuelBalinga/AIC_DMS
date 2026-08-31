@@ -3,7 +3,7 @@
 Team messaging — the thing the platform exists to replace WhatsApp with — and
 the retrieval layer that lets Ask quote it back to the people who were there.
 
-This documents the evolving `chat_*` implementation. Migrations `0011`&ndash;`0015`
+This documents the evolving `chat_*` implementation. Migrations `0011`&ndash;`0016`
 cover collaboration and retention, durable Direct/Team identity, open/closed
 visibility, Team document grants, permission-aware document references and
 thread-to-document promotion.
@@ -125,10 +125,24 @@ insert must point to the uploader-owned document path, the file binding cannot
 be rewritten later, and an Editor cannot make themself the owner. Administrator
 ownership transfer remains the only permitted owner change.
 
+## Live delivery and quiet notifications
+
+Migration `0016` publishes `chat_messages` and `chat_notifications` to
+Supabase Realtime when that publication exists. The browser treats each event
+as an invalidation signal and re-runs the normal server queries, keeping RLS
+and the complete joined message projection authoritative.
+
+Notifications are durable only for mentions and replies. They copy no message
+body or Team title, are visible and markable only by the recipient, disappear
+when conversation access is lost, and link to the exact retained message. A
+reply that also mentions the same person produces one notification. Ordinary
+messages remain quiet.
+
+Read receipts advance through the last message actually rendered rather than
+through the server clock, so a concurrent arrival cannot be silently marked
+read before it appears.
+
 ## Not done
 
-- Realtime delivery. A thread updates when the page revalidates, not when the
-  other person types. Supabase Realtime on `chat_messages` is the obvious next
-  step and inherits the same RLS.
 - File attachments remain forbidden. Governed document references are the only
   supported way to point from a message to a file.
