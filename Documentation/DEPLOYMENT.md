@@ -88,7 +88,55 @@ bypasses Row Level Security entirely — treat it like a database password.
 | `EMBEDDING_API_KEY` | no | Key for a non-OpenAI provider. Falls back to `OPENAI_API_KEY`. Omitted entirely for a local Ollama, which wants no key |
 | `EMBEDDING_OMIT_DIMENSIONS` | no | Set `true` only for a provider that rejects the `dimensions` parameter outright. Safe only if the model is natively 1536 wide |
 
-### The free stack, for testing and a first deployment
+### The free stack, as actually configured and proven
+
+Verified end to end on 28 August with `npm run verify:embeddings` and
+`npm run verify:answering`. Both halves free, no card, both reachable from
+Vercel.
+
+```ini
+# Embeddings — Gemini. Ollama Cloud publishes no embedding models, which is why
+# this half comes from a different vendor. 1536 native via Matryoshka, so the
+# vector(1536) column is untouched.
+EMBEDDING_PROVIDER=openai-compatible
+EMBEDDING_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+EMBEDDING_API_KEY=...
+EMBEDDING_MODEL=gemini-embedding-001
+
+# Answering — Ollama Cloud.
+ANSWER_PROVIDER=openai-compatible
+ANSWER_BASE_URL=https://ollama.com/v1
+ANSWER_API_KEY=...
+ANSWER_MODEL=gpt-oss:120b
+```
+
+**Only four Ollama Cloud models are on the free tier.** The rest return
+`HTTP 402` with an upgrade link, and the split is not guessable from the model
+list — `minimax-m3`, which the CLI happily pulls, is one of the paid ones.
+Probed 28 August:
+
+| Free | Paid |
+| --- | --- |
+| `gpt-oss:120b` | `qwen3.5:397b` |
+| `gpt-oss:20b` | `minimax-m3` |
+| `gemma4:31b` | `glm-5.3-flash` |
+| `nemotron-3-nano:30b` | `deepseek-v4-flash`, `kimi-k2.6`, `mistral-large-3` |
+
+`gpt-oss:120b` is the largest free one, and shares a family with the Groq
+recommendation below, so moving between the two providers is a base-URL change
+rather than a change of behaviour.
+
+**`gpt-oss` reasons before it answers.** It streams chain of thought in
+`delta.reasoning` while `delta.content` stays empty, and only then produces the
+answer. Two consequences worth knowing before they look like bugs. A small
+`max_tokens` is spent entirely on thinking and yields an empty answer —
+`ANSWER_MAX_TOKENS` is 8192, comfortably past that. And Ask shows nothing for
+roughly the first two seconds, because the application deliberately discards
+`reasoning` rather than rendering a model's working as though it were the
+answer. `gemma4:31b` does not reason and starts producing text immediately, if
+that trade is preferred.
+
+### The Groq alternative, for testing and a first deployment
 
 Runs on Vercel, needs no credit card, and costs nothing.
 
