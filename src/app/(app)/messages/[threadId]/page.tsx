@@ -9,9 +9,8 @@ import {
   listMessages,
   threadName,
 } from "@/modules/chat/queries";
-import { Card } from "@/components/ui";
 
-import { Composer } from "./composer";
+import { ConversationView } from "./conversation-view";
 import { ThreadSettings } from "./thread-settings";
 
 export default async function ThreadPage({
@@ -55,46 +54,12 @@ export default async function ThreadPage({
         <ThreadSettings threadId={thread.id} topic={thread.topic} />
       </div>
 
-      <Card>
-        {messages.length === 0 ? (
-          <p className="py-6 text-center text-sm text-neutral-500 dark:text-neutral-400">
-            No messages yet. Say something.
-          </p>
-        ) : (
-          <ol className="space-y-4">
-            {messages.map((message) => {
-              const mine = message.sender_id === profile.id;
-              return (
-                <li
-                  key={message.id}
-                  className={mine ? "flex justify-end" : "flex justify-start"}
-                >
-                  <div className="max-w-[80%]">
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {mine ? "You" : displayName(message.sender)}
-                      {" · "}
-                      <time dateTime={message.created_at}>
-                        {new Date(message.created_at).toLocaleString()}
-                      </time>
-                    </p>
-                    <p
-                      className={`mt-1 whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${
-                        mine
-                          ? "bg-blue-600 text-white"
-                          : "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-                      }`}
-                    >
-                      {message.body}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        )}
-      </Card>
-
-      <Composer threadId={thread.id} />
+      <ConversationView
+        threadId={thread.id}
+        messages={messages}
+        participants={thread.participants}
+        currentUserId={profile.id}
+      />
 
       <p className="text-xs text-neutral-400 dark:text-neutral-500">
         Ask can quote these messages back to you and the others in this

@@ -8,6 +8,9 @@ import { requireProfile } from "@/modules/auth/session";
 import { MAX_MESSAGE_LENGTH, MAX_TOPIC_LENGTH } from "@/modules/chat/config";
 import { embedMessageInBackground } from "@/modules/chat/embed";
 import type { ActionState } from "@/lib/action-state";
+import type { ChatReactionEmoji } from "@/lib/types/database";
+
+const REACTION_EMOJIS: ChatReactionEmoji[] = ["👍", "❤️", "🎉", "👀", "✅"];
 
 /**
  * Writes over team messaging.
@@ -53,10 +56,15 @@ export async function sendMessage(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const profile = await requireProfile();
+  await requireProfile();
 
   const threadId = String(formData.get("thread_id") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
+  const parentId = String(formData.get("parent_id") ?? "").trim() || null;
+  const mentionedUserIds = formData
+    .getAll("mentioned_user_ids")
+    .map(String)
+    .filter(Boolean);
 
   if (!threadId) return { error: "Missing conversation." };
   if (!body) return { error: "Write something first." };
@@ -66,22 +74,109 @@ export async function sendMessage(
 
   const supabase = await createClient();
 
-  const { data: inserted, error } = await supabase
-    .from("chat_messages")
-    .insert({ thread_id: threadId, sender_id: profile.id, body })
-    .select("id")
-    .maybeSingle();
+  const { data: messageId, error } = await supabase.rpc("send_chat_message", {
+    target_thread_id: threadId,
+    message_body: body,
+    reply_to_id: parentId,
+    mentioned_user_ids: mentionedUserIds,
+  });
 
-  if (error || !inserted) {
+  if (error || !messageId) {
     return { error: "That message could not be sent." };
   }
 
   // After the insert, and not awaited: see `embed.ts`.
-  embedMessageInBackground(inserted.id);
+  embedMessageInBackground(messageId);
 
   revalidatePath(`/messages/${threadId}`);
   revalidatePath("/messages");
   return { success: "Sent." };
+}
+
+export async function toggleReaction(formData: FormData): Promise<void> {
+  const profile = await requireProfile();
+  const messageId = String(formData.get("message_id") ?? "").trim();
+  const threadId = String(formData.get("thread_id") ?? "").trim();
+  const emoji = String(formData.get("emoji") ?? "") as ChatReactionEmoji;
+
+  if (!messageId || !threadId || !REACTION_EMOJIS.includes(emoji)) return;
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("chat_reactions")
+    .select("message_id")
+    .eq("message_id", messageId)
+    .eq("user_id", profile.id)
+    .eq("emoji", emoji)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase
+      .from("chat_reactions")
+      .delete()
+      .eq("message_id", messageId)
+      .eq("user_id", profile.id)
+      .eq("emoji", emoji);
+  } else {
+    await supabase
+      .from("chat_reactions")
+      .insert({ message_id: messageId, user_id: profile.id, emoji });
+  }
+
+  revalidatePath(`/messages/${threadId}`);
+}
+
+export async function editMessage(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const profile = await requireProfile();
+  const messageId = String(formData.get("message_id") ?? "").trim();
+  const threadId = String(formData.get("thread_id") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+
+  if (!messageId || !threadId) return { error: "Missing message." };
+  if (!body) return { error: "A message cannot be empty." };
+  if (body.length > MAX_MESSAGE_LENGTH) {
+    return { error: `Keep a message under ${MAX_MESSAGE_LENGTH} characters.` };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .update({ body })
+    .eq("id", messageId)
+    .eq("thread_id", threadId)
+    .eq("sender_id", profile.id)
+    .is("retracted_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) return { error: "That message could not be edited." };
+
+  embedMessageInBackground(messageId);
+  revalidatePath(`/messages/${threadId}`);
+  revalidatePath("/messages");
+  return { success: "Message updated." };
+}
+
+export async function retractMessage(formData: FormData): Promise<void> {
+  const profile = await requireProfile();
+  const messageId = String(formData.get("message_id") ?? "").trim();
+  const threadId = String(formData.get("thread_id") ?? "").trim();
+  if (!messageId || !threadId) return;
+
+  const supabase = await createClient();
+  await supabase
+    .from("chat_messages")
+    .update({ retracted_at: new Date().toISOString(), retracted_by: profile.id })
+    .eq("id", messageId)
+    .eq("thread_id", threadId)
+    .eq("sender_id", profile.id)
+    .is("retracted_at", null);
+
+  revalidatePath(`/messages/${threadId}`);
+  revalidatePath("/messages");
 }
 
 /**

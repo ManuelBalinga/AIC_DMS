@@ -421,3 +421,46 @@ typecheck, all 115 unit tests and the Next.js production build pass.
 - Files: `supabase/migrations/0010_security_hardening.sql`, `scripts/db-migrate.mjs`, `scripts/migration-checksum.mjs`, `tests/migration-checksum.test.ts`, `src/lib/types/database.ts`, `PROJECT_STATUS.html`, `README.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/VERCEL_SETUP.md`, `db/local-test/README.md`, `DEVCOLLAB.md`
 - Hosted changes: none; OAuth/MCP registration is local Codex configuration and the SQL rehearsal was rolled back
 - Status: code-complete; migration deployment, leaked-password dashboard setting, hosted RLS suite and browser flow remain open
+
+### 2026-08-31 — Timi + Codex
+
+**Built the first substantial Phase 5 collaboration release: replies, mentions,
+reactions, retained edit history and message retraction.**
+
+Worked exclusively on `Timi-Dev`. Migration
+`0011_message_collaboration.sql` evolves the existing message store rather than
+creating a second permission model. It adds one-level, same-conversation reply
+ancestry; relational mentions restricted to real participants; five
+identity-bound reactions; immutable prior versions on edit; and irreversible
+retraction. Ordinary users no longer hold the Data API privilege or RLS policy
+needed to hard-delete a message. Retraction keeps the evidence record and reply
+shape, replaces ordinary content with a tombstone, clears its embedding and
+hides the retained body from participant queries. Direct messages remain
+excluded from Ask under migration `0009`.
+
+The `/messages/[threadId]` interface now renders threaded replies, mention
+badges and reaction counts; lets a participant mention colleagues when sending;
+and lets a sender edit, inspect prior versions and retract. The send operation
+and its mentions are one database transaction. The shared presentation module
+keeps reply grouping client-safe without importing the server-only query layer.
+
+Added eight unit tests, raising the suite from 115 to 123, and expanded the
+permission harness from 49 to 82 authored assertions. Lint, typecheck, all 123
+tests, schema parity and the Next.js production build pass. Migrations `0010`
+and `0011` were installed together on the hosted PostgreSQL version inside
+`BEGIN`/`ROLLBACK`. A second rollback-only rehearsal exercised a real
+participant and outsider across sending a reply, relational mention, reaction,
+edit history, retraction, retained-text hiding and hard-delete denial. Every
+assertion passed and the transaction was rolled back; the hosted schema and data
+were not changed.
+
+The project status moved three Phase 5 deliverables to Built: threaded replies,
+mentions and reactions; retention with no ordinary hard-delete; and retract plus
+versioned edits. Overall progress is now 63 of 81. Built still does not mean
+deployed: the live database remains on migrations `0001`–`0009`, so the new UI
+must not be deployed ahead of `0010`–`0011`, and the full browser flow remains
+unverified.
+
+- Files: `supabase/migrations/0011_message_collaboration.sql`, `db/portable-schema.sql`, `db/local-test/01_permission_boundary.sql`, `src/lib/types/database.ts`, `src/modules/chat/`, `src/app/(app)/messages/[threadId]/`, `tests/chat-collaboration.test.ts`, `PROJECT_STATUS.html`, `README.md`, `Documentation/TEAM_COMMUNICATION.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/VERCEL_SETUP.md`, `DEVCOLLAB.md`
+- Hosted changes: none; all SQL rehearsal work was explicitly rolled back
+- Status: code-complete and rollback-rehearsed; migrations `0010`–`0011`, browser verification and the full hosted RLS suite remain open

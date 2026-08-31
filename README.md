@@ -37,7 +37,7 @@ retrieval code forgets to filter.
 npm test
 ```
 
-115 unit tests on `node:test`, with no test-framework dependency: Node strips
+123 unit tests on `node:test`, with no test-framework dependency: Node strips
 the TypeScript natively, and a small resolve hook in `tests/` teaches it the
 `@/*` alias so the tests exercise the real source files rather than a copy.
 
@@ -117,6 +117,7 @@ SQL Editor in this order:
 8. `supabase/migrations/0008_chat_and_context.sql` — team messaging and message retrieval
 9. `supabase/migrations/0009_direct_messages_are_never_indexed.sql` — excludes DMs from Ask
 10. `supabase/migrations/0010_security_hardening.sql` — private policy helpers, least-privilege Data API/RPC grants and foreign-key indexes
+11. `supabase/migrations/0011_message_collaboration.sql` — replies, mentions, reactions, versioned edits and retraction
 
 ### 2. Configure environment
 
@@ -281,7 +282,7 @@ npm run dev         # development server
 npm run build       # production build
 npm run lint        # eslint
 npm run typecheck   # tsc --noEmit
-npm test            # 115 unit tests
+npm test            # 123 unit tests
 npm run db:migrate  # apply pending migrations in order
 npm run verify:rls:local # destructive throwaway-Postgres policy suite
 npm run verify:rls  # permission-boundary test against a live project

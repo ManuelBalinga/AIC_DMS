@@ -2,7 +2,14 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { THREAD_PAGE_SIZE } from "@/modules/chat/config";
-import type { ChatMessage, ChatThread, Profile } from "@/lib/types/database";
+import type { ChatThread } from "@/lib/types/database";
+import {
+  displayName,
+  type ChatPerson,
+  type MessageWithSender,
+} from "@/modules/chat/presentation";
+
+export { displayName, type ChatPerson, type MessageWithSender } from "@/modules/chat/presentation";
 
 /**
  * Reads over team messaging.
@@ -15,8 +22,6 @@ import type { ChatMessage, ChatThread, Profile } from "@/lib/types/database";
  * to forget.
  */
 
-export type ChatPerson = Pick<Profile, "id" | "full_name" | "email">;
-
 export type ThreadSummary = ChatThread & {
   /** Everyone in the thread, including the viewer. */
   participants: ChatPerson[];
@@ -26,12 +31,16 @@ export type ThreadSummary = ChatThread & {
   latestMessage: { body: string; sender_id: string | null; created_at: string } | null;
 };
 
-export type MessageWithSender = ChatMessage & {
-  sender: ChatPerson | null;
-};
-
-const SENDER_SELECT =
-  "*, sender:profiles!chat_messages_sender_id_fkey (id, full_name, email)";
+const MESSAGE_SELECT = `
+  *,
+  sender:profiles!chat_messages_sender_id_fkey (id, full_name, email),
+  mentions:chat_mentions (
+    mentioned_user_id,
+    profile:profiles!chat_mentions_mentioned_user_id_fkey (id, full_name, email)
+  ),
+  reactions:chat_reactions (user_id, emoji),
+  versions:chat_message_versions (id, body, created_at)
+`;
 
 /**
  * The inbox: every thread the viewer is in, most recently active first.
@@ -146,7 +155,7 @@ export async function listMessages(threadId: string): Promise<MessageWithSender[
 
   const { data } = await supabase
     .from("chat_messages")
-    .select(SENDER_SELECT)
+    .select(MESSAGE_SELECT)
     .eq("thread_id", threadId)
     .order("created_at", { ascending: false })
     .limit(THREAD_PAGE_SIZE)
@@ -177,12 +186,6 @@ export async function listContactablePeople(viewerId: string): Promise<ChatPerso
     .returns<ChatPerson[]>();
 
   return data ?? [];
-}
-
-/** How a person is shown when they have not set a display name. */
-export function displayName(person: ChatPerson | null): string {
-  if (!person) return "A former colleague";
-  return person.full_name?.trim() || person.email;
 }
 
 /** What a thread is called in a list: its topic, or who else is in it. */

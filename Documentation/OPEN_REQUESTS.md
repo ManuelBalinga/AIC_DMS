@@ -2,9 +2,10 @@
 
 The Supabase project exists, migrations `0001`–`0009` are applied, the
 application is deployed, and member authentication has been exercised against
-Supabase. Migration `0010_security_hardening.sql` is built and passed a
-transactional hosted rehearsal, but has not been deployed because this project
-has no Supabase development branch. This file tracks the work that remains
+Supabase. Migrations `0010_security_hardening.sql` and
+`0011_message_collaboration.sql` are built and passed transactional hosted
+rehearsals, but have not been deployed because this project has no Supabase
+development branch. This file tracks the work that remains
 unverified or requires an AIC decision.
 
 The backend choice is settled in [`DATABASE_DECISION.md`](./DATABASE_DECISION.md):
@@ -15,7 +16,7 @@ keeps Neon or plain Postgres available as a future exit.
 
 ### 0. Approve a safe hosted-database target
 
-The MCP audit found no Supabase development branches. Before migration `0010`
+The MCP audit found no Supabase development branches. Before migrations `0010`&ndash;`0011`
 or the destructive hosted RLS suite runs, either create a development branch or
 explicitly approve the main hosted project as the target. The RLS suite creates
 and deletes throwaway users and data, so the development branch is preferred.
@@ -88,7 +89,7 @@ only to keep building.
 | Audit logging | Preserves operational history before real documents enter the system |
 | Indexing monitoring | Makes failed ingestion visible at useful volume |
 | Document comparison and structured extraction | Extends the intelligence layer |
-| Full Teams model | Implements open/closed teams, team grants and retained conversations |
+| Full Teams model | Implements open/closed teams, membership governance and team grants on top of the retained conversations now built |
 | Offline access | Adds leased cached reading, queued upload and revocation checks |
 
 The last two have complete design documents but remain outside the original

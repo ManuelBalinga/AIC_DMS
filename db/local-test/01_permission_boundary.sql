@@ -34,6 +34,26 @@ exception
     return format('  ok  %s (denied)', label);
 end $$;
 
+-- Trigger-enforced invariants raise data exceptions rather than privilege
+-- errors. Keep those checks distinct from expect_denied so a test documents
+-- whether the database rejected an operation because of RLS or because the
+-- attempted state itself is invalid.
+create or replace function pg_temp.expect_error(label text, stmt text, wanted_state text)
+returns text language plpgsql as $$
+begin
+  begin
+    execute stmt;
+  exception
+    when others then
+      if sqlstate is distinct from wanted_state then
+        raise exception 'FAIL % -- expected SQLSTATE %, got %', label, wanted_state, sqlstate;
+      end if;
+      return format('  ok  %s (rejected: %s)', label, sqlstate);
+  end;
+
+  raise exception 'FAIL % -- the statement was allowed', label;
+end $$;
+
 -- Two users. The handle_new_user trigger should mirror each into public.profiles.
 insert into auth.users (id, email) values
   ('11111111-1111-1111-1111-111111111111','owner@aic.test'),
@@ -231,7 +251,7 @@ select pg_temp.expect('outsider sees no messages', count(*)::bigint, 0::bigint) 
 select pg_temp.expect('outsider retrieves nothing by keyword', count(*)::bigint, 0::bigint)
   from public.search_chat_messages('fee schedule', 10);
 select pg_temp.expect('is_chat_participant says no',
-  public.is_chat_participant(:'thread'::uuid, '77777777-7777-7777-7777-777777777777'), false);
+  private.is_chat_participant(:'thread'::uuid, '77777777-7777-7777-7777-777777777777'), false);
 
 -- Writing into somebody else's conversation, and adding themselves to it.
 select pg_temp.expect_denied('outsider cannot post into a thread they are not in',
@@ -291,25 +311,165 @@ insert into public.chat_participants (thread_id, user_id) values
 insert into public.chat_messages (thread_id, sender_id, body)
 values ('88888888-8888-8888-8888-888888888888',
         '11111111-1111-1111-1111-111111111111',
-        'The i363 fee schedule is going up next quarter.');
+        'The i363 fee schedule is going up next quarter.')
+returning id as group_message \gset
 
 select pg_temp.expect('a participant retrieves from a group thread', count(*)::bigint, 1::bigint)
   from public.search_chat_messages('fee schedule', 10);
 
+-- ---------------------------------------------------------------------------
+-- Chat collaboration and retention (migration 0011)
+-- ---------------------------------------------------------------------------
+
+-- Editing keeps the previous body as append-only history and invalidates the
+-- old embedding. The sender can inspect that history while the message is
+-- live; it is not a second message that changes the thread counter.
+update public.chat_messages
+   set body = 'The revised i363 fee schedule takes effect next quarter.'
+ where id = :'group_message'::uuid;
+
+select pg_temp.expect('an edit changes the visible message body', body,
+  'The revised i363 fee schedule takes effect next quarter.')
+  from public.chat_messages where id = :'group_message'::uuid;
+select pg_temp.expect('an edit is marked', edited_at is not null, true)
+  from public.chat_messages where id = :'group_message'::uuid;
+select pg_temp.expect('an edit retains the previous body', body,
+  'The i363 fee schedule is going up next quarter.')
+  from public.chat_message_versions where message_id = :'group_message'::uuid;
+select pg_temp.expect('editing does not increment the thread message count', message_count, 1)
+  from public.chat_threads where id = '88888888-8888-8888-8888-888888888888';
+
+-- A reply and its mentions are written atomically by the RPC. A root may have
+-- replies; a reply may not itself become the parent of another reply.
+select public.send_chat_message(
+  '88888888-8888-8888-8888-888888888888',
+  'Carol, please confirm the revised date.',
+  :'group_message'::uuid,
+  array['77777777-7777-7777-7777-777777777777']::uuid[]
+) as reply_message \gset
+
+select pg_temp.expect('a reply keeps its root-message ancestry', parent_id,
+  :'group_message'::uuid)
+  from public.chat_messages where id = :'reply_message'::uuid;
+select pg_temp.expect('the reply records its participant mention', count(*)::bigint, 1::bigint)
+  from public.chat_mentions
+  where message_id = :'reply_message'::uuid
+    and mentioned_user_id = '77777777-7777-7777-7777-777777777777';
+
+select pg_temp.expect_error('a reply cannot have a reply of its own',
+  format($q$select public.send_chat_message(
+    '88888888-8888-8888-8888-888888888888',
+    'Nested reply', %L, '{}'::uuid[])$q$, :'reply_message'), 'P0001');
+select pg_temp.expect('the rejected nested reply was not partially inserted', count(*)::bigint, 2::bigint)
+  from public.chat_messages
+  where thread_id = '88888888-8888-8888-8888-888888888888';
+
+select pg_temp.expect_error('a message cannot mention someone outside its conversation',
+  $q$select public.send_chat_message(
+    '88888888-8888-8888-8888-888888888888',
+    'This must roll back', null,
+    array['66666666-6666-6666-6666-666666666666']::uuid[])$q$, '42501');
+select pg_temp.expect('a failed mention rolls its message back too', count(*)::bigint, 2::bigint)
+  from public.chat_messages
+  where thread_id = '88888888-8888-8888-8888-888888888888';
+
 -- Carol is a member of this one, unlike the direct thread above.
 set request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
 select pg_temp.expect('the other member retrieves it too', count(*)::bigint, 1::bigint)
-  from public.search_chat_messages('fee schedule', 10);
+  from public.search_chat_messages('revised i363 fee schedule', 10);
+select pg_temp.expect('a participant sees edit history', count(*)::bigint, 1::bigint)
+  from public.chat_message_versions where message_id = :'group_message'::uuid;
+select pg_temp.expect('a mentioned participant sees their mention', count(*)::bigint, 1::bigint)
+  from public.chat_mentions where message_id = :'reply_message'::uuid;
+
+insert into public.chat_reactions (message_id, user_id, emoji)
+values (:'reply_message'::uuid, '77777777-7777-7777-7777-777777777777', '👍');
+select pg_temp.expect('a participant can react once', count(*)::bigint, 1::bigint)
+  from public.chat_reactions where message_id = :'reply_message'::uuid;
 
 -- Bob left the direct thread and was never in this one.
 set request.jwt.claim.sub = '66666666-6666-6666-6666-666666666666';
 select pg_temp.expect('a non-member retrieves nothing from a group thread', count(*)::bigint, 0::bigint)
-  from public.search_chat_messages('fee schedule', 10);
+  from public.search_chat_messages('revised i363 fee schedule', 10);
+select pg_temp.expect('a non-member sees no edit history', count(*)::bigint, 0::bigint)
+  from public.chat_message_versions;
+select pg_temp.expect('a non-member sees no mentions', count(*)::bigint, 0::bigint)
+  from public.chat_mentions;
+select pg_temp.expect('a non-member sees no reactions', count(*)::bigint, 0::bigint)
+  from public.chat_reactions;
+select pg_temp.expect_denied('a non-member cannot react to a message',
+  format($q$insert into public.chat_reactions (message_id, user_id, emoji)
+            values (%L, '66666666-6666-6666-6666-666666666666', '👍')$q$, :'reply_message'));
 
 -- Group or direct, the administrator is not a participant and gets nothing.
 set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
 select pg_temp.expect('administrator retrieves nothing from a group thread', count(*)::bigint, 0::bigint)
-  from public.search_chat_messages('fee schedule', 10);
+  from public.search_chat_messages('revised i363 fee schedule', 10);
+select pg_temp.expect('administrator sees no edit history', count(*)::bigint, 0::bigint)
+  from public.chat_message_versions;
+select pg_temp.expect('administrator sees no mentions', count(*)::bigint, 0::bigint)
+  from public.chat_mentions;
+select pg_temp.expect('administrator sees no reactions', count(*)::bigint, 0::bigint)
+  from public.chat_reactions;
+
+-- Retraction is the only ordinary-user removal operation. It leaves a visible
+-- tombstone, clears derived search data, hides version history, and cannot be
+-- reversed. There is deliberately no DELETE policy even for the sender.
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+update public.chat_messages
+   set retracted_at = now(),
+       retracted_by = '11111111-1111-1111-1111-111111111111'
+ where id = :'group_message'::uuid;
+
+select pg_temp.expect('retraction leaves a visible tombstone', body, '[Message retracted]')
+  from public.chat_messages where id = :'group_message'::uuid;
+select pg_temp.expect('retraction records who withdrew the message', retracted_by,
+  '11111111-1111-1111-1111-111111111111'::uuid)
+  from public.chat_messages where id = :'group_message'::uuid;
+select pg_temp.expect('retraction clears the derived embedding', embedding is null, true)
+  from public.chat_messages where id = :'group_message'::uuid;
+
+-- The retained record is intentionally unavailable through an ordinary
+-- participant session, but still exists for a properly authorised audit.
+reset role;
+select pg_temp.expect('retraction retains both historical bodies for audit', count(*)::bigint, 2::bigint)
+  from public.chat_message_versions where message_id = :'group_message'::uuid;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+select pg_temp.expect('retracted text leaves keyword retrieval', count(*)::bigint, 0::bigint)
+  from public.search_chat_messages('revised i363 fee schedule', 10);
+select pg_temp.expect('retraction hides retained versions from ordinary readers', count(*)::bigint, 0::bigint)
+  from public.chat_message_versions where message_id = :'group_message'::uuid;
+
+select pg_temp.expect_error('a sender cannot reverse a retraction',
+  format($q$update public.chat_messages
+              set retracted_at = null, retracted_by = null, body = 'restored'
+            where id = %L$q$, :'group_message'), 'P0001');
+
+-- Use the unreferenced reply for this assertion. If DELETE permission ever
+-- regresses, it will really disappear rather than merely being stopped by the
+-- root message's ON DELETE RESTRICT relationship.
+select pg_temp.expect_denied('hard delete is rejected at the privilege boundary',
+  format('delete from public.chat_messages where id = %L', :'reply_message'));
+select pg_temp.expect('hard delete is denied even to the sender', count(*)::bigint, 1::bigint)
+  from public.chat_messages where id = :'reply_message'::uuid;
+
+-- Replies remain attached to the tombstone, preserving the conversation's
+-- shape after the root is withdrawn.
+select pg_temp.expect('retraction preserves reply ancestry', count(*)::bigint, 1::bigint)
+  from public.chat_messages
+  where id = :'reply_message'::uuid and parent_id = :'group_message'::uuid;
+
+-- The other participant sees the tombstone and collaboration metadata but not
+-- retained message versions after retraction.
+set request.jwt.claim.sub = '77777777-7777-7777-7777-777777777777';
+select pg_temp.expect('a participant sees the retraction tombstone', body, '[Message retracted]')
+  from public.chat_messages where id = :'group_message'::uuid;
+select pg_temp.expect('a participant cannot read retained retracted text', count(*)::bigint, 0::bigint)
+  from public.chat_message_versions where message_id = :'group_message'::uuid;
+select pg_temp.expect('reactions remain visible on an unretracted reply', count(*)::bigint, 1::bigint)
+  from public.chat_reactions where message_id = :'reply_message'::uuid;
 
 reset role;
 

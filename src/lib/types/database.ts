@@ -193,9 +193,36 @@ export type ChatMessage = {
   thread_id: string;
   sender_id: string | null;
   body: string;
+  /** Root message for a one-level reply, or null for the main timeline. */
+  parent_id: string | null;
   embedding: string | null;
   created_at: string;
   edited_at: string | null;
+  retracted_at: string | null;
+  retracted_by: string | null;
+}
+
+export type ChatMention = {
+  message_id: string;
+  mentioned_user_id: string;
+  created_at: string;
+}
+
+export type ChatReaction = {
+  message_id: string;
+  user_id: string;
+  emoji: ChatReactionEmoji;
+  created_at: string;
+}
+
+export type ChatReactionEmoji = "👍" | "❤️" | "🎉" | "👀" | "✅";
+
+export type ChatMessageVersion = {
+  id: string;
+  message_id: string;
+  body: string;
+  edited_by: string | null;
+  created_at: string;
 }
 
 /** One row of `match_chat_messages` / `search_chat_messages`. */
@@ -327,6 +354,27 @@ export type Database = {
         Update: Partial<ChatMessage>;
         Relationships: Relationship[];
       };
+      chat_mentions: {
+        Row: ChatMention;
+        Insert: Pick<ChatMention, "message_id" | "mentioned_user_id"> &
+          Partial<Omit<ChatMention, "message_id" | "mentioned_user_id">>;
+        Update: Partial<ChatMention>;
+        Relationships: Relationship[];
+      };
+      chat_reactions: {
+        Row: ChatReaction;
+        Insert: Pick<ChatReaction, "message_id" | "user_id" | "emoji"> &
+          Partial<Omit<ChatReaction, "message_id" | "user_id" | "emoji">>;
+        Update: Partial<ChatReaction>;
+        Relationships: Relationship[];
+      };
+      chat_message_versions: {
+        Row: ChatMessageVersion;
+        Insert: Pick<ChatMessageVersion, "message_id" | "body"> &
+          Partial<Omit<ChatMessageVersion, "message_id" | "body">>;
+        Update: Partial<ChatMessageVersion>;
+        Relationships: Relationship[];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -364,6 +412,15 @@ export type Database = {
       };
       find_or_create_direct_thread: {
         Args: { other_user_id: string };
+        Returns: string;
+      };
+      send_chat_message: {
+        Args: {
+          target_thread_id: string;
+          message_body: string;
+          reply_to_id?: string | null;
+          mentioned_user_ids?: string[];
+        };
         Returns: string;
       };
       match_chat_messages: {

@@ -3,9 +3,9 @@
 Team messaging — the thing the platform exists to replace WhatsApp with — and
 the retrieval layer that lets Ask quote it back to the people who were there.
 
-This documents the narrower shipped `chat_*` implementation. The agreed future
-Teams model—open/closed teams, team grants, retention, retraction and versioned
-edits—remains in `Documentation/TEAM_COMMUNICATION.md`.
+This documents the evolving `chat_*` implementation. Migration `0011` closes
+the agreed collaboration and retention slice; the future open/closed Teams and
+team-grant model remains in `Documentation/TEAM_COMMUNICATION.md`.
 
 | File | Responsibility |
 | --- | --- |
@@ -13,6 +13,7 @@ edits—remains in `Documentation/TEAM_COMMUNICATION.md`.
 | `config.ts` | Retrieval tuning, and the reasoning for each number |
 | `queries.ts` | Reads: the inbox, a thread, its messages, unread counts |
 | `actions.ts` | Writes: start, send, rename, add, mark read, leave |
+| `presentation.ts` | Client-safe message types, names and reply-tree grouping |
 | `embed.ts` | Makes a sent message semantically retrievable, after the fact |
 
 ## Why the tables are called `chat_*`
@@ -76,16 +77,26 @@ deliberate limit: "sounds good to me" genuinely is not retrievable, and
 manufacturing context for it from neighbouring messages would make it match
 questions it cannot answer.
 
+## Collaboration and retention
+
+Migration `0011` adds one-level replies, relational participant mentions,
+reactions, versioned edits and irreversible retraction. Those are database
+rules, not UI conventions: a reply cannot cross conversations or become a
+second-level parent; a mention must identify a real participant; reactions are
+written as the caller; and ordinary users have no message-delete privilege.
+
+Editing appends the previous body to `chat_message_versions`, clears the stale
+embedding and schedules a replacement. Retraction retains the final body for a
+separately authorised audit, replaces the ordinary message with a tombstone and
+hides retained versions from participants. This preserves evidence without
+turning retention into a browse-history feature.
+
 ## Not done
 
 - Realtime delivery. A thread updates when the page revalidates, not when the
   other person types. Supabase Realtime on `chat_messages` is the obvious next
   step and inherits the same RLS.
-- Editing and deleting a sent message. The policies currently allow overwrite
-  and hard delete, but no UI calls them. This conflicts with the agreed future
-  retention model, which requires versioned edits and retraction instead.
 - Attachments. Sharing a document into a thread should hand over a link and a
   grant, not a copy of the file — that needs the access module, not this one.
 - Group threads can be created by adding a participant to a direct thread, but
   there is no "start a group" flow.
-- A message is embedded once. Editing it leaves the old vector in place.
