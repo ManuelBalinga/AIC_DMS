@@ -3,9 +3,9 @@
 Team messaging — the thing the platform exists to replace WhatsApp with — and
 the retrieval layer that lets Ask quote it back to the people who were there.
 
-This documents the evolving `chat_*` implementation. Migration `0011` closes
-the agreed collaboration and retention slice; the future open/closed Teams and
-team-grant model remains in `Documentation/TEAM_COMMUNICATION.md`.
+This documents the evolving `chat_*` implementation. Migrations `0011`&ndash;`0014`
+cover collaboration and retention, durable Direct/Team identity, open/closed
+visibility, Team document grants and permission-aware document references.
 
 | File | Responsibility |
 | --- | --- |
@@ -27,21 +27,19 @@ afternoon, so the names are deliberately unlike.
 ## Why permissions are not in this code
 
 Same reason as `../rag/README.md`, with a different helper. `chat_threads`,
-`chat_participants` and `chat_messages` all carry policies calling
-`is_chat_participant`, so Postgres removes other people's conversations before
-this module sees a row. There is no filter here to forget.
+`chat_participants` and `chat_messages` carry request-aware policies, so Postgres
+removes content outside the current Team/Direct boundary before this module sees
+a row. There is no filter here to forget.
 
 `is_chat_participant` is `SECURITY DEFINER`, and that is load-bearing rather
 than incidental: `chat_participants`' own select policy calls it, so a
 `SECURITY INVOKER` version would re-enter that policy and recurse until Postgres
 gave up.
 
-**There is no administrator exception anywhere in this module.** Migration 0007
-took document reading away from administrators on the grounds that managing
-access and reading contents are different powers. Reading a colleague's private
-messages is further still, and the permission-boundary test asserts it: an
-administrator who is not a participant sees no threads, no messages, and gets
-nothing back from `search_chat_messages`.
+Administrators have a metadata-only exception for closed Teams: they can see the
+Team and manage membership, but cannot read its messages or references unless
+they join. They never receive a Direct-message exception. Open Teams are already
+readable by every active staff member, including administrators.
 
 ## Messages as a retrieval source
 
@@ -91,12 +89,25 @@ separately authorised audit, replaces the ordinary message with a tombstone and
 hides retained versions from participants. This preserves evidence without
 turning retention into a browse-history feature.
 
+## Document references are not attachments
+
+Migration `0014` stores only a relational pointer. It never copies a title,
+filename, excerpt, URL or file bytes into chat. The base reference table is not
+selectable through the Data API; a narrow projection returns a title and ID only
+when the current reader can open the document, otherwise it returns a generic
+locked card. Existing cards therefore lock or unlock as permissions change.
+
+Before sending, the composer reports how many conversation readers lack access.
+The sender can grant Team Viewer access and send in one transaction, post a
+locked card, review the document's sharing panel or cancel the reference. The
+final send recomputes access so a membership change between warning and click
+cannot silently widen disclosure. Direct messages may reference a document but
+can never grant permissions.
+
 ## Not done
 
 - Realtime delivery. A thread updates when the page revalidates, not when the
   other person types. Supabase Realtime on `chat_messages` is the obvious next
   step and inherits the same RLS.
-- Attachments. Sharing a document into a thread should hand over a link and a
-  grant, not a copy of the file — that needs the access module, not this one.
-- Group threads can be created by adding a participant to a direct thread, but
-  there is no "start a group" flow.
+- File attachments remain forbidden. Governed document references are the only
+  supported way to point from a message to a file.

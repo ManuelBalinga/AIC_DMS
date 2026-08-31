@@ -219,6 +219,23 @@ export type DocumentTeamAccess = {
   created_at: string;
 }
 
+export type ChatDocumentReference = {
+  id: string;
+  message_id: string;
+  document_id: string | null;
+  created_at: string;
+}
+
+export type ReferenceableDocument = Pick<DocumentRecord, "id" | "title" | "mime_type">;
+
+export type ChatDocumentReferenceProjection = {
+  message_id: string;
+  locked: boolean;
+  document_id: string | null;
+  title: string | null;
+  mime_type: string | null;
+};
+
 export type ChatMention = {
   message_id: string;
   mentioned_user_id: string;
@@ -371,6 +388,13 @@ export type Database = {
         Update: Partial<ChatMessage>;
         Relationships: Relationship[];
       };
+      chat_document_references: {
+        Row: ChatDocumentReference;
+        Insert: Pick<ChatDocumentReference, "message_id" | "document_id"> &
+          Partial<Omit<ChatDocumentReference, "message_id" | "document_id">>;
+        Update: Partial<ChatDocumentReference>;
+        Relationships: Relationship[];
+      };
       document_team_access: {
         Row: DocumentTeamAccess;
         Insert: Pick<DocumentTeamAccess, "document_id" | "team_id"> &
@@ -444,8 +468,22 @@ export type Database = {
           message_body: string;
           reply_to_id?: string | null;
           mentioned_user_ids?: string[];
+          referenced_document_ids?: string[];
+          reference_mode?: "require_access" | "locked" | "grant_team";
         };
         Returns: string;
+      };
+      list_chat_document_references: {
+        Args: { target_thread_id: string };
+        Returns: ChatDocumentReferenceProjection[];
+      };
+      list_referenceable_documents: {
+        Args: Record<string, never>;
+        Returns: ReferenceableDocument[];
+      };
+      document_reference_gap_count: {
+        Args: { target_thread_id: string; target_document_id: string };
+        Returns: number;
       };
       create_team: {
         Args: {

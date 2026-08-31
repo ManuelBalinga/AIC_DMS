@@ -1,11 +1,11 @@
 # Team communication — how it will work
 
 Decided with Manuel, 20 August 2026. The durable Teams foundation is now built
-through migrations `0008`&ndash;`0013`: strict two-person Direct messages,
+through migrations `0008`&ndash;`0014`: strict two-person Direct messages,
 open/closed Teams, governed membership, unread state, retrieval rules,
 one-level replies, mentions, reactions, retained edit history, retraction and
-membership-derived Team document grants. Permission-aware document references,
-thread promotion and realtime delivery remain future work. The new migrations
+membership-derived Team document grants and permission-aware document references
+with title-free locked cards. Thread promotion and realtime delivery remain future work. The new migrations
 are rollback-rehearsed but not deployed to the sole hosted project.
 
 The brief was "imitate Slack, for a corporate setting". What follows copies

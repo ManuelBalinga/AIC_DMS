@@ -4,7 +4,8 @@ import { useCallback, useState, useTransition } from "react";
 
 import { Alert, Button, Card, Textarea } from "@/components/ui";
 import { emptyActionState } from "@/lib/action-state";
-import type { ChatReactionEmoji } from "@/lib/types/database";
+import type { ChatReactionEmoji, ReferenceableDocument } from "@/lib/types/database";
+import Link from "next/link";
 import { editMessage, retractMessage, toggleReaction } from "@/modules/chat/actions";
 import {
   buildMessageTree,
@@ -25,6 +26,7 @@ function MessageBubble({
   canReply,
   interactive,
   onReply,
+  documentsById,
 }: {
   message: MessageWithSender;
   threadId: string;
@@ -32,6 +34,7 @@ function MessageBubble({
   canReply: boolean;
   interactive: boolean;
   onReply: (message: MessageWithSender) => void;
+  documentsById: Map<string, ReferenceableDocument>;
 }) {
   const mine = message.sender_id === currentUserId;
   const retracted = Boolean(message.retracted_at);
@@ -110,6 +113,31 @@ function MessageBubble({
             </span>
           ))}
         </p>
+      ) : null}
+
+      {!retracted && message.document_references.length > 0 ? (
+        <div className="mt-2 space-y-2">
+          {message.document_references.map((reference, referenceIndex) => {
+            const document = reference.document_id
+              ? documentsById.get(reference.document_id)
+              : undefined;
+            return document ? (
+              <Link
+                key={reference.document_id}
+                href={`/documents/${document.id}`}
+                className="block rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 hover:border-blue-400 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-100"
+              >
+                <span className="block text-xs font-medium uppercase tracking-wide opacity-70">Document</span>
+                {document.title}
+              </Link>
+            ) : (
+              <div key={`${message.id}-locked-document-${referenceIndex}`} className="rounded-lg border border-dashed border-neutral-300 px-3 py-2 text-sm text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
+                <span className="block text-xs font-medium uppercase tracking-wide">Restricted document</span>
+                You do not have access to this document. Its title is hidden.
+              </div>
+            );
+          })}
+        </div>
       ) : null}
 
       {!retracted ? (
@@ -212,17 +240,22 @@ export function ConversationView({
   participants,
   currentUserId,
   canParticipate,
+  referenceableDocuments,
+  teamVisibility,
 }: {
   threadId: string;
   messages: MessageWithSender[];
   participants: ChatPerson[];
   currentUserId: string;
   canParticipate: boolean;
+  referenceableDocuments: ReferenceableDocument[];
+  teamVisibility: "open" | "closed" | null;
 }) {
   const [replyTo, setReplyTo] = useState<{ id: string; label: string } | null>(null);
   const cancelReply = useCallback(() => setReplyTo(null), []);
   const tree = buildMessageTree(messages);
   const mentionablePeople = participants.filter((person) => person.id !== currentUserId);
+  const documentsById = new Map(referenceableDocuments.map((document) => [document.id, document]));
 
   const beginReply = (message: MessageWithSender) => {
     setReplyTo({ id: message.id, label: displayName(message.sender) });
@@ -247,6 +280,7 @@ export function ConversationView({
                   canReply
                   interactive={canParticipate}
                   onReply={beginReply}
+                  documentsById={documentsById}
                 />
                 {message.replies.length > 0 ? (
                   <ol className="ml-6 mt-3 space-y-3 border-l-2 border-neutral-200 pl-4 dark:border-neutral-800">
@@ -259,6 +293,7 @@ export function ConversationView({
                           canReply={false}
                           interactive={canParticipate}
                           onReply={beginReply}
+                          documentsById={documentsById}
                         />
                       </li>
                     ))}
@@ -277,6 +312,8 @@ export function ConversationView({
             people={mentionablePeople}
             replyTo={replyTo}
             onCancelReply={cancelReply}
+            documents={referenceableDocuments}
+            teamVisibility={teamVisibility}
           />
         </div>
       ) : (

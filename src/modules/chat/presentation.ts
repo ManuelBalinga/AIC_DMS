@@ -2,6 +2,7 @@ import type {
   ChatMessage,
   ChatMessageVersion,
   ChatReaction,
+  ChatDocumentReferenceProjection,
   Profile,
 } from "@/lib/types/database";
 
@@ -12,6 +13,7 @@ export type MessageWithSender = ChatMessage & {
   mentions: { mentioned_user_id: string; profile: ChatPerson | null }[];
   reactions: Pick<ChatReaction, "user_id" | "emoji">[];
   versions: Pick<ChatMessageVersion, "id" | "body" | "created_at">[];
+  document_references: ChatDocumentReferenceProjection[];
 };
 
 export type ThreadedMessage = MessageWithSender & { replies: MessageWithSender[] };

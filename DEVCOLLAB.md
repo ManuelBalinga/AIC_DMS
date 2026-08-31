@@ -511,3 +511,49 @@ an explicitly approved target.
 - Files: `supabase/migrations/0012_teams_foundation.sql`, `supabase/migrations/0013_team_document_access.sql`, `db/portable-schema.sql`, `db/local-test/01_permission_boundary.sql`, `src/modules/chat/`, `src/modules/access/`, `src/app/(app)/messages/`, `src/app/(app)/documents/[id]/`, `src/app/(app)/admin/people/`, `tests/teams-foundation.test.ts`, `tests/team-document-access.test.ts`, `PROJECT_STATUS.html`, `README.md`, `Documentation/TEAM_COMMUNICATION.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/VERCEL_SETUP.md`, `DEVCOLLAB.md`
 - Hosted changes: none; every SQL installation and behavior rehearsal was explicitly rolled back
 - Status: code-complete and rollback-rehearsed; migrations `0010`–`0013`, browser verification and the full hosted RLS suite remain open
+
+### 2026-08-31 — Timi + Codex
+
+**Completed the next actionable Phase 5 deliverable: permission-aware document
+references in Team and Direct conversations.**
+
+Worked exclusively on `Timi-Dev`. Migration
+`0014_permission_aware_document_references.sql` adds retained relational pointers
+from messages to governed documents without copying file bytes, titles,
+filenames, excerpts or URLs into chat. The base reference table is insert-only
+for authenticated callers and not selectable through the Data API. A narrow
+request-aware projection returns a linkable document card only when the current
+reader can actually open the document; otherwise every document field,
+including the identifier and title, is null and the UI renders a generic locked
+card. Existing cards lock and unlock dynamically as document grants and Team
+membership change. Deleting a document leaves an unavailable-card evidence row
+rather than silently rewriting conversation history.
+
+The composer now lists only documents the sender may read and performs an
+aggregate preflight before posting. When conversation readers lack access, the
+sender must choose to grant Team Viewer access and send atomically, post a
+locked card, review the document's sharing panel, or cancel the reference. The
+send RPC recomputes access at commit time to close the membership-change race.
+Direct messages can reference a document but can never grant permissions. For
+open Teams the warning says explicitly that a Team grant covers members while
+non-member staff may still receive a locked card.
+
+The migration was mirrored into the portable PostgreSQL schema and the local
+permission harness now contains 98 executable assertions, including title-free
+locked cards, raw-table denial, closed-Team outsider/administrator denial,
+dynamic unlock and atomic Team grants. Seven new migration tests raise the full
+suite to 144. Migrations `0010`–`0014` parse-installed together on hosted
+PostgreSQL inside `BEGIN`/`ROLLBACK`; a separate real-role rehearsal proved
+aggregate gaps, null title/ID projection, dynamic unlock after Team grant and
+continued locking for a non-member administrator. Every transaction was rolled
+back and no hosted schema or data changed.
+
+Lint, typecheck, all 144 tests, schema parity and the Next.js 16 production build
+pass. `PROJECT_STATUS.html` moves permission-aware document references to Built
+and reports 69 of 81. Built does not mean deployed or browser-verified: browser
+interaction is blocked until migrations `0010`–`0014` have an approved target,
+because the free-plan project has no disposable Supabase branch.
+
+- Files: `supabase/migrations/0014_permission_aware_document_references.sql`, `db/portable-schema.sql`, `db/local-test/01_permission_boundary.sql`, `src/lib/types/database.ts`, `src/modules/chat/actions.ts`, `src/modules/chat/queries.ts`, `src/modules/chat/presentation.ts`, `src/modules/chat/README.md`, `src/app/(app)/messages/[threadId]/composer.tsx`, `src/app/(app)/messages/[threadId]/conversation-view.tsx`, `src/app/(app)/messages/[threadId]/page.tsx`, `src/components/ui/index.tsx`, `tests/document-references.test.ts`, `tests/chat-collaboration.test.ts`, `PROJECT_STATUS.html`, `README.md`, `Documentation/TEAM_COMMUNICATION.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/VERCEL_SETUP.md`, `db/local-test/README.md`, `DEVCOLLAB.md`
+- Hosted changes: none; all migration installation and behavior checks were explicitly rolled back
+- Status: code-complete and rollback-rehearsed; migrations `0010`–`0014`, browser verification and the full hosted RLS suite remain open

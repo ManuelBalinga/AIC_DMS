@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { THREAD_PAGE_SIZE } from "@/modules/chat/config";
-import type { ChatThread } from "@/lib/types/database";
+import type { ChatThread, ReferenceableDocument } from "@/lib/types/database";
 import {
   displayName,
   type ChatPerson,
@@ -167,18 +167,38 @@ export async function getThread(
 export async function listMessages(threadId: string): Promise<MessageWithSender[]> {
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("chat_messages")
-    .select(MESSAGE_SELECT)
-    .eq("thread_id", threadId)
-    .order("created_at", { ascending: false })
-    .limit(THREAD_PAGE_SIZE)
-    .returns<MessageWithSender[]>();
+  const [{ data }, { data: references }] = await Promise.all([
+    supabase
+      .from("chat_messages")
+      .select(MESSAGE_SELECT)
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: false })
+      .limit(THREAD_PAGE_SIZE)
+      .returns<Omit<MessageWithSender, "document_references">[]>(),
+    supabase.rpc("list_chat_document_references", { target_thread_id: threadId }),
+  ]);
+
+  const referencesByMessage = new Map<string, NonNullable<typeof references>>();
+  for (const reference of references ?? []) {
+    const list = referencesByMessage.get(reference.message_id) ?? [];
+    list.push(reference);
+    referencesByMessage.set(reference.message_id, list);
+  }
 
   // Fetched newest-first so the limit keeps the *recent* end of a long thread,
   // then reversed for display. Ordering ascending with a limit would show
   // somebody the beginning of a conversation from last year.
-  return (data ?? []).reverse();
+  return (data ?? []).reverse().map((message) => ({
+    ...message,
+    document_references: referencesByMessage.get(message.id) ?? [],
+  }));
+}
+
+/** Titles safe to show in a composer or reference card for this viewer. */
+export async function listReferenceableDocuments(): Promise<ReferenceableDocument[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("list_referenceable_documents");
+  return data ?? [];
 }
 
 /** Total unread messages across every thread, for the nav badge. */

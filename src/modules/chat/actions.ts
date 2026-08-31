@@ -119,10 +119,10 @@ export async function joinTeam(
 }
 
 export async function sendMessage(
-  _prev: ActionState,
+  _prev: SendMessageState,
   formData: FormData,
-): Promise<ActionState> {
-  await requireProfile();
+): Promise<SendMessageState> {
+  const profile = await requireProfile();
 
   const threadId = String(formData.get("thread_id") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
@@ -131,6 +131,9 @@ export async function sendMessage(
     .getAll("mentioned_user_ids")
     .map(String)
     .filter(Boolean);
+  const referencedDocumentId = String(formData.get("referenced_document_id") ?? "").trim();
+  const confirmedLockedReference = formData.get("confirm_locked_reference") === "true";
+  const grantTeamReference = formData.get("reference_mode") === "grant_team";
 
   if (!threadId) return { error: "Missing conversation." };
   if (!body) return { error: "Write something first." };
@@ -140,11 +143,41 @@ export async function sendMessage(
 
   const supabase = await createClient();
 
+  if (referencedDocumentId && !confirmedLockedReference && !grantTeamReference) {
+    const { data: inaccessibleCount, error: gapError } = await supabase.rpc(
+      "document_reference_gap_count",
+      { target_thread_id: threadId, target_document_id: referencedDocumentId },
+    );
+    if (gapError) return { error: "That document could not be referenced." };
+    if ((inaccessibleCount ?? 0) > 0) {
+      const [{ data: thread }, { data: canManageDocument }] = await Promise.all([
+        supabase.from("chat_threads").select("kind").eq("id", threadId).maybeSingle(),
+        supabase.rpc("can_manage_document", {
+          check_document_id: referencedDocumentId,
+          check_user_id: profile.id,
+        }),
+      ]);
+      return {
+        referenceWarning: {
+          documentId: referencedDocumentId,
+          inaccessibleCount: inaccessibleCount ?? 0,
+          canGrantTeam: thread?.kind === "team" && canManageDocument === true,
+        },
+      };
+    }
+  }
+
   const { data: messageId, error } = await supabase.rpc("send_chat_message", {
     target_thread_id: threadId,
     message_body: body,
     reply_to_id: parentId,
     mentioned_user_ids: mentionedUserIds,
+    referenced_document_ids: referencedDocumentId ? [referencedDocumentId] : [],
+    reference_mode: grantTeamReference
+      ? "grant_team"
+      : confirmedLockedReference
+        ? "locked"
+        : "require_access",
   });
 
   if (error || !messageId) {
@@ -158,6 +191,14 @@ export async function sendMessage(
   revalidatePath("/messages");
   return { success: "Sent." };
 }
+
+export type SendMessageState = ActionState & {
+  referenceWarning?: {
+    documentId: string;
+    inaccessibleCount: number;
+    canGrantTeam: boolean;
+  };
+};
 
 export async function toggleReaction(formData: FormData): Promise<void> {
   const profile = await requireProfile();

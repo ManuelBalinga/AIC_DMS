@@ -333,6 +333,23 @@ select pg_temp.expect_error('a direct conversation cannot receive document acces
             values ('33333333-3333-3333-3333-333333333333', %L, 'viewer',
                     '11111111-1111-1111-1111-111111111111')$q$, :'thread'), '23514');
 
+insert into public.documents
+  (owner_id, title, file_name, storage_path, mime_type, size_bytes, tags)
+values
+  ('11111111-1111-1111-1111-111111111111', 'Restricted reference test',
+   'reference.txt', 'owner/reference.txt', 'text/plain', 32, array['reference'])
+returning id as reference_doc \gset
+
+select pg_temp.expect('a closed Team reports one reader without document access',
+  public.document_reference_gap_count(
+    '88888888-8888-8888-8888-888888888888', :'reference_doc'::uuid), 1::bigint);
+
+select public.send_chat_message(
+  '88888888-8888-8888-8888-888888888888',
+  'This reference stays locked until access is granted.', null, '{}'::uuid[],
+  array[:'reference_doc'::uuid], 'locked'
+) as locked_reference_message \gset
+
 -- ---------------------------------------------------------------------------
 -- Chat collaboration and retention (migration 0011)
 -- ---------------------------------------------------------------------------
@@ -400,6 +417,12 @@ select pg_temp.expect('a Team member inherits access to its chunks', count(*)::b
 select pg_temp.expect('a Team viewer cannot comment',
   public.can_comment_on_document('33333333-3333-3333-3333-333333333333',
                                  '77777777-7777-7777-7777-777777777777'), false);
+select pg_temp.expect('a Team reader sees a title-free locked card', count(*)::bigint, 1::bigint)
+  from public.list_chat_document_references('88888888-8888-8888-8888-888888888888')
+  where message_id = :'locked_reference_message'::uuid
+    and locked and document_id is null and title is null;
+select pg_temp.expect_denied('raw document-reference rows are not selectable',
+  'select * from public.chat_document_references');
 select pg_temp.expect('a participant sees edit history', count(*)::bigint, 1::bigint)
   from public.chat_message_versions where message_id = :'group_message'::uuid;
 select pg_temp.expect('a mentioned participant sees their mention', count(*)::bigint, 1::bigint)
@@ -424,6 +447,9 @@ select pg_temp.expect('a non-member does not inherit a Team document', count(*):
   from public.documents where id = '33333333-3333-3333-3333-333333333333';
 select pg_temp.expect('a non-member does not inherit Team document chunks', count(*)::bigint, 0::bigint)
   from public.document_chunks where document_id = '33333333-3333-3333-3333-333333333333';
+select pg_temp.expect_error('a closed-Team outsider cannot query document references',
+  $q$select * from public.list_chat_document_references(
+    '88888888-8888-8888-8888-888888888888')$q$, '42501');
 select pg_temp.expect_denied('a non-member cannot react to a message',
   format($q$insert into public.chat_reactions (message_id, user_id, emoji)
             values (%L, '66666666-6666-6666-6666-666666666666', '👍')$q$, :'reply_message'));
@@ -438,11 +464,20 @@ select pg_temp.expect('administrator sees no mentions', count(*)::bigint, 0::big
   from public.chat_mentions;
 select pg_temp.expect('administrator sees no reactions', count(*)::bigint, 0::bigint)
   from public.chat_reactions;
+select pg_temp.expect_error('a closed-Team administrator cannot query document references',
+  $q$select * from public.list_chat_document_references(
+    '88888888-8888-8888-8888-888888888888')$q$, '42501');
 
 -- Retraction is the only ordinary-user removal operation. It leaves a visible
 -- tombstone, clears derived search data, hides version history, and cannot be
 -- reversed. There is deliberately no DELETE policy even for the sender.
 set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.send_chat_message(
+  '88888888-8888-8888-8888-888888888888',
+  'Grant Team Viewer access and send in one transaction.', null, '{}'::uuid[],
+  array[:'reference_doc'::uuid], 'grant_team'
+) as granted_reference_message \gset
+
 update public.chat_messages
    set retracted_at = now(),
        retracted_by = '11111111-1111-1111-1111-111111111111'
@@ -497,6 +532,12 @@ select pg_temp.expect('a participant cannot read retained retracted text', count
   from public.chat_message_versions where message_id = :'group_message'::uuid;
 select pg_temp.expect('reactions remain visible on an unretracted reply', count(*)::bigint, 1::bigint)
   from public.chat_reactions where message_id = :'reply_message'::uuid;
+select pg_temp.expect('a later Team grant dynamically unlocks both old and new cards', count(*)::bigint, 2::bigint)
+  from public.list_chat_document_references('88888888-8888-8888-8888-888888888888')
+  where not locked and document_id = :'reference_doc'::uuid
+    and title = 'Restricted reference test';
+select pg_temp.expect('the atomic Team grant unlocks the referenced document', count(*)::bigint, 1::bigint)
+  from public.documents where id = :'reference_doc'::uuid;
 
 -- Leaving a Team removes inherited document access immediately without
 -- changing the grant row or any unrelated direct-message membership.

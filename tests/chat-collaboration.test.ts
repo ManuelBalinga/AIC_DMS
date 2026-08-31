@@ -30,6 +30,7 @@ function message(
     mentions: [],
     reactions: [],
     versions: [],
+    document_references: [],
   };
 }
 

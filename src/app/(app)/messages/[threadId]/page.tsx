@@ -8,6 +8,7 @@ import {
   getThread,
   listContactablePeople,
   listMessages,
+  listReferenceableDocuments,
   threadName,
 } from "@/modules/chat/queries";
 import { Card } from "@/components/ui";
@@ -40,12 +41,13 @@ export default async function ThreadPage({
 
   if (!canReadConversation && !membershipOnly) notFound();
 
-  const [messages, people, teamDocumentCount] = await Promise.all([
+  const [messages, people, teamDocumentCount, referenceableDocuments] = await Promise.all([
     canReadConversation ? listMessages(threadId) : Promise.resolve([]),
     isTeam ? listContactablePeople(profile.id) : Promise.resolve([]),
     isTeam && (thread.viewerIsParticipant || profile.role === "administrator")
       ? getTeamDocumentGrantCount(threadId)
       : Promise.resolve(0),
+    canReadConversation ? listReferenceableDocuments() : Promise.resolve([]),
   ]);
 
   // Opening a thread is reading it. Deliberately not awaited into the render
@@ -103,6 +105,8 @@ export default async function ThreadPage({
           participants={thread.participants}
           currentUserId={profile.id}
           canParticipate={thread.viewerIsParticipant}
+          referenceableDocuments={referenceableDocuments}
+          teamVisibility={isTeam ? thread.visibility : null}
         />
       )}
 
