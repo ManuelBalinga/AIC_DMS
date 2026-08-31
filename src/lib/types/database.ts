@@ -1,6 +1,8 @@
 /**
- * Hand-maintained database types, matching the shape `supabase-js` expects
- * (Row / Insert / Update / Relationships per table).
+ * Hand-maintained application-facing database types, matching the shape
+ * `supabase-js` expects (Row / Insert / Update / Relationships per table).
+ * Internal relations such as the migration ledger and private RLS helpers are
+ * deliberately absent because application code must never address them.
  *
  * Regenerate from the live project once the Supabase CLI is linked:
  *   npx supabase gen types typescript --linked > src/lib/types/database.ts
@@ -332,15 +334,7 @@ export type Database = {
         Args: { check_document_id: string; check_user_id: string };
         Returns: boolean;
       };
-      can_read_document: {
-        Args: { check_document_id: string; check_user_id: string };
-        Returns: boolean;
-      };
       can_comment_on_document: {
-        Args: { check_document_id: string; check_user_id: string };
-        Returns: boolean;
-      };
-      can_edit_document: {
         Args: { check_document_id: string; check_user_id: string };
         Returns: boolean;
       };
@@ -367,10 +361,6 @@ export type Database = {
           min_similarity?: number;
         };
         Returns: RelatedDocument[];
-      };
-      is_chat_participant: {
-        Args: { check_thread_id: string; check_user_id: string };
-        Returns: boolean;
       };
       find_or_create_direct_thread: {
         Args: { other_user_id: string };

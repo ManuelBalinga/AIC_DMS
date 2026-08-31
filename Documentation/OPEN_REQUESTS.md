@@ -1,14 +1,24 @@
 # What remains open
 
-The Supabase project exists, all nine migrations are applied, the application is
-deployed, and member authentication has been exercised against Supabase. This
-file tracks the work that remains unverified or requires an AIC decision.
+The Supabase project exists, migrations `0001`–`0009` are applied, the
+application is deployed, and member authentication has been exercised against
+Supabase. Migration `0010_security_hardening.sql` is built and passed a
+transactional hosted rehearsal, but has not been deployed because this project
+has no Supabase development branch. This file tracks the work that remains
+unverified or requires an AIC decision.
 
 The backend choice is settled in [`DATABASE_DECISION.md`](./DATABASE_DECISION.md):
 Supabase is the current database, auth and storage provider; the portable schema
 keeps Neon or plain Postgres available as a future exit.
 
 ## Verification still required
+
+### 0. Approve a safe hosted-database target
+
+The MCP audit found no Supabase development branches. Before migration `0010`
+or the destructive hosted RLS suite runs, either create a development branch or
+explicitly approve the main hosted project as the target. The RLS suite creates
+and deletes throwaway users and data, so the development branch is preferred.
 
 ### 1. Run the live permission-boundary suite
 

@@ -310,9 +310,11 @@ provider configured under Authentication → Emails → SMTP.
 
 ## Step 5: verify the database is up to date
 
-The current Supabase project has all nine migrations applied. For a new or
-recovered environment, use `npm run db:migrate`; the files below are the most
-recent additions and are listed for verification, not as pending current work.
+The current Supabase project has migrations `0001`–`0009` applied. Migration
+`0010_security_hardening.sql` is built and transactionally rehearsed but remains
+pending until a development branch or explicit main-project approval exists.
+For a new or recovered environment, use `npm run db:migrate`; the files below
+are listed in order for verification.
 
 Supabase → **SQL Editor** → **New query**. For each file below, in this exact
 order: open it in GitHub, copy the whole thing, paste it into the editor, click
@@ -322,6 +324,7 @@ order: open it in GitHub, copy the whole thing, paste it into the editor, click
 supabase/migrations/0007_roles_and_comments.sql
 supabase/migrations/0008_chat_and_context.sql
 supabase/migrations/0009_direct_messages_are_never_indexed.sql
+supabase/migrations/0010_security_hardening.sql
 ```
 
 Each one is written to be safe to run twice, so if you are unsure whether you

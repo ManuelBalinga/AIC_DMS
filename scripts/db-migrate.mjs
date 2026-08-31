@@ -22,9 +22,12 @@
  */
 
 import { readFileSync, readdirSync } from "node:fs";
-import { createHash } from "node:crypto";
 import path from "node:path";
 import pg from "pg";
+import {
+  acceptedMigrationChecksums,
+  migrationChecksum,
+} from "./migration-checksum.mjs";
 
 const MIGRATIONS_DIR = "supabase/migrations";
 
@@ -82,8 +85,10 @@ function localMigrations() {
         name,
         sql,
         // Recorded so an already-applied migration that has since been edited is
-        // reported rather than silently ignored.
-        checksum: createHash("sha256").update(sql).digest("hex").slice(0, 16),
+        // reported rather than silently ignored. Line endings are normalised so
+        // the same Git revision has the same checksum on Windows and Linux.
+        checksum: migrationChecksum(sql),
+        acceptedChecksums: acceptedMigrationChecksums(sql),
       };
     });
 }
@@ -135,7 +140,7 @@ async function main() {
 
     if (previous === undefined) {
       pending.push(migration);
-    } else if (previous !== migration.checksum) {
+    } else if (!migration.acceptedChecksums.has(previous)) {
       // Not fixed automatically: editing an applied migration means the database
       // and the file no longer agree, and only a person knows which is right.
       console.log(

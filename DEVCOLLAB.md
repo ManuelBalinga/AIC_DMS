@@ -379,3 +379,45 @@ development project only.
 - Files: `PROJECT_STATUS.html`, `README.md`, `.env.example`, `Documentation/`, `db/`, `src/modules/*/README.md`, `public/*.svg`, `DEVCOLLAB.md`
 - Commits: this `Timi-Dev` commit
 - Status: done; hosted RLS, deployed browser flow and representative-document testing remain unverified
+
+### 2026-08-31 — Timi + Codex
+
+**Connected the project-scoped Supabase MCP, audited the hosted database and built the first hardening migration.**
+
+Worked exclusively on `Timi-Dev`. Registered and OAuth-authenticated the Supabase
+MCP for project `pduohcdyszjlnmchhvws`; no service-role or database secret was
+copied into chat or committed. The ignored `.env.local` now carries only the
+project URL and modern publishable key supplied by MCP. The secret/service-role
+field remains blank.
+
+The read-only hosted inventory found 13 public tables with RLS enabled, 29
+policies, a private 50 MB `documents` bucket, three confirmed accounts, nine
+applied repository migrations and no Supabase development branches. Supabase's
+advisors reported 28 security notices and 23 performance notices: the actionable
+database findings were public execution of twelve `SECURITY DEFINER` functions,
+one mutable function search path and eight unindexed foreign keys. A separate
+grant audit found `anon` and `authenticated` held every privilege, including
+`TRUNCATE` and `TRIGGER`, on every public relation. Leaked-password protection is
+also disabled and requires a dashboard setting; the vector extension location and
+unused-index notices were recorded but not changed without evidence.
+
+Added `0010_security_hardening.sql`. It moves RLS-bypass helpers into a non-exposed
+`private` schema, keeps the three intentional application RPCs behind
+identity-checking `SECURITY INVOKER` wrappers, revokes direct execution from
+trigger-only functions, replaces blanket Data API privileges with the minimum
+per-table operations used by the application, locks down future defaults and adds
+all eight missing foreign-key indexes. The complete migration executed successfully inside
+`BEGIN`/`ROLLBACK` on hosted Supabase, and a follow-up query proved nothing
+persisted. It has **not** been deployed: the only MCP target is the main hosted
+database, so deployment waits for a development branch or Timi's explicit main
+project approval.
+
+The migration ledger also exposed a Windows/Linux false-positive: identical SQL
+had different checksums under CRLF and LF. The runner now hashes canonical line
+endings while accepting historical raw hashes. Three regression tests pin that
+unchanged cross-platform files pass and genuine edits still fail. Lint,
+typecheck, all 115 unit tests and the Next.js production build pass.
+
+- Files: `supabase/migrations/0010_security_hardening.sql`, `scripts/db-migrate.mjs`, `scripts/migration-checksum.mjs`, `tests/migration-checksum.test.ts`, `src/lib/types/database.ts`, `PROJECT_STATUS.html`, `README.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/VERCEL_SETUP.md`, `db/local-test/README.md`, `DEVCOLLAB.md`
+- Hosted changes: none; OAuth/MCP registration is local Codex configuration and the SQL rehearsal was rolled back
+- Status: code-complete; migration deployment, leaked-password dashboard setting, hosted RLS suite and browser flow remain open
