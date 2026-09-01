@@ -810,3 +810,41 @@ honest outcome; a number that only ever rises is not a status page.
 - Files: `scripts/verify-rls.mjs`, `PROJECT_STATUS.html`, `build/status-artifact.html`, `DEVCOLLAB.md`
 - Hosted changes: **yes** — migrations `0010`–`0017` applied to `pduohcdyszjlnmchhvws`. Pre-migration snapshot held outside the repo; it contains real email addresses and must not be committed
 - Status: schema and permissions verified. Deployment unconfirmed, browser flow unverified, `NEXT_PUBLIC_SITE_URL` still wrong
+
+### 2026-09-01 — Manuel + Claude
+
+**Verified the permission boundary through a browser, and fixed the first real
+bug the verification found.**
+
+Signed in as a throwaway member account against the dev server — nobody's real
+credentials — while Manuel's indexed document sat in the same database. It held
+at every layer: an empty library, `Not found` on the document's direct URL, and
+**404 from the download, preview-text and offline-lease routes alike**,
+including the newest surface from `0017`. 404 rather than 403 matters here: the
+reply does not confirm the document exists. Asking about its contents returned
+no sources and no answer. Both throwaway accounts were deleted afterwards; the
+database is back to three accounts and one document.
+
+**Then it found something.** Ask returned an error page, not an answer, because
+the Gemini free tier had exhausted its per-minute embedding quota. Retrieval
+degrades to keyword search when no provider is *configured* — but a provider
+that was configured and merely unavailable threw instead, losing the keyword arm
+along with the semantic one. On a free tier a per-minute quota is ordinary
+traffic, not an outage, so this was a question failing on a normal Tuesday.
+
+Fixed by guarding the call so a failed request degrades exactly as a missing key
+does. Added `tests/retrieval-degradation.test.ts`, and checked it has teeth by
+reverting the fix: **two of its five assertions fail without the guard.** The
+happy path reads perfectly well without a `try`, which is precisely why this
+will be easy to reintroduce.
+
+Also corrected a stale line claiming the live database was on `0001`–`0009`.
+
+**A note for whoever picks this up.** Two claims on the status page turned out to
+be wrong today, and neither was careless — both were true when written and
+quietly stopped being true. The status page is only as honest as the last person
+who checked, so prefer running the thing to reading the row about it.
+
+- Files: `src/modules/rag/retrieve.ts`, `tests/retrieval-degradation.test.ts`, `PROJECT_STATUS.html`, `DEVCOLLAB.md`
+- Hosted changes: two throwaway accounts created and deleted; no lasting change
+- Status: 181 tests, clean build. Deployment still unconfirmed, `NEXT_PUBLIC_SITE_URL` still `localhost`, retrieval quality against real AIC documents still untested

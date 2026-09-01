@@ -103,7 +103,22 @@ export async function retrievePassages(question: string): Promise<RetrievalResul
     return { passages: assemble(documents, messages), degradedTo: "keyword" };
   }
 
-  const embedding = await embedQuery(trimmed);
+  // Degrading when no key is set was never the whole story: the provider can
+  // also be configured and simply unavailable — rate-limited, down, or
+  // unreachable. On a free tier that is routine rather than exceptional, and an
+  // unguarded throw here loses the keyword arm too, so a per-minute quota takes
+  // Ask down completely when it should merely have made it less clever.
+  //
+  // The failure is swallowed rather than reported because the caller already
+  // tells the reader that semantic search is unavailable. What must not happen
+  // is a silent *quality* drop, and `degradedTo` is what prevents that.
+  let embedding;
+  try {
+    embedding = await embedQuery(trimmed);
+  } catch {
+    addKeywordHits();
+    return { passages: assemble(documents, messages), degradedTo: "keyword" };
+  }
 
   const [{ data: semanticChunks }, { data: semanticMessages }] = await Promise.all([
     supabase.rpc("match_document_chunks", {
