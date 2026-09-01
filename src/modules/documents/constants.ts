@@ -44,11 +44,34 @@ export function isAcceptedMimeType(mimeType: string): boolean {
 const NATIVELY_PREVIEWABLE_PREFIXES = ["image/", "text/"];
 const NATIVELY_PREVIEWABLE_TYPES = ["application/pdf"];
 
-export function isPreviewable(mimeType: string): boolean {
+/**
+ * Formats converted on our own server into readable HTML, because a browser
+ * cannot open them and the alternative — a third-party online viewer — would
+ * send an AIC document out of AIC's control on every preview.
+ *
+ * The legacy binary formats (.doc, .xls, .ppt) are deliberately absent. They
+ * are a different container from OOXML entirely, no parser here reads them,
+ * and indexing already refuses them for the same reason.
+ */
+const OFFICE_PREVIEWABLE_TYPES = [
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+];
+
+export function isOfficePreviewable(mimeType: string): boolean {
+  return OFFICE_PREVIEWABLE_TYPES.includes(mimeType);
+}
+
+export function isNativelyPreviewable(mimeType: string): boolean {
   return (
     NATIVELY_PREVIEWABLE_TYPES.includes(mimeType) ||
     NATIVELY_PREVIEWABLE_PREFIXES.some((prefix) => mimeType.startsWith(prefix))
   );
+}
+
+export function isPreviewable(mimeType: string): boolean {
+  return isNativelyPreviewable(mimeType) || isOfficePreviewable(mimeType);
 }
 
 export function formatFileSize(bytes: number): string {
