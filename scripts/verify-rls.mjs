@@ -18,6 +18,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 /* -------------------------------------------------------------------------- */
@@ -136,7 +137,14 @@ async function main() {
   const outsiderClient = await signedInClient(outsider);
 
   // -- A private document, owned by `owner`, shared with nobody --------------
-  created.storagePath = `${ownerId}/rls-${stamp}/secret.txt`;
+  // The id is generated here rather than by the database, because migration
+  // `0015` binds `storage_path` to `{owner_id}/{id}/{file_name}` and makes that
+  // binding immutable — it is what lets the download route sign private bytes
+  // for a row without re-deriving who may read them. The path therefore has to
+  // name the id before the insert that creates it, which is exactly what
+  // `api/documents/upload-url` does in the real upload flow.
+  const documentId = randomUUID();
+  created.storagePath = `${ownerId}/${documentId}/secret.txt`;
   const { error: uploadError } = await admin.storage
     .from("documents")
     .upload(created.storagePath, Buffer.from("board minutes"), {
@@ -144,20 +152,25 @@ async function main() {
     });
   if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
 
-  const { data: document, error: insertError } = await ownerClient
-    .from("documents")
-    .insert({
-      owner_id: ownerId,
-      title: `RLS probe ${stamp}`,
-      file_name: "secret.txt",
-      storage_path: created.storagePath,
-      mime_type: "text/plain",
-      size_bytes: 13,
-    })
-    .select("id")
-    .single();
+  // No `.select()` on the way in, which is also what `api/documents` does.
+  // Asking PostgREST to return the row makes the statement satisfy the SELECT
+  // policy as well, and that policy calls `can_read_document`, which re-queries
+  // `documents`. Mid-INSERT that query cannot see the row being written, so the
+  // read is refused and the whole statement fails — even though the row is
+  // perfectly readable a moment later. Generating the id here removes the only
+  // reason to ask for it back.
+  const { error: insertError } = await ownerClient.from("documents").insert({
+    id: documentId,
+    owner_id: ownerId,
+    title: `RLS probe ${stamp}`,
+    file_name: "secret.txt",
+    storage_path: created.storagePath,
+    mime_type: "text/plain",
+    size_bytes: 13,
+  });
   if (insertError) throw new Error(`Insert failed: ${insertError.message}`);
-  created.documentId = document.id;
+  created.documentId = documentId;
+  const document = { id: documentId };
 
   console.log("documents");
   const { data: ownerRows } = await ownerClient

@@ -761,3 +761,52 @@ points.
   database does not yet have. No Vercel project currently exists under the
   connected account, so this push triggers no deployment; that is what makes it
   safe, not the code being deployable.
+
+### 2026-09-01 — Manuel + Claude
+
+**Applied migrations `0010`–`0017` to Supabase, ran the permission suite for the
+first time, and corrected a false deployment claim on the status page.**
+
+Timi held these migrations back for want of an "approved development target",
+which was the right instinct applied to a wrong premise. That database holds
+**three accounts, one document and zero chat messages**, and nothing is serving
+it. It was never production; it was a test project we had been treating as
+sacred. Snapshotted every account and document first, then applied all eight in
+order. Everything survived — 3 profiles, 1 document, 4 chunks, now 20 tables
+with RLS on every one.
+
+**`npm run verify:rls` has now run against the real project, and all 13 denial
+checks passed.** That is the acceptance criterion the whole security model rests
+on, and it had been asserted since 20 August without ever being tested.
+
+It did not pass first time, and the two failures were worth having. The first
+was migration `0015`'s new trigger binding `storage_path` to
+`{owner_id}/{id}/{file_name}`; the test predated it. The second was subtler and
+took a reproduction to pin down: `.insert(...).select()` **fails** where a bare
+`.insert(...)` succeeds, because asking PostgREST to return the row makes the
+statement satisfy the SELECT policy too, and that policy calls
+`can_read_document`, which re-queries `documents` and cannot see the row being
+written. The row is readable a moment later. **The application was never
+affected** — it generates the id client-side and never asks for the row back —
+so the fix was to make the test do what the app already does. Worth knowing
+before anyone adds a `.select()` to a document insert and spends an afternoon on
+it.
+
+Re-ran the advisors afterwards. **All twelve `SECURITY DEFINER` functions
+callable by `anon` are closed**, `is_administrator` and `can_read_document`
+among them — an unauthenticated caller could previously execute those over the
+public API. Seven advisories remain, all intended application RPCs for signed-in
+callers, plus leaked-password protection, which is a dashboard toggle.
+
+**Corrected the status page.** It claimed the application was online on Vercel.
+It could not be substantiated: a project named `aic-dms` exists in an account
+scope this tooling cannot read, an earlier deploy was refused for want of
+permission to create a production deployment, and `NEXT_PUBLIC_SITE_URL` is
+still `http://localhost:3000` — which alone means every invitation link the
+platform sends is dead for its recipient. **Deploy beta** moved down from Built
+to In progress. Security checks moved up. The total is unchanged, which is the
+honest outcome; a number that only ever rises is not a status page.
+
+- Files: `scripts/verify-rls.mjs`, `PROJECT_STATUS.html`, `build/status-artifact.html`, `DEVCOLLAB.md`
+- Hosted changes: **yes** — migrations `0010`–`0017` applied to `pduohcdyszjlnmchhvws`. Pre-migration snapshot held outside the repo; it contains real email addresses and must not be committed
+- Status: schema and permissions verified. Deployment unconfirmed, browser flow unverified, `NEXT_PUBLIC_SITE_URL` still wrong
