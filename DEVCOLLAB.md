@@ -716,3 +716,48 @@ deployment gates.
 - Files: `supabase/migrations/0017_offline_document_leases.sql`, `db/portable-schema.sql`, `db/local-test/01_permission_boundary.sql`, `src/lib/types/database.ts`, `src/modules/offline/*`, `src/app/api/offline/revalidate/route.ts`, `src/app/api/documents/[id]/offline/route.ts`, `src/app/offline/page.tsx`, `src/app/manifest.ts`, `public/sw.js`, `src/app/(app)/dashboard/upload-document.tsx`, `src/app/api/documents/route.ts`, `src/modules/documents/pdf-preview-text.ts`, `src/modules/documents/preview-selection.ts`, `src/app/api/documents/[id]/preview-text/route.ts`, `src/app/(app)/documents/[id]/*`, `tests/offline-access.test.ts`, `tests/pdf-passage-comments.test.ts`, `PROJECT_STATUS.html`, `public/status.html`, `README.md`, `Documentation/OFFLINE_ACCESS.md`, `Documentation/TEAM_COMMUNICATION.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/DATABASE_DECISION.md`, `Documentation/PHASE_COMPLETION_2026-09-01.md`, `DEVCOLLAB.md`
 - Hosted changes: none; migration `0017` was not applied and no destructive hosted verification ran
 - Status: code-complete and production-build clean; migrations `0010`–`0017`, hosted permission/browser verification, representative AIC samples, privacy approval and evidence-driven critical fixes remain open
+
+### 2026-09-01 — Manuel + Claude
+
+**Merged `Timi-Dev` into `Claude-Dev` and promoted to `main`; deleted three
+stale branches, one of which was actively corrupting local git state.**
+
+The merge was a clean fast-forward — nine commits, 101 files, +10,352 lines,
+**no conflicts**. That is because Timi had already merged `origin/main` into his
+branch at `c73fe54` rather than letting the two diverge. Worth keeping up: the
+DEVCOLLAB conflict this file warns about never materialised precisely because
+he pulled before he wrote.
+
+Verified the merged result rather than trusting the branch: typecheck, ESLint,
+**176 tests passing**, and a clean production build across 27 routes. Also
+re-verified two of Timi's claims independently instead of taking them at face
+value. Both held. The hosted database really is untouched — still on `0001`
+through `0009`, so his `BEGIN`/`ROLLBACK` rehearsals genuinely rolled back. And
+`PROJECT_STATUS.html` really is free of personal attribution; three references
+naming him appeared in `ef47667` and he removed them himself in a later commit
+before I got to it.
+
+**Deleted three remote branches** at Manuel's instruction: `claude-dev`,
+`claude/aic-dms-rag-langchain-9u378m`, `claude/bisop-convo-notes-uqic35`. Each
+was checked for unique commits first; all three had zero, fully contained in
+`main`, so nothing was lost.
+
+That cleanup fixed a live bug rather than merely tidying. **`claude-dev` and
+`Claude-Dev` differ only in case, and Windows cannot store both refs.** The
+stale lowercase branch was shadowing the real one, so `origin/Claude-Dev`
+resolved locally to a commit three behind the server and the branch reported a
+phantom "ahead 3". A `git reset --hard origin/Claude-Dev` would have silently
+destroyed three commits, this file included. Worth remembering: **never create
+two branches whose names differ only in case.** Git on Linux permits it; every
+Windows clone then quietly disagrees with the server about where a branch
+points.
+
+- Files: merge of `origin/Timi-Dev`; `DEVCOLLAB.md`
+- Hosted changes: none. The live database remains on `0001`–`0009`
+- Status: merged, verified and pushed to `Claude-Dev` and `main`. **Not
+  deployed, and must not be** — migrations `0010`–`0017` have to be applied, in
+  order, to an approved target *before* this application build reaches any
+  environment. Chat and offline routes query tables and columns the live
+  database does not yet have. No Vercel project currently exists under the
+  connected account, so this push triggers no deployment; that is what makes it
+  safe, not the code being deployable.
