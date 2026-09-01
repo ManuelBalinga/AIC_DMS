@@ -1,6 +1,8 @@
-# Offline access — how it will work
+# Offline access — implemented design and deployment boundary
 
-Decided with Manuel, 20 August 2026. Nothing here is built yet.
+Decided 20 August 2026. Built on 1 September in application code and migration
+`0017_offline_document_leases.sql`; not deployed until migrations `0010`–`0017`
+are applied before the matching application release.
 
 ---
 
@@ -83,16 +85,16 @@ guarantee it is only ever read against a live permission check.
 | Read cached documents | Yes |
 | Document list, tags, metadata search | Yes |
 | Upload | **Queued**, syncs on reconnect |
-| Comments and chat | Queued |
+| Comments and chat | No — requires the server; queued writes remain a later pass |
 | Ask | No — needs the server and the model |
 
 **The upload queue matters as much as the reading.** A dropped connection
 mid-upload is how a document ends up never filed at all, which is the same
 failure as never uploading it. Both are in the first cut for that reason.
 
-Falling out of this for free: the app becomes installable as a PWA, which
-quietly delivers the mobile experience that was explicitly out of scope
-without building a mobile app.
+The app is installable as a PWA. Its service worker deliberately caches only
+the offline shell and immutable framework assets; authenticated HTML, APIs,
+signed URLs and document bytes are excluded.
 
 ## 6. Two honest limits
 
@@ -107,21 +109,24 @@ long, and sign-out closes it immediately.
 
 ## 7. Implementation notes
 
-- **Downloads currently redirect to a 60-second signed URL.** A naive service
-  worker would cache *the redirect*, not the file, and would be storing expired
-  garbage. The bytes have to be fetched and stored deliberately.
-- **Cache API or IndexedDB for the bytes**, with a small metadata table
-  recording what is cached, when it was taken, and when the lease expires.
-- **The lease is enforced client-side and re-checked server-side on reconnect.**
+- **Ordinary downloads redirect to a 60-second signed URL; offline grants use a
+  separate five-minute URL.** The service worker never caches either. The
+  browser deliberately fetches the bytes into IndexedDB.
+- **IndexedDB stores the bytes and metadata**, including cache time, validation
+  time and lease expiry. Browser storage is not encryption and is not a defense
+  against somebody controlling the same browser profile.
+- **The lease expires client-side and is re-checked server-side on reconnect.**
   A client that lies about its lease still loses access the moment it connects,
   because the permission re-check is the authority.
-- **The offline record is a server-side table**, written when a document is
-  marked for offline. It must not depend on the client reporting honestly.
+- **The audit record is a server-side table**, written only through
+  caller-checking RPCs. Authenticated clients cannot forge or edit lease rows.
 
-## 8. First cut
+## 8. Delivered first cut
 
 **In:** mark for offline · cached reading · 30-day lease · purge on sign-out and
 on revocation · the offline audit record · the upload queue.
 
-**Second pass:** queued comments and chat · full PWA installability · selective
-"make everything I own available offline".
+**Also delivered:** PWA installability with a narrowly scoped service worker.
+
+**Second pass:** queued comments and chat · selective "make everything I own
+available offline".

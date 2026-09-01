@@ -37,7 +37,7 @@ retrieval code forgets to filter.
 npm test
 ```
 
-123 unit tests on `node:test`, with no test-framework dependency: Node strips
+176 unit tests on `node:test`, with no test-framework dependency: Node strips
 the TypeScript natively, and a small resolve hook in `tests/` teaches it the
 `@/*` alias so the tests exercise the real source files rather than a copy.
 
@@ -123,6 +123,7 @@ SQL Editor in this order:
 14. `supabase/migrations/0014_permission_aware_document_references.sql` — governed message references with title-free locked cards
 15. `supabase/migrations/0015_thread_document_promotion.sql` — conversation snapshots as governed documents plus immutable storage binding
 16. `supabase/migrations/0016_chat_realtime_notifications.sql` — live chat invalidation, quiet mention/reply notifications and race-safe read receipts
+17. `supabase/migrations/0017_offline_document_leases.sql` — owner-vetoed, auditable 30-day offline leases and reconnect validation
 
 ### 2. Configure environment
 
@@ -287,7 +288,7 @@ npm run dev         # development server
 npm run build       # production build
 npm run lint        # eslint
 npm run typecheck   # tsc --noEmit
-npm test            # 123 unit tests
+npm test            # 176 unit tests
 npm run db:migrate  # apply pending migrations in order
 npm run verify:rls:local # destructive throwaway-Postgres policy suite
 npm run verify:rls  # permission-boundary test against a live project

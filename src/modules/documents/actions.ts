@@ -47,6 +47,28 @@ export async function updateDocument(
   return { success: "Document updated." };
 }
 
+export async function setDocumentOfflineAllowed(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const profile = await requireProfile();
+  const documentId = String(formData.get("document_id") ?? "");
+  const allowed = String(formData.get("offline_allowed")) === "true";
+  if (!documentId) return { error: "Missing document." };
+
+  const { data, error } = await (await createClient())
+    .from("documents")
+    .update({ offline_allowed: allowed })
+    .eq("id", documentId)
+    .eq("owner_id", profile.id)
+    .select("id")
+    .maybeSingle();
+  if (error || !data) return { error: "Only the owner can change offline availability." };
+
+  revalidatePath(`/documents/${documentId}`);
+  return { success: allowed ? "Offline copies are allowed." : "Offline copies are disabled; cached copies will be purged when devices reconnect." };
+}
+
 /**
  * Delete a document and its stored bytes.
  *

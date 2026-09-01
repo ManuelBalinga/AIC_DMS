@@ -11,6 +11,7 @@ import {
 import { emptyActionState } from "@/lib/action-state";
 import type { CommentThread } from "@/modules/comments/queries";
 import { Alert, Badge, Button, Card, Textarea } from "@/components/ui";
+import type { SelectedPassage } from "@/modules/documents/preview-selection";
 
 function SubmitButton({ label, busy }: { label: string; busy: string }) {
   const { pending } = useFormStatus();
@@ -44,6 +45,7 @@ export function CommentPanel({
   canComment,
   canResolveAny,
   currentUserId,
+  selectedPassage = null,
 }: {
   documentId: string;
   threads: CommentThread[];
@@ -51,10 +53,15 @@ export function CommentPanel({
   /** Whoever can manage the document may settle any thread, not only their own. */
   canResolveAny: boolean;
   currentUserId: string;
+  selectedPassage?: SelectedPassage | null;
 }) {
   const [state, action] = useActionState(postComment, emptyActionState);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [showResolved, setShowResolved] = useState(false);
+  const [pageNumber, setPageNumber] = useState(
+    selectedPassage ? String(selectedPassage.pageNumber) : "",
+  );
+  const [quotedText, setQuotedText] = useState(selectedPassage?.quotedText ?? "");
 
   const open = threads.filter((thread) => thread.resolved_at === null);
   const resolved = threads.filter((thread) => thread.resolved_at !== null);
@@ -111,12 +118,16 @@ export function CommentPanel({
                 name="page_number"
                 min={1}
                 placeholder="any"
+                value={pageNumber}
+                onChange={(event) => setPageNumber(event.target.value)}
                 className="w-16 rounded-md border border-neutral-200 bg-transparent px-2 py-1 text-xs dark:border-neutral-800"
               />
             </label>
             <input
               name="quoted_text"
               placeholder="Paste the passage you mean (optional)"
+              value={quotedText}
+              onChange={(event) => setQuotedText(event.target.value)}
               className="min-w-48 flex-1 rounded-md border border-neutral-200 bg-transparent px-2 py-1 text-xs dark:border-neutral-800"
             />
             <SubmitButton label="Comment" busy="Posting..." />

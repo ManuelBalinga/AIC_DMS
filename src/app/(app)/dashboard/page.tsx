@@ -71,7 +71,7 @@ export default async function DashboardPage({
               : `${ownedCount} yours · ${sharedCount} shared with you`}
           </p>
         </div>
-        <UploadDocument />
+        <UploadDocument userId={profile.id} />
       </div>
 
       <DocumentFilters

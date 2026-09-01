@@ -64,8 +64,30 @@ export type DocumentRecord = {
   summary: string | null;
   summary_generated_at: string | null;
   suggested_tags: string[];
+  /** Owner-controlled veto for managed browser copies. */
+  offline_allowed: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export type OfflineDocumentLease = {
+  user_id: string;
+  document_id: string;
+  /** Browser-generated cache identifier; never an authentication factor. */
+  client_device_id: string;
+  first_granted_at: string;
+  granted_at: string;
+  expires_at: string;
+  last_validated_at: string;
+  revoked_at: string | null;
+  revocation_reason: "expired" | "permission_revoked" | "owner_veto" | null;
+  grant_count: number;
+}
+
+export type OfflineDocumentValidation = {
+  document_id: string;
+  allowed: boolean;
+  expires_at: string | null;
 }
 
 export type DocumentAccess = {
@@ -398,6 +420,12 @@ export type Database = {
         Update: Partial<ChatMessage>;
         Relationships: Relationship[];
       };
+      offline_document_leases: {
+        Row: OfflineDocumentLease;
+        Insert: never;
+        Update: never;
+        Relationships: Relationship[];
+      };
       chat_document_references: {
         Row: ChatDocumentReference;
         Insert: Pick<ChatDocumentReference, "message_id" | "document_id"> &
@@ -449,6 +477,20 @@ export type Database = {
       can_comment_on_document: {
         Args: { check_document_id: string; check_user_id: string };
         Returns: boolean;
+      };
+      request_offline_document: {
+        Args: {
+          target_document_id: string;
+          client_device_id: string;
+        };
+        Returns: { document_id: string; expires_at: string }[];
+      };
+      revalidate_offline_documents: {
+        Args: {
+          client_device_id: string;
+          target_document_ids: string[];
+        };
+        Returns: OfflineDocumentValidation[];
       };
       visible_document_tags: {
         Args: Record<never, never>;

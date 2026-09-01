@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AIC Documents">
+  <rect width="512" height="512" rx="112" fill="#1d4ed8"/>
+  <path d="M150 92h142l70 70v258H150z" fill="#fff"/>
+  <path d="M292 92v70h70" fill="#bfdbfe"/>
+  <path d="M198 232h116M198 282h116M198 332h82" fill="none" stroke="#1d4ed8" stroke-width="24" stroke-linecap="round"/>
+</svg>

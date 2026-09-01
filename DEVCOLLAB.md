@@ -664,3 +664,55 @@ before the matching chat build is deployed.
 - Files: `supabase/migrations/0016_chat_realtime_notifications.sql`, `db/portable-schema.sql`, `src/lib/types/database.ts`, `src/modules/chat/actions.ts`, `src/modules/chat/queries.ts`, `src/modules/chat/realtime-refresh.tsx`, `src/modules/chat/README.md`, `src/app/(app)/layout.tsx`, `src/app/(app)/notification-center.tsx`, `src/app/(app)/messages/[threadId]/page.tsx`, `src/app/(app)/messages/[threadId]/conversation-view.tsx`, `tests/chat-realtime-notifications.test.ts`, `PROJECT_STATUS.html`, `README.md`, `Documentation/TEAM_COMMUNICATION.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/VERCEL_SETUP.md`, `db/local-test/README.md`, `DEVCOLLAB.md`
 - Hosted changes: none; the successful migration rehearsal was rolled back, and the disconnected optional rehearsal could not commit
 - Status: code-complete and rollback-rehearsed; migrations `0010`–`0016` must precede application deployment, with browser verification and the full hosted RLS suite still open
+
+### 2026-09-01 — Timi + Codex
+
+**Reconciled the latest upstream release and completed every immediately
+actionable open deliverable phase by phase, without changing RAG.**
+
+Worked exclusively on `Timi-Dev`. The branch now includes the latest upstream
+multi-file page-wide drag/drop uploader, private server-side Word/Excel/
+PowerPoint previews and proven free provider configuration. The overlap was
+resolved by keeping those improvements while adding a persistent staged upload
+queue: every file is stored in IndexedDB before network work, each completed
+ticket/upload stage is retained, reconnect resumes sequentially, and document
+finalization is idempotent. A failed transfer no longer discards successful
+files or silently loses the remaining one.
+
+Migration `0017_offline_document_leases.sql` adds an owner-only offline veto and
+auditable per-user/per-device renewable 30-day leases. Grant and batch-
+revalidation RPCs verify the active caller and current document read permission;
+owner veto, permission loss and expiry retain explicit revocation reasons.
+Authenticated clients cannot forge, alter or erase lease rows. The application
+uses short-lived signed URLs, IndexedDB document bytes, reconnect/expiry/sign-
+out purge, an offline library, a web manifest and a narrowly scoped service
+worker. The worker caches only the offline shell and immutable framework assets;
+authenticated HTML, APIs, signed URLs and document bytes are excluded.
+
+PDF comments now support selected-passage anchors without touching the RAG
+pipeline. A permission-checked endpoint uses the already-installed PDF parser
+to return bounded page text; selecting within one page fills the existing page
+and quote fields. The native visual preview remains available, and scanned PDFs
+state that OCR is required. No OCR or RAG implementation was added because
+those remain sample-dependent and/or reserved work.
+
+The project status is derived from its rows and now reports 79 of 82 tracked
+deliverables Built, with one hosted-security item In progress, one evidence-
+dependent critical-fix item Not started and one representative-document item
+waiting on Bishop. Personal attribution remains out of `PROJECT_STATUS.html`
+and its public artifact. A separate phase-completion report lists everything
+done, everything not done and the external restriction for each phase.
+
+TypeScript, ESLint, all 176 tests, schema parity and the Next.js 16 production
+build pass. The local permission harness now contains 125 assertions, including
+offline veto, forgery denial, expiry, revocation and administrator metadata-
+only access, but the new assertions did not execute because no approved
+PostgreSQL development target is available. No hosted database or production
+application change was made. Migrations `0010`–`0017` must be applied in order
+before deploying this application build; hosted RLS, two-browser Realtime,
+offline reconnect and representative-document verification remain explicit
+deployment gates.
+
+- Files: `supabase/migrations/0017_offline_document_leases.sql`, `db/portable-schema.sql`, `db/local-test/01_permission_boundary.sql`, `src/lib/types/database.ts`, `src/modules/offline/*`, `src/app/api/offline/revalidate/route.ts`, `src/app/api/documents/[id]/offline/route.ts`, `src/app/offline/page.tsx`, `src/app/manifest.ts`, `public/sw.js`, `src/app/(app)/dashboard/upload-document.tsx`, `src/app/api/documents/route.ts`, `src/modules/documents/pdf-preview-text.ts`, `src/modules/documents/preview-selection.ts`, `src/app/api/documents/[id]/preview-text/route.ts`, `src/app/(app)/documents/[id]/*`, `tests/offline-access.test.ts`, `tests/pdf-passage-comments.test.ts`, `PROJECT_STATUS.html`, `public/status.html`, `README.md`, `Documentation/OFFLINE_ACCESS.md`, `Documentation/TEAM_COMMUNICATION.md`, `Documentation/OPEN_REQUESTS.md`, `Documentation/DATABASE_DECISION.md`, `Documentation/PHASE_COMPLETION_2026-09-01.md`, `DEVCOLLAB.md`
+- Hosted changes: none; migration `0017` was not applied and no destructive hosted verification ran
+- Status: code-complete and production-build clean; migrations `0010`–`0017`, hosted permission/browser verification, representative AIC samples, privacy approval and evidence-driven critical fixes remain open

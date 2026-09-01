@@ -156,7 +156,19 @@ supabase/migrations/0006_intelligence.sql  summaries, tag suggestions, related d
 supabase/migrations/0007_roles_and_comments.sql  document roles, comments, deactivation
 supabase/migrations/0008_chat_and_context.sql  messaging and group-message retrieval
 supabase/migrations/0009_direct_messages_are_never_indexed.sql  DM retrieval exclusion
+supabase/migrations/0010_security_hardening.sql  least privilege and policy hardening
+supabase/migrations/0011_message_collaboration.sql  replies, mentions, reactions and retention
+supabase/migrations/0012_teams_foundation.sql  governed Direct and Team identity
+supabase/migrations/0013_team_document_access.sql  membership-derived document grants
+supabase/migrations/0014_permission_aware_document_references.sql  locked reference cards
+supabase/migrations/0015_thread_document_promotion.sql  governed conversation snapshots
+supabase/migrations/0016_chat_realtime_notifications.sql  Realtime and quiet notifications
+supabase/migrations/0017_offline_document_leases.sql  owner-vetoed audited offline leases
 ```
+
+The hosted project currently has `0001`–`0009`. The later files are the pending
+application contract and must be applied in order before deploying matching
+source code.
 
 `0001` enables the `vector` extension; if it fails, nothing after it works.
 `0004` needs `pgvector` new enough for HNSW indexes.

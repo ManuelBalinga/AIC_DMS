@@ -6,8 +6,9 @@ open/closed Teams, governed membership, unread state, retrieval rules,
 one-level replies, mentions, reactions, retained edit history, retraction and
 membership-derived Team document grants and permission-aware document references
 with title-free locked cards, plus full-thread promotion into governed documents.
-Realtime delivery remains future work. The new migrations
-are rollback-rehearsed but not deployed to the sole hosted project.
+Migration `0016` also provides Supabase Realtime invalidation, durable quiet
+mention/reply notifications and race-safe read receipts. The migrations are
+rollback-rehearsed but not deployed to the sole hosted project.
 
 The brief was "imitate Slack, for a corporate setting". What follows copies
 Slack's shape where it earns its place and departs from it in three specific
@@ -251,9 +252,8 @@ Agreed scope for the first usable version, once the beta itself is verified:
 replies · `@mentions` · unread state · reactions · sharing a document with a
 team.
 
-**Deferred to a second pass:** notification digests · real-time delivery
-(polling first if it buys time). Thread promotion and conversation retrieval
-have now been completed.
+**Deferred to a second pass:** opt-in email notification digests. Realtime,
+thread promotion and conversation retrieval have now been completed.
 
 The reasoning for including DMs in the first cut rather than deferring them:
 without one-to-one messaging people keep using WhatsApp for exactly that, and

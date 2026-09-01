@@ -84,6 +84,22 @@ export async function POST(request: NextRequest) {
 
   const safeName = sanitiseFileName(fileName);
   const storagePath = `${profile.id}/${documentId}/${safeName}`;
+  const supabase = await createClient();
+
+  // Finalisation is retry-safe: an interrupted browser may repeat this call
+  // after Storage already accepted the bytes and the row was committed.
+  const { data: existing } = await supabase
+    .from("documents")
+    .select("id, owner_id, storage_path, file_name")
+    .eq("id", documentId)
+    .maybeSingle();
+  if (
+    existing?.owner_id === profile.id &&
+    existing.storage_path === storagePath &&
+    existing.file_name === fileName
+  ) {
+    return NextResponse.json({ id: documentId }, { status: 200 });
+  }
 
   const adminClient = createAdminClient();
 
@@ -122,7 +138,6 @@ export async function POST(request: NextRequest) {
   }
 
   // Inserted as the signed-in user so the RLS insert policy still applies.
-  const supabase = await createClient();
   const { error: insertError } = await supabase.from("documents").insert({
     id: documentId,
     owner_id: profile.id,
@@ -136,7 +151,19 @@ export async function POST(request: NextRequest) {
   });
 
   if (insertError) {
-    // Never leave an orphaned object behind.
+    const { data: retried } = await supabase
+      .from("documents")
+      .select("id, owner_id, storage_path, file_name")
+      .eq("id", documentId)
+      .maybeSingle();
+    if (
+      retried?.owner_id === profile.id &&
+      retried.storage_path === storagePath &&
+      retried.file_name === fileName
+    ) {
+      return NextResponse.json({ id: documentId }, { status: 200 });
+    }
+    // Never leave an orphaned object behind after a genuine insert failure.
     return discard("Could not save the document record.", 500);
   }
 

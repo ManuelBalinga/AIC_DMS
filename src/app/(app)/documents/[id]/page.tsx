@@ -20,13 +20,14 @@ import { listTeamMembers } from "@/modules/users/queries";
 import { getRelatedDocuments } from "@/modules/intelligence/queries";
 import { listCommentThreads } from "@/modules/comments/queries";
 import { Badge, Button, Card } from "@/components/ui";
-import { DocumentPreview } from "./document-preview";
 import { EditForm } from "./edit-form";
 import { ReindexForm } from "./reindex-form";
 import { SharePanel } from "./share-panel";
 import { SuggestedTags } from "./suggested-tags";
 import { RelatedDocuments } from "./related-documents";
 import { CommentPanel } from "./comment-panel";
+import { DocumentReviewWorkspace } from "./document-review-workspace";
+import { OfflineDocumentControl } from "./offline-document-control";
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString("en-GB", {
@@ -152,12 +153,24 @@ export default async function DocumentPage({
       </div>
 
       {isPreviewable(document.mime_type) ? (
-        <DocumentPreview
+        <DocumentReviewWorkspace
           documentId={document.id}
           mimeType={document.mime_type}
           title={document.title}
+          threads={commentThreads}
+          canComment={Boolean(canComment)}
+          canResolveAny={canManage}
+          currentUserId={profile.id}
         />
-      ) : null}
+      ) : (
+        <CommentPanel
+          documentId={document.id}
+          threads={commentThreads}
+          canComment={Boolean(canComment)}
+          canResolveAny={canManage}
+          currentUserId={profile.id}
+        />
+      )}
 
       {canManage && document.suggested_tags.length > 0 ? (
         <SuggestedTags
@@ -168,12 +181,11 @@ export default async function DocumentPage({
 
       <RelatedDocuments related={related} />
 
-      <CommentPanel
+      <OfflineDocumentControl
         documentId={document.id}
-        threads={commentThreads}
-        canComment={Boolean(canComment)}
-        canResolveAny={canManage}
-        currentUserId={profile.id}
+        userId={profile.id}
+        offlineAllowed={document.offline_allowed}
+        isOwner={document.owner_id === profile.id}
       />
 
       <Card className="p-5">

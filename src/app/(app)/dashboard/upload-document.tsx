@@ -6,11 +6,15 @@ import { useRouter } from "next/navigation";
 import {
   ACCEPT_ATTRIBUTE,
   MAX_FILE_SIZE_BYTES,
-  STORAGE_BUCKET,
   formatFileSize,
 } from "@/modules/documents/constants";
-import { createClient } from "@/lib/supabase/client";
 import { Alert, Button, Card, Input, Label, Textarea } from "@/components/ui";
+import { processQueuedUpload } from "@/modules/offline/upload-queue";
+import {
+  removeQueuedUpload,
+  saveQueuedUpload,
+  type QueuedUpload,
+} from "@/modules/offline/storage";
 
 /**
  * Uploading documents, one or many, by picking or by dropping.
@@ -31,7 +35,7 @@ import { Alert, Button, Card, Input, Label, Textarea } from "@/components/ui";
  * and the network is exactly what is unreliable in Accra.
  */
 
-type Status = "queued" | "uploading" | "done" | "failed";
+type Status = "queued" | "uploading" | "done" | "saved";
 
 type QueuedFile = {
   /** Stable across re-renders; `name` is not unique when two folders are dropped. */
@@ -41,9 +45,7 @@ type QueuedFile = {
   error?: string;
 };
 
-let nextKey = 0;
-
-export function UploadDocument() {
+export function UploadDocument({ userId }: { userId: string }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,7 +60,9 @@ export function UploadDocument() {
     const added: QueuedFile[] = [];
     for (const file of Array.from(files)) {
       if (file.size === 0) continue;
-      added.push({ key: `f${nextKey++}`, file, status: "queued" });
+      // This key is also the durable IndexedDB key. A module counter restarts
+      // on reload and could overwrite an older queued upload.
+      added.push({ key: crypto.randomUUID(), file, status: "queued" });
     }
     if (added.length === 0) return;
     setQueue((current) => [...current, ...added]);
@@ -123,43 +127,31 @@ export function UploadDocument() {
   }
 
   /** One file, all three steps. Throws with a message meant for the uploader. */
-  async function uploadOne(file: File, description: string, tags: string, title: string) {
+  async function uploadOne(
+    queueId: string,
+    file: File,
+    description: string,
+    tags: string,
+    title: string,
+  ) {
     if (file.size > MAX_FILE_SIZE_BYTES) {
       throw new Error(`${formatFileSize(file.size)} — over the 50 MB limit.`);
     }
 
-    const ticketResponse = await fetch("/api/documents/upload-url", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ fileName: file.name, mimeType: file.type, size: file.size }),
-    });
-    if (!ticketResponse.ok) {
-      const payload = await ticketResponse.json().catch(() => ({}));
-      throw new Error(payload.error ?? "Could not start the upload.");
-    }
-    const { documentId, storagePath, token } = await ticketResponse.json();
-
-    const supabase = createClient();
-    const { error: uploadError } = await supabase.storage
-      .from(STORAGE_BUCKET)
-      .uploadToSignedUrl(storagePath, token, file, { contentType: file.type });
-    if (uploadError) throw new Error(uploadError.message);
-
-    const response = await fetch("/api/documents", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        documentId,
-        fileName: file.name,
-        title,
-        description,
-        tags,
-      }),
-    });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.error ?? "Could not save the document record.");
-    }
+    const upload: QueuedUpload = {
+      id: queueId,
+      userId,
+      fileName: file.name,
+      mimeType: file.type,
+      sizeBytes: file.size,
+      title,
+      description,
+      tags,
+      blob: file,
+      createdAt: new Date().toISOString(),
+    };
+    await saveQueuedUpload(upload);
+    await processQueuedUpload(upload);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -188,7 +180,7 @@ export function UploadDocument() {
         current.map((q) => (q.key === item.key ? { ...q, status: "uploading", error: undefined } : q)),
       );
       try {
-        await uploadOne(item.file, description, tags, singleTitle);
+        await uploadOne(item.key, item.file, description, tags, singleTitle);
         setQueue((current) =>
           current.map((q) => (q.key === item.key ? { ...q, status: "done" } : q)),
         );
@@ -196,7 +188,7 @@ export function UploadDocument() {
         failures += 1;
         const message = cause instanceof Error ? cause.message : String(cause);
         setQueue((current) =>
-          current.map((q) => (q.key === item.key ? { ...q, status: "failed", error: message } : q)),
+          current.map((q) => (q.key === item.key ? { ...q, status: "saved", error: message } : q)),
         );
       }
     }
@@ -210,8 +202,7 @@ export function UploadDocument() {
       setOpen(false);
     } else {
       setError(
-        `${failures} of ${pendingFiles.length} file${pendingFiles.length === 1 ? "" : "s"} failed. ` +
-          "The rest were uploaded. Press Upload again to retry only the failures.",
+        `${failures} file${failures === 1 ? " was" : "s were"} saved on this device and will retry automatically when the connection is available.`,
       );
     }
   }
@@ -275,10 +266,13 @@ export function UploadDocument() {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <StatusPill status={item.status} />
-                    {item.status === "queued" && !pending ? (
+                    {(item.status === "queued" || item.status === "saved") && !pending ? (
                       <button
                         type="button"
-                        onClick={() => setQueue((c) => c.filter((q) => q.key !== item.key))}
+                        onClick={() => {
+                          if (item.status === "saved") void removeQueuedUpload(item.key);
+                          setQueue((c) => c.filter((q) => q.key !== item.key));
+                        }}
                         className="text-xs text-neutral-500 underline hover:text-neutral-900 dark:hover:text-neutral-100"
                       >
                         Remove
@@ -320,7 +314,7 @@ export function UploadDocument() {
             </p>
           </div>
 
-          {error ? <Alert tone="error">{error}</Alert> : null}
+          {error ? <Alert tone="warning">{error}</Alert> : null}
 
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
@@ -358,16 +352,16 @@ function StatusPill({ status }: { status: Status }) {
   const label =
     status === "done"
       ? "Uploaded"
-      : status === "failed"
-        ? "Failed"
+      : status === "saved"
+        ? "Queued offline"
         : status === "uploading"
           ? "Uploading"
           : "Ready";
   const tone =
     status === "done"
       ? "text-green-700 dark:text-green-400"
-      : status === "failed"
-        ? "text-red-700 dark:text-red-400"
+      : status === "saved"
+        ? "text-amber-700 dark:text-amber-400"
         : "text-neutral-500 dark:text-neutral-400";
   return <span className={`text-xs font-medium ${tone}`}>{label}</span>;
 }

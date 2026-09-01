@@ -649,6 +649,131 @@ select pg_temp.expect('leaving a Team removes inherited document chunks', count(
 select pg_temp.expect('leaving a Team removes promoted-document access', count(*)::bigint, 0::bigint)
   from public.documents where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
+-- Offline copies are server-authored, renewable leases (migration 0017).
+reset role;
+update public.document_access set role = 'editor'
+where document_id = '33333333-3333-3333-3333-333333333333'
+  and user_id = '55555555-5555-5555-5555-555555555555';
+
+set role authenticated;
+set request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
+select pg_temp.expect('a reader receives one thirty-day offline lease',
+  count(*)::bigint, 1::bigint)
+from public.request_offline_document(
+  '33333333-3333-3333-3333-333333333333',
+  '99999999-9999-9999-9999-999999999999'
+)
+where expires_at between now() + interval '29 days'
+                     and now() + interval '31 days';
+select pg_temp.expect_denied('a reader cannot forge an offline audit row',
+  $q$insert into public.offline_document_leases
+      (user_id, document_id, client_device_id)
+    values (
+      '55555555-5555-5555-5555-555555555555',
+      '33333333-3333-3333-3333-333333333333',
+      '98989898-9898-9898-9898-989898989898'
+    )$q$);
+select pg_temp.expect_error('an Editor cannot set the owner-only offline veto',
+  $q$update public.documents set offline_allowed = false
+    where id = '33333333-3333-3333-3333-333333333333'$q$, '42501');
+
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect_error('a user without read access cannot request a lease',
+  $q$select * from public.request_offline_document(
+    '33333333-3333-3333-3333-333333333333',
+    '97979797-9797-9797-9797-979797979797')$q$, '42501');
+
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select * from public.request_offline_document(
+  '33333333-3333-3333-3333-333333333333',
+  '96969696-9696-9696-9696-969696969696'
+);
+select pg_temp.expect('the owner sees leases issued for their document',
+  count(*)::bigint, 2::bigint)
+from public.offline_document_leases
+where document_id = '33333333-3333-3333-3333-333333333333';
+update public.documents set offline_allowed = false
+where id = '33333333-3333-3333-3333-333333333333';
+select pg_temp.expect('the owner veto revokes every active lease',
+  count(*)::bigint, 2::bigint)
+from public.offline_document_leases
+where document_id = '33333333-3333-3333-3333-333333333333'
+  and revoked_at is not null and revocation_reason = 'owner_veto';
+
+set request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
+select pg_temp.expect('revalidation reports an owner-vetoed lease as denied',
+  allowed, false)
+from public.revalidate_offline_documents(
+  '99999999-9999-9999-9999-999999999999',
+  array['33333333-3333-3333-3333-333333333333']::uuid[]
+);
+
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+update public.documents set offline_allowed = true
+where id = '33333333-3333-3333-3333-333333333333';
+set request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
+select * from public.request_offline_document(
+  '33333333-3333-3333-3333-333333333333',
+  '99999999-9999-9999-9999-999999999999'
+);
+reset role;
+delete from public.document_access
+where document_id = '33333333-3333-3333-3333-333333333333'
+  and user_id = '55555555-5555-5555-5555-555555555555';
+
+set role authenticated;
+set request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
+select pg_temp.expect('revalidation denies a lease after read access is revoked',
+  allowed, false)
+from public.revalidate_offline_documents(
+  '99999999-9999-9999-9999-999999999999',
+  array['33333333-3333-3333-3333-333333333333']::uuid[]
+);
+select pg_temp.expect('permission loss is retained in the audit row',
+  revocation_reason, 'permission_revoked')
+from public.offline_document_leases
+where user_id = '55555555-5555-5555-5555-555555555555'
+  and client_device_id = '99999999-9999-9999-9999-999999999999'
+  and document_id = '33333333-3333-3333-3333-333333333333';
+
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select * from public.request_offline_document(
+  '33333333-3333-3333-3333-333333333333',
+  '96969696-9696-9696-9696-969696969696'
+);
+reset role;
+update public.offline_document_leases
+set granted_at = now() - interval '31 days',
+    expires_at = now() - interval '1 day'
+where user_id = '11111111-1111-1111-1111-111111111111'
+  and client_device_id = '96969696-9696-9696-9696-969696969696'
+  and document_id = '33333333-3333-3333-3333-333333333333';
+
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select pg_temp.expect('an expired lease is denied during batch validation',
+  allowed, false)
+from public.revalidate_offline_documents(
+  '96969696-9696-9696-9696-969696969696',
+  array['33333333-3333-3333-3333-333333333333']::uuid[]
+);
+select pg_temp.expect('expiry is retained in the audit row',
+  revocation_reason, 'expired')
+from public.offline_document_leases
+where user_id = '11111111-1111-1111-1111-111111111111'
+  and client_device_id = '96969696-9696-9696-9696-969696969696'
+  and document_id = '33333333-3333-3333-3333-333333333333';
+
+set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+select pg_temp.expect('an administrator sees lease metadata but not bytes',
+  count(*)::bigint, 2::bigint)
+from public.offline_document_leases
+where document_id = '33333333-3333-3333-3333-333333333333';
+select pg_temp.expect_error('an ungranted administrator cannot request a lease',
+  $q$select * from public.request_offline_document(
+    '33333333-3333-3333-3333-333333333333',
+    '95959595-9595-9595-9595-959595959595')$q$, '42501');
+
 reset role;
 
 \echo ''

@@ -3,13 +3,14 @@
 The Supabase project exists, migrations `0001`–`0009` are applied, the
 application is deployed, and member authentication has been exercised against
 Supabase. Migrations `0010_security_hardening.sql` through
-`0016_chat_realtime_notifications.sql` are built and passed transactional hosted
-rehearsals, but have not been deployed because this project has no Supabase
-development branch. This file tracks the work that remains
+`0016_chat_realtime_notifications.sql` passed transactional hosted rehearsals;
+`0017_offline_document_leases.sql` is built with static/schema-parity coverage
+but has not executed against PostgreSQL. None is deployed because this project
+has no Supabase development branch. This file tracks the work that remains
 unverified or requires an AIC decision.
 
 The current chat source must not be deployed ahead of those migrations. It
-queries columns, tables and RPCs introduced across `0011`–`0016`; the hosted
+queries columns, tables and RPCs introduced across `0011`–`0017`; the hosted
 schema is still on `0009`, so a code-first deploy would fail at runtime. The
 safe order is database migrations first, matching application deployment
 second, browser verification third.
@@ -22,7 +23,7 @@ keeps Neon or plain Postgres available as a future exit.
 
 ### 0. Approve a safe hosted-database target
 
-The MCP audit found no Supabase development branches. Before migrations `0010`&ndash;`0016`
+The MCP audit found no Supabase development branches. Before migrations `0010`&ndash;`0017`
 or the destructive hosted RLS suite runs, either create a development branch or
 explicitly approve the main hosted project as the target. The RLS suite creates
 and deletes throwaway users and data, so the development branch is preferred.
@@ -95,8 +96,7 @@ only to keep building.
 | Audit logging | Preserves operational history before real documents enter the system |
 | Indexing monitoring | Makes failed ingestion visible at useful volume |
 | Document comparison and structured extraction | Extends the intelligence layer |
-| Full Teams model | Implements open/closed teams, membership governance and team grants on top of the retained conversations now built |
-| Offline access | Adds leased cached reading, queued upload and revocation checks |
+| Offline browser verification | Exercises installability, cached reading, reconnect revocation and queued multi-upload after migration `0017` deploys |
 
-The last two have complete design documents but remain outside the original
-three-week beta.
+The offline work has a complete design document and production code but remains
+outside the original three-week beta and unverified against the hosted schema.

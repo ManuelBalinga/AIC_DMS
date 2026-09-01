@@ -1,14 +1,14 @@
 import Link from "next/link";
 
 import { requireProfile } from "@/modules/auth/session";
-import { signOut } from "@/modules/auth/actions";
 import {
   listThreads,
   listUnreadChatNotifications,
 } from "@/modules/chat/queries";
 import { ChatRealtimeRefresh } from "@/modules/chat/realtime-refresh";
-import { Button } from "@/components/ui";
 import { NotificationCenter } from "./notification-center";
+import { SignOutButton } from "./sign-out-button";
+import { OfflineRuntime } from "@/modules/offline/offline-runtime";
 
 const NAV_LINK =
   "rounded-lg px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100";
@@ -55,6 +55,9 @@ export default async function AppLayout({
                 </span>
               ) : null}
             </Link>
+            <Link href="/offline" className={NAV_LINK}>
+              Offline
+            </Link>
             {isAdmin ? (
               <Link href="/admin/people" className={NAV_LINK}>
                 People
@@ -73,11 +76,7 @@ export default async function AppLayout({
             >
               {profile.full_name || profile.email}
             </Link>
-            <form action={signOut}>
-              <Button type="submit" variant="ghost">
-                Sign out
-              </Button>
-            </form>
+            <SignOutButton />
           </div>
         </div>
       </header>
@@ -87,6 +86,7 @@ export default async function AppLayout({
         currentUserId={profile.id}
         participantThreadIds={participantThreads.map((thread) => thread.id).join(",")}
       />
+      <OfflineRuntime userId={profile.id} />
     </div>
   );
 }
