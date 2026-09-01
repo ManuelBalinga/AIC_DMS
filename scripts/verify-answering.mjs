@@ -17,7 +17,9 @@
  *
  *   npm run verify:answering
  *
- * Costs one short completion, capped low.
+ * Costs one short completion. The budget is 1000 tokens rather than a handful
+ * because a reasoning model spends its allowance on chain of thought before
+ * `content` starts, and a tight cap fails a provider that works perfectly.
  */
 
 import { readFileSync } from "node:fs";
@@ -104,7 +106,11 @@ async function main() {
           { role: "system", content: "Answer in exactly one short sentence." },
           { role: "user", content: "Say the words: retrieval is configured." },
         ],
-        max_tokens: 64,
+        // Deliberately not a token or two. A reasoning model streams its
+        // chain of thought first, and a small budget is spent entirely on
+        // thinking — `content` never starts, and the check fails a provider
+        // that works. 1000 is past that cliff for a one-sentence answer.
+        max_tokens: 1000,
         stream: true,
       }),
     });
@@ -141,6 +147,7 @@ async function main() {
   const decoder = new TextDecoder();
   let buffer = "";
   let text = "";
+  let reasoning = "";
   let frames = 0;
   let firstDeltaAt = null;
 
@@ -157,11 +164,17 @@ async function main() {
       if (payload === "[DONE]") { buffer = ""; break; }
       try {
         const parsed = JSON.parse(payload);
-        const delta = parsed.choices?.[0]?.delta?.content;
-        if (delta) {
+        const delta = parsed.choices?.[0]?.delta;
+        // `reasoning` is where a thinking model puts its chain of thought.
+        // The application deliberately ignores it — rendering a model's
+        // working as though it were the answer would be worse than useless
+        // — but it is counted here, because it is the difference between
+        // "this provider is broken" and "this provider thinks first".
+        if (delta?.reasoning) reasoning += delta.reasoning;
+        if (delta?.content) {
           if (firstDeltaAt === null) firstDeltaAt = Date.now() - started;
           frames += 1;
-          text += delta;
+          text += delta.content;
         }
       } catch {
         continue;
@@ -170,6 +183,15 @@ async function main() {
   }
 
   const elapsed = Date.now() - started;
+
+  if (!text && reasoning) {
+    console.error(`  FAILED  the model streamed ${reasoning.length} characters of reasoning and no answer.`);
+    console.error("          It spent the whole token budget thinking. Raise ANSWER_MAX_TOKENS");
+    console.error("          in src/modules/rag/config.ts, or pick a model that does not reason");
+    console.error("          before answering.");
+    console.error("");
+    return 1;
+  }
 
   if (!text) {
     console.error("  FAILED  the stream carried no text.");
@@ -181,6 +203,14 @@ async function main() {
   console.log(`  OK      streamed ${frames} frame${frames === 1 ? "" : "s"}, first token at ${firstDeltaAt} ms, done at ${elapsed} ms`);
   console.log(`  answer  ${JSON.stringify(text.trim().slice(0, 120))}`);
   console.log("");
+
+  if (reasoning) {
+    console.log(`  NOTE    this model reasons before answering — ${reasoning.length} characters of it here,`);
+    console.log(`          which is why the first answer token took ${firstDeltaAt} ms. Ask shows`);
+    console.log("          nothing during that pause, because rendering a model's working as");
+    console.log("          the answer would be worse. Expect a visible wait before text.");
+    console.log("");
+  }
 
   // One frame means the provider accepted `stream: true` and then sent the whole
   // answer at once. It works, and the Ask page will show nothing until the end.

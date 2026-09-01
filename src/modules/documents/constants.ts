@@ -31,6 +31,49 @@ export function isAcceptedMimeType(mimeType: string): boolean {
   return mimeType in ACCEPTED_MIME_TYPES;
 }
 
+/**
+ * Formats a browser renders natively, so the preview can be an iframe.
+ *
+ * Lives here rather than beside the preview component because a server
+ * component has to ask the question before deciding whether to render that
+ * component at all. Exporting it from a "use client" module made the document
+ * page throw at runtime — a server module cannot call into a client one, and
+ * the failure surfaced as the whole page erroring rather than as a missing
+ * preview.
+ */
+const NATIVELY_PREVIEWABLE_PREFIXES = ["image/", "text/"];
+const NATIVELY_PREVIEWABLE_TYPES = ["application/pdf"];
+
+/**
+ * Formats converted on our own server into readable HTML, because a browser
+ * cannot open them and the alternative — a third-party online viewer — would
+ * send an AIC document out of AIC's control on every preview.
+ *
+ * The legacy binary formats (.doc, .xls, .ppt) are deliberately absent. They
+ * are a different container from OOXML entirely, no parser here reads them,
+ * and indexing already refuses them for the same reason.
+ */
+const OFFICE_PREVIEWABLE_TYPES = [
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+];
+
+export function isOfficePreviewable(mimeType: string): boolean {
+  return OFFICE_PREVIEWABLE_TYPES.includes(mimeType);
+}
+
+export function isNativelyPreviewable(mimeType: string): boolean {
+  return (
+    NATIVELY_PREVIEWABLE_TYPES.includes(mimeType) ||
+    NATIVELY_PREVIEWABLE_PREFIXES.some((prefix) => mimeType.startsWith(prefix))
+  );
+}
+
+export function isPreviewable(mimeType: string): boolean {
+  return isNativelyPreviewable(mimeType) || isOfficePreviewable(mimeType);
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;

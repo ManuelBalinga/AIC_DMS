@@ -8,6 +8,7 @@ import { getDocument } from "@/modules/documents/queries";
 import {
   INDEX_STATUS_LABELS,
   formatFileSize,
+  isPreviewable,
 } from "@/modules/documents/constants";
 import { deleteDocument } from "@/modules/documents/actions";
 import {
@@ -19,7 +20,7 @@ import { listTeamMembers } from "@/modules/users/queries";
 import { getRelatedDocuments } from "@/modules/intelligence/queries";
 import { listCommentThreads } from "@/modules/comments/queries";
 import { Badge, Button, Card } from "@/components/ui";
-import { DocumentPreview, isPreviewable } from "./document-preview";
+import { DocumentPreview } from "./document-preview";
 import { EditForm } from "./edit-form";
 import { ReindexForm } from "./reindex-form";
 import { SharePanel } from "./share-panel";
