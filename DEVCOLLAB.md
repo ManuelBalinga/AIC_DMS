@@ -894,3 +894,48 @@ tool with no separate support role; and the missing visual identity itself.
 - Files: `.impeccable/critique/2026-09-02T13-13-41Z__src-app-app-dashboard-page-tsx.md`, `DEVCOLLAB.md`
 - Hosted changes: one throwaway member account created, granted viewer access to the real document, then fully deleted (grant revoked first) once the review finished
 - Status: done. Fixes not yet applied — waiting on Manuel's priority call before running `/impeccable polish` or similar
+
+### 2026-09-02 — Manuel + Claude
+
+**Picked a real visual direction for the platform — The Registrar's Ledger —
+via Impeccable's dice-roll concept round, not by my own default pick.**
+
+Derived seven AIC-grounded candidate visual worlds (a registrar's bound
+ledger, a chain-of-custody shipping manifest, cohort ID badges, a market
+chalkboard, and three others), each judged on whether it could actually carry
+the product's real mechanism — permission-bound retrieval, revocation that's
+real not cosmetic, retraction instead of deletion — not just "feels African."
+An external randomizer, not my own resonance ranking, assigned which one gets
+built: **the ledger**, at index 4 of my own 7. My own top pick (the custody
+manifest) stayed on the table as a named alternate rather than winning by
+default, which is the actual point of the mechanism — a single model's
+ranking is deterministic, so left alone it always ships the same one or two
+ideas.
+
+Six catalog challengers (unrelated design worlds — a cassette-deck fascia, a
+1970s timetable rack, a theatrical lighting cyclorama, a darkroom
+exposure-record system, others) were fused against the product and weighed
+against the ledger on audience fit and product clarity. Two held one axis
+each and stayed as real alternates (the timetable's one-size typographic rank
+discipline; the exposure-record's precise per-state annotation marks, which
+directly closes the color-only-badge accessibility gap the critique found).
+One declined challenger donated a raise anyway: the tape deck's tactile
+toggle-snap became "permission changes get a deliberate, weighted stamp, not
+a flat toggle" in the final direction.
+
+Manuel picked the assigned direction — the ledger — after seeing all four.
+
+No image generation exists in this session, so this build is **code-led**:
+recorded in `.impeccable/config.json`, confirmed by re-running the build-phase
+state machine, which correctly reported "no comp round, no phase gates" once
+that was set. The ambition that a generated comp would normally carry lives
+instead in the direction contract's FIRST VIEWPORT block, and the finish
+review (once the build happens) audits against that written promise rather
+than an image.
+
+- Files: `.impeccable/config.json`, `.impeccable/surfaces/src-app-app-dashboard-page-tsx.md`, `DEVCOLLAB.md`
+- Status: direction chosen and recorded. **Not built yet** — no source files
+  touched. Building the ledger world across the dashboard and shared shell
+  (globals.css, layout.tsx, every component "rebuilt in the form's
+  vocabulary," per the skill's own rule against a stock component surviving
+  inside a committed direction) is real, substantial work still to come.
