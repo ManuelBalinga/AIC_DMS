@@ -848,3 +848,26 @@ who checked, so prefer running the thing to reading the row about it.
 - Files: `src/modules/rag/retrieve.ts`, `tests/retrieval-degradation.test.ts`, `PROJECT_STATUS.html`, `DEVCOLLAB.md`
 - Hosted changes: two throwaway accounts created and deleted; no lasting change
 - Status: 181 tests, clean build. Deployment still unconfirmed, `NEXT_PUBLIC_SITE_URL` still `localhost`, retrieval quality against real AIC documents still untested
+
+### 2026-09-01 — Manuel + Claude
+
+**Added `PRODUCT.md` — durable product truth for design work, via the
+Impeccable skill's `init` flow.**
+
+Explored the repo first rather than re-asking what it already answers:
+README, app metadata, role schema, `Documentation/BISHOP_NOTES.md`, and the
+demo script's own framing of the problem ("a document goes into a WhatsApp
+group and then it is gone"). Three real gaps remained, and were confirmed with
+Manuel rather than guessed: AIC is an innovation/entrepreneurship hub running
+programs like internships; offline access answers a genuine field-connectivity
+problem, not general robustness; and no accessibility standard is established,
+recorded as open rather than invented.
+
+This file is scoped to product truth only — users, purpose, positioning,
+constraints, evidence on hand. No visual world, palette, or component
+decisions live here; those belong to `DESIGN.md`, which does not exist yet and
+was not created. `/impeccable document` would record the incumbent shipped
+interface into one, if that's wanted later.
+
+- Files: `PRODUCT.md`, `DEVCOLLAB.md`
+- Status: done
