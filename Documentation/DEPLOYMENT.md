@@ -115,7 +115,7 @@ EMBEDDING_MODEL=gemini-embedding-001
 ANSWER_PROVIDER=openai-compatible
 ANSWER_BASE_URL=https://ollama.com/v1
 ANSWER_API_KEY=...
-ANSWER_MODEL=gpt-oss:120b
+ANSWER_MODEL=gemma4:31b
 ```
 
 **Only four Ollama Cloud models are on the free tier.** The rest return
@@ -130,9 +130,30 @@ Probed 28 August:
 | `gemma4:31b` | `glm-5.3-flash` |
 | `nemotron-3-nano:30b` | `deepseek-v4-flash`, `kimi-k2.6`, `mistral-large-3` |
 
-`gpt-oss:120b` is the largest free one, and shares a family with the Groq
-recommendation below, so moving between the two providers is a base-URL change
-rather than a change of behaviour.
+`gemma4:31b` is the configured choice, switched to on 1 September.
+`gpt-oss:120b` is the largest free one and shares a family with the Groq
+recommendation below, so moving between those two providers is a base-URL
+change rather than a change of behaviour — it remains the alternative.
+
+**Both refuse correctly, which is the property that matters.** Asked for a Q4
+fee from a passage that only states Q3, each said the passage does not cover
+it rather than inventing a number. That is the behaviour grounded answering
+lives or dies on, and it is worth re-testing on any model swap.
+
+**On speed, measure before believing anything — including the paragraph below.**
+`gemma4` was chosen on the assumption that skipping chain of thought makes it
+faster to first token. Measured on a warm connection, two runs each, it is not:
+
+| Model | First token | Reasoning |
+| --- | --- | --- |
+| `gpt-oss:120b` | 587–625 ms | 161–327 chars |
+| `gemma4:31b` | 729–851 ms | none |
+
+The two- and three-second figures seen earlier were cold starts on the free
+tier, not steady state. The reasoning pause is real but costs well under a
+second, and `gpt-oss:120b` is both larger and marginally quicker. `gemma4:31b`
+is the smaller model, so expect it to be the weaker of the two on grounding
+that is harder than the test above.
 
 **`gpt-oss` reasons before it answers.** It streams chain of thought in
 `delta.reasoning` while `delta.content` stays empty, and only then produces the
