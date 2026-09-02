@@ -871,3 +871,26 @@ interface into one, if that's wanted later.
 
 - Files: `PRODUCT.md`, `DEVCOLLAB.md`
 - Status: done
+
+### 2026-09-02 — Manuel + Claude
+
+**First design critique of the platform — dashboard, scored 24/40 (Acceptable).**
+
+Ran Impeccable's `/impeccable critique` flow as two isolated parallel agents (design
+review + detector/browser evidence), against the real dashboard through a throwaway
+member account granted viewer access to the one real document, so it rendered
+populated rather than empty. Both agents independently converged on the same root
+finding by different methods: the app is still running unmodified Next.js scaffold
+defaults (Geist fonts, generic color tokens) — one from reading `globals.css`
+directly, the other from a live DOM overlay flagging `overused-font` on the document
+detail page. Nobody has done a design pass yet; the backend/permissions work has had
+all the attention so far.
+
+Three P1s worth flagging here specifically: **Sign Out silently deletes local
+offline documents and queued uploads with no warning**, which undercuts the
+product's own "unlike WhatsApp, you can take it back" claim; zero in-app help in a
+tool with no separate support role; and the missing visual identity itself.
+
+- Files: `.impeccable/critique/2026-09-02T13-13-41Z__src-app-app-dashboard-page-tsx.md`, `DEVCOLLAB.md`
+- Hosted changes: one throwaway member account created, granted viewer access to the real document, then fully deleted (grant revoked first) once the review finished
+- Status: done. Fixes not yet applied — waiting on Manuel's priority call before running `/impeccable polish` or similar
