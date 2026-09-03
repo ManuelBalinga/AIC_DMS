@@ -38,11 +38,14 @@ export function LoginForm({ next }: { next?: string }) {
         </div>
 
         <div className="space-y-1.5">
-          <div className="flex items-baseline justify-between gap-3">
+          <div className="flex items-baseline justify-between gap-3 leading-4">
             <Label htmlFor="password">Password</Label>
             <Link
               href="/auth/forgot-password"
-              className="text-xs text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+              // Matched to the Label's size on purpose: a larger link in this
+              // row makes the row taller than a bare label, which pushed the
+              // password rule 16px further from its label than the email one.
+              className="shrink-0 whitespace-nowrap text-[11px] text-ink-soft underline underline-offset-2 transition-colors hover:text-rule"
             >
               Forgot password?
             </Link>

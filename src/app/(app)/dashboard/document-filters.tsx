@@ -13,6 +13,11 @@ type TagCount = { tag: string; document_count: number };
  * State lives in the URL rather than in component state so a filtered view can
  * be linked to a colleague, survives a refresh, and keeps the list itself a
  * server component that queries the database directly.
+ *
+ * The two filters are deliberately different objects: scope is a tab cut into
+ * the top edge of the page, tags are marks written in the margin. They were
+ * one undifferentiated row of pills before, which made a five-choice decision
+ * out of what is really two much smaller ones.
  */
 export function DocumentFilters({
   tags,
@@ -45,7 +50,7 @@ export function DocumentFilters({
   ] as const;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -64,49 +69,58 @@ export function DocumentFilters({
           defaultValue={activeQuery ?? ""}
           placeholder="Search titles, descriptions and tags…"
           aria-label="Search documents"
+          className="text-[15px]"
         />
       </form>
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      {/* Tabs cut into the top edge of the page. */}
+      <div className="flex items-end gap-1 border-b border-rule/30">
         {scopes.map((scope) => {
           const isActive = (activeScope ?? undefined) === scope.key;
           return (
             <Link
               key={scope.label}
               href={withParam("scope", scope.key ?? null)}
+              aria-current={isActive ? "true" : undefined}
               className={
                 isActive
-                  ? "rounded-full bg-neutral-900 px-3 py-1 text-xs font-medium text-white dark:bg-neutral-100 dark:text-neutral-900"
-                  : "rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-900"
+                  ? "-mb-px border border-b-page border-rule/30 border-t-2 border-t-brass bg-page px-3.5 py-2 text-[13px] font-semibold text-ink"
+                  : "-mb-px border border-transparent px-3.5 py-2 text-[13px] text-ink-soft transition-colors hover:text-ink"
               }
             >
               {scope.label}
             </Link>
           );
         })}
-
-        {tags.length > 0 ? (
-          <span className="mx-1 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
-        ) : null}
-
-        {tags.map((tag) => {
-          const isActive = activeTag === tag.tag;
-          return (
-            <Link
-              key={tag.tag}
-              href={withParam("tag", isActive ? null : tag.tag)}
-              className={
-                isActive
-                  ? "rounded-full bg-blue-600 px-3 py-1 text-xs font-medium text-white"
-                  : "rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-900"
-              }
-            >
-              {tag.tag}
-              <span className="ml-1 opacity-60">{tag.document_count}</span>
-            </Link>
-          );
-        })}
       </div>
+
+      {tags.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.11em] text-ink-faint">
+            Tags
+          </span>
+          {tags.map((tag) => {
+            const isActive = activeTag === tag.tag;
+            return (
+              <Link
+                key={tag.tag}
+                href={withParam("tag", isActive ? null : tag.tag)}
+                aria-current={isActive ? "true" : undefined}
+                className={
+                  isActive
+                    ? "border-b-2 border-brass pb-0.5 text-[13px] font-semibold text-ink"
+                    : "border-b-2 border-transparent pb-0.5 text-[13px] text-ink-soft transition-colors hover:border-rule-faint hover:text-ink"
+                }
+              >
+                {tag.tag}
+                <span className="ml-1.5 text-[11px] tabular-nums text-ink-faint">
+                  {tag.document_count}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }

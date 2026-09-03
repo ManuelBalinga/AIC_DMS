@@ -8,7 +8,7 @@ import {
   MAX_FILE_SIZE_BYTES,
   formatFileSize,
 } from "@/modules/documents/constants";
-import { Alert, Button, Card, Input, Label, Textarea } from "@/components/ui";
+import { Alert, Button, Input, Label, Textarea } from "@/components/ui";
 import { processQueuedUpload } from "@/modules/offline/upload-queue";
 import {
   removeQueuedUpload,
@@ -221,18 +221,20 @@ export function UploadDocument({ userId }: { userId: string }) {
   return (
     <>
       {draggingOverPage ? <DropOverlay /> : null}
-      <Card className="w-full p-5">
+      {/* Ruled off rather than boxed: this opens inside the page sheet, and a
+          bordered card here would be a card inside a card. */}
+      <div className="w-full border-y border-rule/30 bg-page-raised px-4 py-5">
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <div
             onDragOver={(event) => event.preventDefault()}
             onDrop={onDropZone}
             onClick={() => inputRef.current?.click()}
-            className="cursor-pointer rounded-lg border-2 border-dashed border-neutral-300 px-4 py-8 text-center transition-colors hover:border-neutral-400 dark:border-neutral-700 dark:hover:border-neutral-600"
+            className="cursor-pointer rounded-[2px] border border-dashed border-rule-faint bg-page-raised px-4 py-8 text-center transition-colors hover:border-rule hover:bg-brass/[0.05]"
           >
-            <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+            <p className="text-sm font-medium text-ink">
               Drop files here, or click to choose
             </p>
-            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            <p className="mt-1 text-xs text-ink-soft">
               PDF, Word, Excel, PowerPoint, text or image. Up to 50 MB each. Several at a time is fine.
             </p>
             <input
@@ -252,14 +254,14 @@ export function UploadDocument({ userId }: { userId: string }) {
           </div>
 
           {queue.length > 0 ? (
-            <ul className="divide-y divide-neutral-200 rounded-lg border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+            <ul className="divide-y divide-rule-faint rounded-[2px] border border-rule-faint">
               {queue.map((item) => (
                 <li key={item.key} className="flex items-center justify-between gap-3 px-3 py-2">
                   <div className="min-w-0">
-                    <p className="truncate text-sm text-neutral-900 dark:text-neutral-100">
+                    <p className="truncate text-sm text-ink">
                       {item.file.name}
                     </p>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    <p className="text-xs text-ink-soft">
                       {formatFileSize(item.file.size)}
                       {item.error ? ` — ${item.error}` : ""}
                     </p>
@@ -273,7 +275,7 @@ export function UploadDocument({ userId }: { userId: string }) {
                           if (item.status === "saved") void removeQueuedUpload(item.key);
                           setQueue((c) => c.filter((q) => q.key !== item.key));
                         }}
-                        className="text-xs text-neutral-500 underline hover:text-neutral-900 dark:hover:text-neutral-100"
+                        className="text-xs text-ink-soft underline underline-offset-2 hover:text-rule"
                       >
                         Remove
                       </button>
@@ -308,7 +310,7 @@ export function UploadDocument({ userId }: { userId: string }) {
           <div className="space-y-1.5">
             <Label htmlFor="tags">Tags</Label>
             <Input id="tags" name="tags" placeholder="product docs, i363, updates" />
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            <p className="text-xs text-ink-soft">
               Comma separated{queue.length > 1 ? ", applied to all of these files" : ""}. Tags are how
               documents get found once there are more than a screenful.
             </p>
@@ -317,7 +319,7 @@ export function UploadDocument({ userId }: { userId: string }) {
           {error ? <Alert tone="warning">{error}</Alert> : null}
 
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            <p className="text-xs text-ink-soft">
               {doneCount > 0 ? `${doneCount} uploaded` : ""}
             </p>
             <div className="flex justify-end gap-2">
@@ -343,7 +345,7 @@ export function UploadDocument({ userId }: { userId: string }) {
             </div>
           </div>
         </form>
-      </Card>
+      </div>
     </>
   );
 }
@@ -359,20 +361,20 @@ function StatusPill({ status }: { status: Status }) {
           : "Ready";
   const tone =
     status === "done"
-      ? "text-green-700 dark:text-green-400"
+      ? "text-cloth-edge"
       : status === "saved"
-        ? "text-amber-700 dark:text-amber-400"
-        : "text-neutral-500 dark:text-neutral-400";
+        ? "text-mark-open"
+        : "text-ink-soft";
   return <span className={`text-xs font-medium ${tone}`}>{label}</span>;
 }
 
 /** Shown while files are dragged anywhere over the page. */
 function DropOverlay() {
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 backdrop-blur-sm">
-      <div className="rounded-xl border-2 border-dashed border-white/80 px-8 py-6 text-center">
-        <p className="text-lg font-medium text-white">Drop to upload</p>
-        <p className="mt-1 text-sm text-white/80">Several files at once is fine.</p>
+    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-cloth/70">
+      <div className="rounded-[2px] border border-dashed border-brass px-8 py-6 text-center">
+        <p className="text-lg font-medium text-page">Drop to upload</p>
+        <p className="mt-1 text-sm text-parchment-soft">Several files at once is fine.</p>
       </div>
     </div>
   );
