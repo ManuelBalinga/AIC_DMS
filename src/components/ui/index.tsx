@@ -79,7 +79,10 @@ export function Button({ variant = "primary", className, ...props }: ButtonProps
     "inline-flex items-center justify-center gap-2 rounded-[2px] px-4 py-2 text-sm font-medium tracking-[-0.01em] transition-[background-color,color,box-shadow] duration-150 disabled:cursor-not-allowed disabled:opacity-45";
 
   const variants = {
-    // The stamp. Pressing it commits a record, and it moves like it.
+    // Weight at rest: a struck bottom edge and a seat beneath it, so the
+    // primary action reads as stamped onto the page before it is touched. The
+    // stamp *motion* is not here — it belongs to committing a permission
+    // change, and lives on those controls alone.
     primary:
       "border-b-2 border-cloth-deep bg-cloth text-parchment shadow-[0_2px_0_rgba(22,41,31,0.55),0_3px_6px_rgba(36,31,20,0.22)] hover:bg-cloth-deep hover:text-page",
     secondary:
