@@ -939,3 +939,76 @@ than an image.
   (globals.css, layout.tsx, every component "rebuilt in the form's
   vocabulary," per the skill's own rule against a stock component surviving
   inside a committed direction) is real, substantial work still to come.
+
+### 2026-09-03 — Manuel + Claude
+
+**Built the Registrar's Ledger across the app's visual spine, put it through a
+finish review, and applied the eight findings it returned.**
+
+The build half of this entry is written after the fact: that turn was
+interrupted before it reached DEVCOLLAB, so commit `379baf2` sat unlogged for a
+few hours. Recording it now rather than leaving the gap.
+
+**What the build changed.** `globals.css` is no longer `create-next-app`
+output: a committed palette (deep cloth binding, ruled cream page, a red ruling
+ink, brass reserved for headers and current position only), Archivo
+self-hosted, tabular numerals so folio numbers and dates set on a grid, and one
+authored motion — a weighted "stamp" for committing a record. The shared shell
+became a real binding with the brand mark drawn into it rather than living only
+in the PWA manifest, and the dashboard became an open ledger page: cut-in tabs
+standing in for the filters, a ruled entry line for search, folio-numbered
+entries. Status badges became drawn SVG marks at one stroke weight, each paired
+with a word, with colour as the third signal — which is what closed the
+colour-only accessibility finding from the critique.
+
+**The review was worth the cost.** It returned `fix` with eight material
+findings, and the two sharpest were both self-inflicted in the same way: I
+authored a device and then failed to wire it. `.ledger-ruled` — the world's one
+signature material — shipped in `globals.css` and reached only the empty state,
+so the register drew hairlines *around* content instead of content sitting *on*
+ruling. And the sheet sat on cream (`#efe8d6` under `#f6f1e4`), so a design
+whose entire system is "binding around a reading field" had no figure and no
+ground. The login screen had it right the whole time, which made the
+contradiction plainer.
+
+Also found: `--color-ink-faint` at 3.38:1 carrying placeholder text and column
+heads, under the 4.5 floor — I had checked `ink-soft` and never `ink-faint`.
+Folio numbers computed as `index + 1` of the *filtered* view, so the same
+document renumbered under every filter: a row counter wearing a ledger's
+clothes, contradicting the contract's own "nothing here quietly vanishes". The
+primary action's weight lived entirely in a 260ms press animation, so the
+resting state — the only state a first viewport has — was a flat rectangle. The
+stamp was attached to every primary button rather than the permission change it
+was donated for. And the entry row printed the same filename twice in two
+different manglings, spending its two most legible lines on one unreadable
+string.
+
+**Two process failures worth recording, both mine.**
+
+First: I reported fix 1 as "didn't land" when it had. `pkill -f "next start"`
+never matched `npx next start`, so the old server kept serving the pre-fix
+build and I verified against it — twice. Only measuring the DOM at a real
+1440x900 viewport showed the field was already 500px tall with the ruling
+painting correctly. **Kill a Next server by its listening port, not by process
+name pattern.**
+
+Second: I put the headless-Chrome capture profile in the repo root, so ESLint
+started linting Chrome's bundled JavaScript and reported 4159 problems. Nothing
+to do with the code. Capture profiles now live in scratch, outside the repo.
+
+**One regression I introduced while fixing, then fixed.** A fixed 72px entry
+row clipped the size line mid-glyph on a phone, because the badges wrap below
+640px. Row height and rule rhythm have to *agree*: a 72px rhythm under a 144px
+row puts a rule through the middle of its own content. Both are now whole
+multiples that match at each width, so an entry is always exactly one ruled
+line.
+
+**One honest limit left in place.** Folio numbers are stable across filters but
+still scoped to what a given reader may see — the schema has no document-wide
+sequence, and adding one is a migration, not a design decision. Said in a code
+comment rather than quietly presented as permanent.
+
+- Files: `src/app/globals.css`, `src/app/layout.tsx`, `src/app/(app)/layout.tsx`, `src/app/(app)/nav-links.tsx`, `src/app/(app)/dashboard/page.tsx`, `src/app/(app)/dashboard/document-filters.tsx`, `src/app/(app)/documents/[id]/share-panel.tsx`, `src/components/ui/index.tsx`, `.impeccable/review/*.png`, `.gitignore`
+- Commits: `379baf2` (build), `8130250` (the eight fixes)
+- Hosted changes: none. A throwaway member account with viewer access to the one real document is used for authenticated captures and gets deleted at the end of the session; its credentials file is gitignored
+- Status: fixes applied, both viewports recaptured and validated, verdict pass in flight with the same reviewer. **Not deployed.** DESIGN.md still unwritten — the documenter runs after the verdict closes, and until it does `/impeccable live` cannot boot, because it requires DESIGN.md to exist
