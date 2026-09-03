@@ -2,6 +2,7 @@ import "server-only";
 
 import { getAnswerProvider, type ChatMessage } from "@/modules/rag/answer-provider";
 import type { Passage } from "@/modules/rag/retrieve";
+import { getLibrary, formatLibrary } from "@/modules/rag/library";
 import type { HistoryTurn } from "@/modules/memory/context";
 
 /**
@@ -42,7 +43,11 @@ Treat a document as what the organisation has committed to, and a message as wha
 
 Cite every factual claim with the passage number in square brackets, like [2]. Cite the passages you actually used, and cite more than one when a claim rests on more than one.
 
-When the passages do not contain the answer, say so plainly and name what is missing — "the passages don't cover the 2026 fee schedule" is useful; a guess is not. Do not fall back on general knowledge about innovation centres, training programmes, or anything else outside the passages.
+A LIBRARY block may appear before the passages. It is a catalogue of every document the person asking is allowed to see — titles, upload dates, tags and short summaries — and it is separate from the passages in what it can settle. Use it to answer questions about the collection itself: how many documents there are, what they are called, which is newest, whether anything covers a given subject. When it says the list is complete, counting it is correct and you should give the number plainly. When it says the list is capped, say the collection holds at least that many rather than stating a total. The catalogue carries titles and summaries only, never full text, so a question about what a document actually says is answered from the passages, not from its summary line. Do not put square brackets around anything drawn from the library: bracket numbers are citations the interface turns into links to a passage, and a catalogue entry has no page to open, so "[LIBRARY]" renders to the reader as a broken footnote. Refer to it in words instead — "the library holds four documents".
+
+When neither the passages nor the library contain the answer, say so plainly and name what is missing — "the passages don't cover the 2026 fee schedule" is useful; a guess is not. Never invent a fact about the Accra Innovation Center, its documents, its people, its fees or its programmes from anything other than the passages and the library.
+
+That restriction is about facts, not about language. You are expected to be genuinely useful with what you are given: summarise a document, paraphrase a dense passage in plainer words, explain an unfamiliar term used in one, walk through the steps a procedure describes, draw out what two passages together imply, or lay an answer out as a list or a table when that is clearer than prose. Explaining what a passage means using ordinary knowledge of language and the world is doing your job; asserting an AIC fact that no passage states is not. If a question needs arithmetic on figures the passages give — a percentage, a difference, a total — do it, show the figures you used, and cite them.
 
 When the passages disagree, say that they disagree and cite both.
 
@@ -185,7 +190,13 @@ export async function* streamAnswer(
     return;
   }
 
-  if (passages.length === 0) {
+  // The catalogue is fetched even when retrieval found nothing, because
+  // "how many documents do we have" retrieves no passages and is still a fair
+  // question with a real answer.
+  const library = await getLibrary();
+  const libraryBlock = library ? formatLibrary(library) : null;
+
+  if (passages.length === 0 && (!library || library.total === 0)) {
     yield { type: "sources", sources: [] };
     yield {
       type: "delta",
@@ -202,8 +213,17 @@ export async function* streamAnswer(
   const { prompt, sources } = buildSourceBlock(passages);
   yield { type: "sources", sources };
 
+  // The catalogue rides on the user turn alongside the passages rather than in
+  // the system prompt: it describes this account's library at this moment, not
+  // a standing instruction, and a system prompt that changes per request is one
+  // whose cache never hits.
+  // Filtered rather than concatenated: retrieval legitimately returns nothing
+  // for a question about the collection itself, and an empty passage block would
+  // otherwise leave a gap the model reads as a missing section.
+  const grounding = [libraryBlock, prompt].filter(Boolean).join("\n\n");
+
   const history = memory.history ?? [];
-  const messages = buildMessages(question, prompt, history);
+  const messages = buildMessages(question, grounding, history);
   const system = memory.summary
     ? `${SYSTEM_PROMPT}\n\nEarlier in this conversation:\n${memory.summary}`
     : SYSTEM_PROMPT;

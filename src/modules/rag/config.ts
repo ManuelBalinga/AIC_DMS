@@ -86,8 +86,22 @@ export const CONTEXT_SUMMARY_MAX_CHARS = 400;
 /* Retrieval                                                                  */
 /* -------------------------------------------------------------------------- */
 
-/** Passages fed to the model per question. */
-export const RETRIEVAL_CHUNK_COUNT = 10;
+/**
+ * Passages fed to the model per question.
+ *
+ * Raised from 10 to 25 on 3 September, on measurement rather than instinct.
+ * The old ceiling was set when Claude Opus answered and every token was money.
+ * Against the model that answers now, a probe hid one fact among forty filler
+ * passages and it was quoted back correctly in 684 ms; a 400 KB single passage
+ * — roughly 104k tokens — still had its needle recalled. The model was nowhere
+ * near its limit, so the cap was throttling answer quality rather than
+ * protecting anything.
+ *
+ * 25 rather than the 50 the RPCs permit: past a couple of dozen passages the
+ * cost is the reader's attention, not the model's context. An answer assembled
+ * from fifty sources is one nobody checks.
+ */
+export const RETRIEVAL_CHUNK_COUNT = 25;
 
 /**
  * Cosine-similarity floor.
