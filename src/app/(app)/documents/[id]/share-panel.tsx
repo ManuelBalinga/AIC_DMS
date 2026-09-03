@@ -36,7 +36,7 @@ const ROLE_OPTIONS: { value: DocumentRole; label: string; hint: string }[] = [
 function GrantButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" className="stamp-commit" disabled={pending}>
       {pending ? "Sharing..." : "Share"}
     </Button>
   );
@@ -45,7 +45,7 @@ function GrantButton() {
 function RevokeButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" variant="ghost" disabled={pending}>
+    <Button type="submit" variant="ghost" className="stamp-commit" disabled={pending}>
       {pending ? "Removing..." : "Remove"}
     </Button>
   );

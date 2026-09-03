@@ -37,7 +37,7 @@ export default async function AppLayout({
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-page-sunk">
+    <div className="flex min-h-screen flex-col bg-cloth-deep">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-[2px] focus:bg-page focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-ink"
@@ -117,7 +117,7 @@ export default async function AppLayout({
         id="main"
         className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-3 py-6 sm:px-6 sm:py-8"
       >
-        <div className="flex-1 rounded-[2px] border border-rule-faint bg-page px-4 py-6 shadow-[0_1px_3px_rgba(36,31,20,0.09)] sm:px-8 sm:py-8">
+        <div className="flex flex-1 flex-col rounded-[2px] border border-rule-faint bg-page px-4 py-6 shadow-[0_1px_3px_rgba(36,31,20,0.09)] sm:px-8 sm:py-8">
           {children}
         </div>
       </main>

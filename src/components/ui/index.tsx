@@ -81,12 +81,12 @@ export function Button({ variant = "primary", className, ...props }: ButtonProps
   const variants = {
     // The stamp. Pressing it commits a record, and it moves like it.
     primary:
-      "stamp-commit bg-cloth text-parchment shadow-[0_1px_2px_rgba(36,31,20,0.28)] hover:bg-cloth-deep hover:text-page",
+      "border-b-2 border-cloth-deep bg-cloth text-parchment shadow-[0_2px_0_rgba(22,41,31,0.55),0_3px_6px_rgba(36,31,20,0.22)] hover:bg-cloth-deep hover:text-page",
     secondary:
       "border border-rule-faint bg-page-raised text-ink hover:border-ink-faint hover:bg-page",
     ghost: "text-ink-soft hover:bg-page-sunk hover:text-ink",
     danger:
-      "stamp-commit border border-rule/40 bg-page-raised text-rule hover:bg-rule hover:text-page",
+      "border border-rule/40 bg-page-raised text-rule hover:bg-rule hover:text-page",
   } as const;
 
   return <button className={cx(base, variants[variant], className)} {...props} />;

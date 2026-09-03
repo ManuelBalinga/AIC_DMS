@@ -65,3 +65,6 @@ next-env.d.ts
 # scripts/db-export.mjs reads with the service-role key, so its output is every
 # document, question and answer in the platform, in plaintext. Never commit it.
 /db/export/
+
+# Throwaway capture credentials — transient, never committed.
+capture-account.json

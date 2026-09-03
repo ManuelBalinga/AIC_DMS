@@ -26,7 +26,7 @@
   /* Ink — text on the page, warm rather than a cold near-black. */
   --color-ink: #241f14;
   --color-ink-soft: #6b6047;
-  --color-ink-faint: #8d8266;
+  --color-ink-faint: #756a50;
 
   /* Parchment — text on the binding. */
   --color-parchment: #e8dfc9;
@@ -120,9 +120,9 @@ a {
   background-image: repeating-linear-gradient(
     to bottom,
     transparent 0,
-    transparent calc(var(--rule-rhythm, 3.25rem) - 1px),
-    var(--color-rule-faint) calc(var(--rule-rhythm, 3.25rem) - 1px),
-    var(--color-rule-faint) var(--rule-rhythm, 3.25rem)
+    transparent calc(var(--rule-rhythm, 2.25rem) - 1px),
+    var(--color-rule-faint) calc(var(--rule-rhythm, 2.25rem) - 1px),
+    var(--color-rule-faint) var(--rule-rhythm, 2.25rem)
   );
 }
 
