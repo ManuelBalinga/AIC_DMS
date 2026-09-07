@@ -76,15 +76,18 @@ export async function getDocument(documentId: string): Promise<DocumentWithOwner
 export type TagCount = { tag: string; document_count: number };
 
 /**
- * Tag vocabulary of the documents this user can see, most used first.
+ * Tag vocabulary of the documents this user can see, alphabetically.
  *
  * Backed by `visible_document_tags()`, a SECURITY INVOKER function — so the
  * list itself cannot leak the tags of documents the user has no access to.
+ * The database returns tags most used first; the rail is easier to scan in
+ * alphabetical order, so the list is re-sorted here rather than in a
+ * migration.
  */
 export async function listVisibleTags(): Promise<TagCount[]> {
   const supabase = await createClient();
   const { data } = await supabase.rpc("visible_document_tags");
-  return data ?? [];
+  return (data ?? []).sort((a, b) => a.tag.localeCompare(b.tag));
 }
 
 export type DocumentStats = {
