@@ -1160,3 +1160,66 @@ and the screenshot still succeeds.
   clean rebuild confirms it. **The rows view, the mobile drawer, and every
   screen other than the register were not viewed in a browser** — they compile,
   which is not the same as having been looked at.
+
+### 2026-09-07 — Manuel + Claude
+
+**Added logging, because two errors could not be diagnosed without it.**
+
+Manuel reported two failures that had survived the redesign. One is diagnosed
+and fixed; the other could not be diagnosed at all, and that second fact is
+what this entry is really about.
+
+**The upload failure was the storage binding.** Four PDFs queued offline with
+"Could not save the document record." Every one of their names contained a
+space — "01 Course Catalogue.pdf" and so on — which is the signature of the bug
+fixed in the commit before this one: migration `0015` requires `storage_path` to
+equal `{owner_id}/{id}/{file_name}`, and the finalise route built the path from
+the sanitised name while storing the raw one. Confirmed against the live
+database by running the route's exact insert and watching Postgres reject it.
+
+**The page failure could not be diagnosed, and that was the real finding.**
+`error.tsx` shows a member a digest and says "send an administrator the
+reference below". Its own comment claimed "the digest is enough to find the
+real error in the server logs" — and there were no server logs. Nothing on the
+server ever wrote that digest down next to a cause, so `212777269@E7` was an
+identifier for a record that did not exist. The error page was keeping half a
+promise.
+
+**What was built,** following the wide-events pattern from the
+`logging-best-practices` skill Manuel supplied: one context-rich JSON event per
+request rather than scattered lines, because a scatter cannot answer "show me
+every failed upload by a member" when user, outcome and cause each sit on a
+different line.
+
+- `src/lib/log.ts` — the single logger. No dependency: this project runs 200-odd
+  tests on `node:test` with no framework, and a log line is `JSON.stringify`.
+- `src/instrumentation.ts` — `onRequestError`, which is where the digest finally
+  gets written next to the real error. That is the fix for the second failure:
+  not a code change, a way to see.
+- `src/proxy.ts` — one request id per request, echoed on the response, so the
+  two events a single upload produces (finalise, then indexing seconds later
+  after the response has gone) are joinable.
+- Wide events on the documents and Ask routes, including **the database's own
+  words at the point the route throws them away**: the member still sees a vague
+  sentence, because an insert error can carry a constraint name, but the cause
+  is now recorded. That field would have said "Document storage binding is
+  invalid" the first time this happened.
+
+**Redaction is deliberate and worth not undoing.** Document text, storage paths,
+emails, tokens and cookies never reach a line, at any nesting depth. The
+permission model lives in Postgres policies, and a log quietly accumulating the
+content those policies protect would defeat them somewhere no policy reaches.
+Ids stay, because they are what makes an event queryable.
+
+**One bug found by reading a real log line rather than by testing.** A 409 was
+recorded as `"outcome": "success"`, because the handler returned its refusal
+rather than raising it. A wrong row is worse than a missing one: "show me failed
+uploads" came back clean while uploads were being refused. Outcome now follows
+the status code, and four tests pin it.
+
+- Files: `src/lib/log.ts`, `src/instrumentation.ts`, `src/proxy.ts`, `src/app/api/documents/route.ts`, `src/app/api/rag/ask/route.ts`, `tests/log.test.ts`
+- Status: 223 tests pass, build clean. Wide events, request ids and the outcome
+  rule are **verified at runtime** against a real signed-in request.
+  `onRequestError` is wired to the documented contract and compiles into
+  `.next/server/instrumentation.js`, but I did not manage to make a page throw,
+  so I have **not** watched it fire. Unverified, and said so

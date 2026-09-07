@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/modules/auth/session";
 import { retrievePassages } from "@/modules/rag/retrieve";
 import { streamAnswer, type AnswerSource } from "@/modules/rag/answer";
 import { buildHistoryWindow, resolveQuery } from "@/modules/memory/context";
+import { startEvent } from "@/lib/log";
 import {
   loadWorkingMemory,
   maintainSummary,
@@ -70,6 +71,26 @@ export async function POST(request: NextRequest) {
 
   const encoder = new TextEncoder();
 
+  /*
+   * Emitted when the stream closes, not when the response is returned. On a
+   * streamed answer the response headers go out almost immediately and the
+   * work happens afterwards, so an event emitted at return time would record
+   * every question as an instant success — including the ones that failed
+   * half a paragraph in.
+   */
+  const event = startEvent({
+    event: "rag_ask",
+    method: "POST",
+    path: "/api/rag/ask",
+    request_id: request.headers.get("x-request-id"),
+    user: { id: profile.id, role: profile.role },
+    // The question itself is redacted by the logger. Its length is not: it is
+    // what distinguishes a one-word query from a pasted paragraph when
+    // retrieval quality is in question.
+    question_length: question.length,
+    resumed_conversation: Boolean(conversationId),
+  });
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (payload: unknown) => {
@@ -109,6 +130,18 @@ export async function POST(request: NextRequest) {
 
         const { passages, degradedTo } = await retrievePassages(query);
 
+        event.set({
+          conversation: { id: conversation.id, turns: conversation.message_count },
+          rewritten_followup: rewritten,
+          retrieval: {
+            mode: degradedTo === "keyword" ? "keyword" : "hybrid",
+            degraded: degradedTo === "keyword",
+            passage_count: passages.length,
+            document_passages: passages.filter((p) => p.kind === "document").length,
+            message_passages: passages.filter((p) => p.kind === "message").length,
+          },
+        });
+
         if (degradedTo === "keyword") {
           send({
             type: "notice",
@@ -129,6 +162,12 @@ export async function POST(request: NextRequest) {
           send(event);
         }
 
+        event.set({
+          answered: Boolean(answer.trim()),
+          answer_length: answer.length,
+          source_count: sources.length,
+        });
+
         if (answer.trim()) {
           await recordAnswer(conversation.id, answer, sources, {
             retrievalMode: degradedTo === "keyword" ? "keyword" : "hybrid",
@@ -145,10 +184,15 @@ export async function POST(request: NextRequest) {
           });
         }
       } catch (cause) {
+        // The reader is shown the message; the event keeps the whole error, so
+        // a provider outage or a rate limit is distinguishable afterwards from
+        // a bug, which the message alone rarely settles.
+        event.fail(cause, { failed_at: "ask_stream" });
         const message = cause instanceof Error ? cause.message : String(cause);
         send({ type: "error", message });
       } finally {
         controller.close();
+        event.end();
       }
     },
   });

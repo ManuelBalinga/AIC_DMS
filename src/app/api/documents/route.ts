@@ -11,6 +11,7 @@ import {
   sanitiseFileName,
 } from "@/modules/documents/constants";
 import { ingestDocument } from "@/modules/rag/ingest";
+import { startEvent, type WideEvent } from "@/lib/log";
 
 /**
  * Step two of an upload: record the document now that its bytes are stored.
@@ -45,6 +46,29 @@ import { ingestDocument } from "@/modules/rag/ingest";
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
+  const event = startEvent({
+    event: "document_finalise",
+    method: "POST",
+    path: "/api/documents",
+    request_id: request.headers.get("x-request-id"),
+  });
+  try {
+    const response = await finaliseUpload(request, event);
+    event.set({ status_code: response.status });
+    return response;
+  } catch (error) {
+    // Rethrown so the platform still turns it into a 500; the event records it
+    // on the way past rather than swallowing it in order to log it.
+    event.fail(error, { status_code: 500 });
+    throw error;
+  } finally {
+    // In `finally`, so a request that failed is exactly as well recorded as
+    // one that succeeded. Those are the ones worth reading.
+    event.end();
+  }
+}
+
+async function finaliseUpload(request: NextRequest, event: WideEvent) {
   const profile = await getCurrentProfile();
   if (!profile) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
@@ -59,6 +83,8 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+
+  event.set({ user: { id: profile.id, role: profile.role } });
 
   const documentId = typeof body.documentId === "string" ? body.documentId : "";
   const fileName = typeof body.fileName === "string" ? body.fileName : "";
@@ -120,9 +146,22 @@ export async function POST(request: NextRequest) {
   const actualType = object.contentType ?? "";
 
   const discard = async (message: string, status: number) => {
+    // The member sees `message`; the event keeps why, which is not the same
+    // thing and is the half that was missing.
+    event.set({ outcome: "rejected", reject_reason: message });
     await adminClient.storage.from(STORAGE_BUCKET).remove([storagePath]);
     return NextResponse.json({ error: message }, { status });
   };
+
+  event.set({
+    document: {
+      id: documentId,
+      mime_type: actualType,
+      size_bytes: actualSize,
+      tag_count: tags.length,
+      named_by_uploader: Boolean(title),
+    },
+  });
 
   if (actualSize <= 0) {
     return discard("That file appears to be empty.", 400);
@@ -172,6 +211,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ id: documentId }, { status: 200 });
     }
     // Never leave an orphaned object behind after a genuine insert failure.
+    //
+    // The member is shown a deliberately vague sentence, because an insert
+    // error can carry a constraint name or a storage path. The cause goes here
+    // instead. This is the field that would have said "Document storage
+    // binding is invalid" the first time an upload failed, rather than leaving
+    // four queued files and nothing to go on.
+    event.fail(insertError, { failed_at: "documents_insert" });
     return discard("Could not save the document record.", 500);
   }
 
@@ -189,11 +235,36 @@ export async function POST(request: NextRequest) {
   // large PDF can exceed it. The document page's retry button is what covers
   // that today, and a durable queue remains the real fix.
   after(async () => {
+    // A separate wide event, because this runs after the response has gone: it
+    // is a second hop, tied to the first by document id and request id. Folding
+    // it into the upload event would mean either holding that event open until
+    // indexing finished, or emitting it without the outcome.
+    const ingestEvent = startEvent({
+      event: "document_ingest",
+      request_id: request.headers.get("x-request-id"),
+      document: {
+        id: documentId,
+        mime_type: actualType,
+        size_bytes: actualSize,
+      },
+      user: { id: profile.id, role: profile.role },
+    });
     try {
-      await ingestDocument(documentId);
-    } catch {
-      // ingestDocument records the failure on the document row itself, which is
-      // where the person who uploaded it will look.
+      const result = await ingestDocument(documentId);
+      if (result.ok) {
+        ingestEvent.set({
+          chunk_count: result.chunkCount,
+          skipped_reason: result.skipped ?? null,
+        });
+      } else {
+        ingestEvent.fail(new Error(result.error), { failed_at: "ingest" });
+      }
+    } catch (error) {
+      // ingestDocument records the failure on the document row too, which is
+      // where the uploader looks. This is where somebody debugging looks.
+      ingestEvent.fail(error, { failed_at: "ingest_threw" });
+    } finally {
+      ingestEvent.end();
     }
   });
 

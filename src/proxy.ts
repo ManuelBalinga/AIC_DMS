@@ -19,8 +19,25 @@ function isPublicRoute(pathname: string) {
 }
 
 export default async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  /*
+   * One id per request, minted here because this runs before everything else.
+   *
+   * It is what joins the events a single click produces: finalising an upload
+   * and then indexing it are two events, emitted seconds apart, and without a
+   * shared id they are two unrelated rows. An id supplied by the caller is
+   * honoured so a trace started upstream survives; otherwise one is made.
+   *
+   * It also goes back on the response, so a member reporting a problem can
+   * read it out of their own network tab.
+   */
+  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+  request.headers.set("x-request-id", requestId);
 
+  let response = NextResponse.next({ request });
+  response.headers.set("x-request-id", requestId);
+
+  // The cookie jar is rebuilt on refresh, which drops headers set above, so
+  // the id is re-applied wherever a new response is created.
   const supabase = createServerClient(
     publicEnv.supabaseUrl,
     publicEnv.supabaseAnonKey,
@@ -34,6 +51,7 @@ export default async function proxy(request: NextRequest) {
             request.cookies.set(name, value);
           }
           response = NextResponse.next({ request });
+          response.headers.set("x-request-id", requestId);
           for (const { name, value, options } of cookiesToSet) {
             response.cookies.set(name, value, options);
           }
@@ -54,14 +72,18 @@ export default async function proxy(request: NextRequest) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    const redirect = NextResponse.redirect(loginUrl);
+    redirect.headers.set("x-request-id", requestId);
+    return redirect;
   }
 
   if (user && pathname === "/login") {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
     dashboardUrl.search = "";
-    return NextResponse.redirect(dashboardUrl);
+    const redirect = NextResponse.redirect(dashboardUrl);
+    redirect.headers.set("x-request-id", requestId);
+    return redirect;
   }
 
   return response;
