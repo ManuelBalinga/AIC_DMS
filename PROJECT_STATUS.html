@@ -217,23 +217,23 @@
 <h2>Overall progress</h2>
 
 <div class="stats">
-  <div class="stat"><div class="n">89 / 92</div><div class="l">Deliverables built</div></div>
+  <div class="stat"><div class="n">90 / 93</div><div class="l">Deliverables built</div></div>
   <div class="stat"><div class="n">13 / 14</div><div class="l">Acceptance criteria met</div></div>
   <div class="stat"><div class="n">5</div><div class="l">Verified against a live database</div></div>
   <div class="stat"><div class="n">4</div><div class="l">Open questions for Bishop</div></div>
 </div>
 
 <div class="card">
-  <div class="progress-shell" role="img" aria-label="79 of 82 deliverables built, 2 in progress, 1 waiting on Bishop">
-    <span style="width:96.74%;background:var(--built-dot)"></span>
-    <span style="width:2.17%;background:var(--progress-dot)"></span>
-    <span style="width:1.09%;background:var(--blocked-dot)"></span>
+  <div class="progress-shell" role="img" aria-label="90 of 93 deliverables built, 2 in progress, 1 waiting on Bishop">
+    <span style="width:96.77%;background:var(--built-dot)"></span>
+    <span style="width:2.15%;background:var(--progress-dot)"></span>
+    <span style="width:1.08%;background:var(--blocked-dot)"></span>
   </div>
   <div class="progress-legend">
-    <span><b>89</b> Built</span>
+    <span><b>90</b> Built</span>
     <span><b>2</b> In progress</span>
     <span><b>1</b> Needs Bishop</span>
-    <span><b>92</b> total tracked deliverables</span>
+    <span><b>93</b> total tracked deliverables</span>
   </div>
   <p style="margin:12px 0 0; font-size:13.5px; color:var(--text-muted)">
     The built total is unchanged from 31 August, and three rows moved on 1 September.
@@ -619,6 +619,7 @@ text layer indexes to zero passages and reports as much.</p>
     <tr><td class="item">Navigation moved to a rail</td><td class="status"><span class="pill built">Built</span></td><td class="note">Across the whole shell, not just the register. The tab strip was already full at five sections with Teams unbuilt; a rail grows downward, which is the direction this product grows. Below <code>lg</code> it becomes a <code>&lt;details&gt;</code> disclosure &mdash; correct keyboard and screen-reader behaviour with no JavaScript shipped to do what the element does natively. Tags moved into it and appear only on the register.</td></tr>
     <tr><td class="item">Three duplicate queries removed</td><td class="status"><span class="pill built">Built</span></td><td class="note">Fell out of the rearrangement rather than being hunted. Tags were fetched by both the layout and the dashboard, so the page asked twice for one answer. Folio numbers &mdash; one of the six faults &mdash; cost a <em>second</em> full <code>listVisibleDocuments</code> call on every filtered view, and are gone. And the card-preview query is skipped entirely by the rows view, which never draws it.</td></tr>
     <tr><td class="item">Cards or rows</td><td class="status"><span class="pill built">Built</span></td><td class="note">Cards are the default because recognition is the point. Rows stay one click away, because the honest cost of a shelf is three documents per row instead of twelve, and somebody who knows exactly what they want should not have to scroll past thirty cards to reach it.</td></tr>
+    <tr><td class="item">Cards show the document's own face</td><td class="status"><span class="pill built">Built</span></td><td class="note">The card window no longer stops at the document's words. A PDF's true first page is drawn to a canvas in the browser with <code>pdfjs-dist</code>, fetched through the same permission-checked inline route Download uses &mdash; no thumbnail store, no background job, no second permission model. Word, Excel and PowerPoint reuse the server-side conversion the reading view already runs, scaled to card size; images render from the bytes themselves; markdown furniture is stripped from plain text. Heavy work starts only when a card nears the viewport, and every path degrades to the opening words on failure. Type-checked, linting clean, build clean, 223 unit tests pass; not yet exercised against real files in a browser.</td></tr>
 
   </tbody>
 </table>

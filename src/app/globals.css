@@ -226,6 +226,98 @@ a {
   animation: rise 220ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 
+/*
+ * Card preview of a converted Office document.
+ *
+ * The converter (modules/documents/office-preview.ts) emits semantic HTML
+ * against an allowlist, with no classes of its own — which is why the styling
+ * is keyed on this one class rather than on utilities in the markup. The card
+ * draws it scaled down, so the sizes here are set for a legible result after
+ * the shrink: headings must still read as headings and table rules must not
+ * vanish, because the whole point of the thumbnail is that a reader recognises
+ * the shape of the document without opening it.
+ */
+.doc-card-preview {
+  color: var(--color-ink-soft);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.doc-card-preview h1,
+.doc-card-preview h2,
+.doc-card-preview h3 {
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0 0 4px;
+}
+
+.doc-card-preview h4,
+.doc-card-preview h5,
+.doc-card-preview h6 {
+  color: var(--color-ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  margin: 0 0 3px;
+}
+
+.doc-card-preview p,
+.doc-card-preview ul,
+.doc-card-preview ol,
+.doc-card-preview blockquote,
+.doc-card-preview pre {
+  margin: 0 0 4px;
+}
+
+.doc-card-preview ul,
+.doc-card-preview ol {
+  padding-left: 16px;
+}
+
+.doc-card-preview li {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.doc-card-preview pre {
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.doc-card-preview table {
+  border-collapse: collapse;
+  margin: 0 0 6px;
+  width: 100%;
+}
+
+.doc-card-preview th,
+.doc-card-preview td {
+  border: 1px solid var(--color-line-strong);
+  font-size: 10px;
+  line-height: 1.35;
+  overflow: hidden;
+  padding: 2px 5px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.doc-card-preview strong,
+.doc-card-preview b {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.doc-card-preview hr {
+  border: 0;
+  border-top: 1px solid var(--color-line);
+  margin: 4px 0;
+}
+
+
 @media (prefers-reduced-motion: reduce) {
   .press:active:not(:disabled) {
     transform: none;

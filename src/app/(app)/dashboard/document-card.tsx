@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import type { DocumentWithOwner } from "@/modules/documents/queries";
 
+import { CardPreview } from "./card-preview";
+
 /** Three-letter mark for a file's kind, from its MIME type. */
 function kindOf(mimeType: string, fileName: string): string {
   const byMime: Record<string, string> = {
@@ -81,15 +83,20 @@ export function DocumentCard({
   /*
    * What fills the card's window, in order of how much it tells you.
    *
-   * A summary is written to be read on its own. The opening text is the
-   * document actually speaking, which is nearly as good and needs nothing but
-   * what ingestion already stored. A description is what the uploader chose to
-   * say. Only when all three are missing does the card fall back to saying so —
-   * and it says *why*, because "no preview" and "this has not been indexed yet"
-   * are different facts and the second one is actionable.
+   * CardPreview decides between the file's own face — the first page of the
+   * real document, per format — and its words. When neither exists the card
+   * says *why*, because "no preview" and "this has not been indexed yet" are
+   * different facts and the second one is actionable.
    */
   const body =
     doc.summary?.trim() || preview || doc.description?.trim() || null;
+
+  const status =
+    doc.index_status === "indexed"
+      ? "No text to show"
+      : doc.index_status === "failed"
+        ? "Could not be read"
+        : "Still being read…";
 
   return (
     <Link
@@ -97,30 +104,11 @@ export function DocumentCard({
       className="group flex flex-col overflow-hidden rounded-sheet border border-line bg-surface transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:border-control hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,0.18)]"
     >
       <div className="relative h-[132px] overflow-hidden border-b border-line bg-surface-sunk px-4 pt-3.5">
-        {body ? (
-          /*
-           * The document's own words, set small and clipped by the window.
-           * This is the whole argument for the grid: you recognise a fee
-           * schedule by reading four words of it, faster than by parsing a
-           * filename and far faster than by squinting at a rendered page.
-           */
-          <p className="pr-12 text-[11px] leading-[1.65] text-ink-soft [overflow-wrap:anywhere]">
-            {body.slice(0, 320)}
-          </p>
-        ) : (
-          <p className="pt-8 text-center text-[11.5px] text-ink-faint">
-            {doc.index_status === "indexed"
-              ? "No text to show"
-              : doc.index_status === "failed"
-                ? "Could not be read"
-                : "Still being read…"}
-          </p>
-        )}
-
-        {/* Fades the clipped text out rather than guillotining a line of it. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-b from-transparent to-surface-sunk"
+        <CardPreview
+          documentId={doc.id}
+          mimeType={doc.mime_type}
+          body={body}
+          status={status}
         />
 
         <span
