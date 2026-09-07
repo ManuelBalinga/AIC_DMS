@@ -1,5 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import {
   MAX_TAGS_PER_DOCUMENT,
@@ -147,5 +148,56 @@ describe("formatFileSize", () => {
     assert.equal(formatFileSize(512), "512 B");
     assert.equal(formatFileSize(2048), "2 KB");
     assert.equal(formatFileSize(5 * 1024 * 1024), "5.0 MB");
+  });
+});
+
+/**
+ * Migration `0015` binds a document row to its stored object: it refuses any
+ * insert where `storage_path` is not exactly `{owner_id}/{id}/{file_name}`.
+ * That makes the finalise route's two names one fact, not two — and when they
+ * drifted apart, every upload whose name contained a space was rejected with
+ * "Document storage binding is invalid". A space in a file name is the common
+ * case, not the edge case, so the drift broke ordinary uploading outright.
+ *
+ * These read the route's source because the invariant lives in the shape of
+ * what it writes, and a mock of PostgREST would only prove the mock agrees
+ * with itself.
+ */
+describe("the upload finalise route keeps the storage binding intact", () => {
+  const route = readFileSync("src/app/api/documents/route.ts", "utf8");
+
+  test("the row stores the same name the storage path is built from", () => {
+    assert.match(
+      route,
+      /const storagePath = `\$\{profile\.id\}\/\$\{documentId\}\/\$\{safeName\}`/,
+      "the path must be built from the sanitised name",
+    );
+    assert.match(
+      route,
+      /file_name: safeName/,
+      "the row must store the sanitised name, so it agrees with the path",
+    );
+    assert.doesNotMatch(
+      route,
+      /file_name: fileName/,
+      "storing the raw name reintroduces the binding failure",
+    );
+  });
+
+  test("the retry-safe comparisons check the name that was actually stored", () => {
+    // Comparing against the raw name would make a genuine retry look like a
+    // different document and orphan the object instead of succeeding.
+    assert.doesNotMatch(route, /file_name === fileName/);
+    assert.equal(route.split("file_name === safeName").length - 1, 2);
+  });
+
+  test("sanitising still strips separators, so the trigger's own check passes", () => {
+    // The trigger independently rejects a file_name containing / or \.
+    for (const attempt of ["../../etc/passwd", "a\b.pdf", "x/y.pdf"]) {
+      const safe = sanitiseFileName(attempt);
+      assert.ok(!safe.includes("/"), `${attempt} kept a forward slash`);
+      assert.ok(!safe.includes("\\"), `${attempt} kept a backslash`);
+      assert.ok(safe.length >= 1 && safe.length <= 120);
+    }
   });
 });

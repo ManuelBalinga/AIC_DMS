@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
   if (
     existing?.owner_id === profile.id &&
     existing.storage_path === storagePath &&
-    existing.file_name === fileName
+    existing.file_name === safeName
   ) {
     return NextResponse.json({ id: documentId }, { status: 200 });
   }
@@ -143,7 +143,15 @@ export async function POST(request: NextRequest) {
     owner_id: profile.id,
     title: title || safeName,
     description: description || null,
-    file_name: fileName,
+    // The sanitised name, not the original: migration 0015 binds the row to its
+    // stored object by requiring `storage_path` to equal
+    // `{owner_id}/{id}/{file_name}`, and the path above is built from
+    // `safeName`. Storing the raw name here made the two disagree for any file
+    // whose name needed sanitising — which is every name containing a space —
+    // and the trigger rejected the insert with "Document storage binding is
+    // invalid". Sanitising is the security boundary and does not move; the row
+    // moves to meet it. A human-readable name belongs in `title`.
+    file_name: safeName,
     storage_path: storagePath,
     mime_type: actualType,
     size_bytes: actualSize,
@@ -159,7 +167,7 @@ export async function POST(request: NextRequest) {
     if (
       retried?.owner_id === profile.id &&
       retried.storage_path === storagePath &&
-      retried.file_name === fileName
+      retried.file_name === safeName
     ) {
       return NextResponse.json({ id: documentId }, { status: 200 });
     }
