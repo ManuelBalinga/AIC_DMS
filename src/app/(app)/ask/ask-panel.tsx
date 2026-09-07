@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Alert, Badge, Button, Card, Textarea } from "@/components/ui";
+import { toBlocks } from "@/modules/rag/answer-format";
 
 export type Source = {
   number: number;
@@ -49,70 +50,108 @@ const EXAMPLES = [
 ];
 
 /**
- * Renders an answer, turning `[n]` citations into links to the source document.
+ * Renders one run of answer text, turning `[n]` citations into links.
  *
- * Splitting on the bracket pattern rather than parsing markdown keeps this
- * honest: the only thing being interpreted is the citation convention the
- * system prompt asks for.
+ * Split out from the block loop so a list item and a paragraph get identical
+ * citation handling — when this lived inline, only paragraphs had it, and a
+ * citation inside a bullet rendered as bare text.
+ */
+function withCitations(
+  text: string,
+  byNumber: Map<number, Source>,
+  keyPrefix: string,
+) {
+  const pieces = text.split(/([d+(?:,s*d+)*])/g);
+
+  return pieces.map((piece, index) => {
+    const citation = piece.match(/^[(d+(?:,s*d+)*)]$/);
+    if (!citation) return <span key={`${keyPrefix}-${index}`}>{piece}</span>;
+
+    const numbers = citation[1].split(/,s*/).map(Number);
+
+    return (
+      <span key={`${keyPrefix}-${index}`}>
+        {numbers.map((number, position) => {
+          const source = byNumber.get(number);
+          const separator = position > 0 ? " " : "";
+          const href = source ? sourceHref(source) : null;
+
+          if (!source || !href) {
+            return (
+              <span key={number}>
+                {separator}[{number}]
+              </span>
+            );
+          }
+
+          // A message citation is tinted differently from a document one.
+          // The colour is the only thing telling a reader, mid-sentence,
+          // that the claim rests on somebody's recollection rather than on
+          // something the organisation published.
+          const tone =
+            source.kind === "message"
+              ? "bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900"
+              : "bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900";
+
+          return (
+            <span key={number}>
+              {separator}
+              <Link
+                href={href}
+                title={
+                  source.kind === "message"
+                    ? `Message from ${source.documentTitle}`
+                    : `${source.documentTitle}${
+                        source.pageNumber ? `, page ${source.pageNumber}` : ""
+                      }`
+                }
+                className={`mx-0.5 rounded px-1 text-xs font-medium ${tone}`}
+              >
+                {number}
+              </Link>
+            </span>
+          );
+        })}
+      </span>
+    );
+  });
+}
+
+/**
+ * Renders an answer as prose, with citations as links.
+ *
+ * The text is normalised first. The system prompt asks for plain prose, and a
+ * model reaching for markdown out of habit still emits the odd `**` or run of
+ * `* ` — which this renderer, deliberately not being a markdown parser, would
+ * otherwise print as literal punctuation. `toBlocks` strips those markers and
+ * turns a run of bullets into an actual list, so the machinery stops showing
+ * through on the answers where the model slipped.
  */
 function AnswerBody({ text, sources }: { text: string; sources: Source[] }) {
   const byNumber = new Map(sources.map((source) => [source.number, source]));
-  const pieces = text.split(/(\[\d+(?:,\s*\d+)*\])/g);
+  const blocks = toBlocks(text);
 
   return (
-    <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-800 dark:text-neutral-200">
-      {pieces.map((piece, index) => {
-        const citation = piece.match(/^\[(\d+(?:,\s*\d+)*)\]$/);
-        if (!citation) return <span key={index}>{piece}</span>;
-
-        const numbers = citation[1].split(/,\s*/).map(Number);
-
-        return (
-          <span key={index}>
-            {numbers.map((number, position) => {
-              const source = byNumber.get(number);
-              const separator = position > 0 ? " " : "";
-
-              const href = source ? sourceHref(source) : null;
-
-              if (!source || !href) {
-                return <span key={number}>{separator}[{number}]</span>;
-              }
-
-              // A message citation is tinted differently from a document one.
-              // The colour is the only thing telling a reader, mid-sentence,
-              // that the claim rests on somebody's recollection rather than on
-              // something the organisation published.
-              const tone =
-                source.kind === "message"
-                  ? "bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900"
-                  : "bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900";
-
-              return (
-                <span key={number}>
-                  {separator}
-                  <Link
-                    href={href}
-                    title={
-                      source.kind === "message"
-                        ? `Message from ${source.documentTitle}`
-                        : `${source.documentTitle}${
-                            source.pageNumber ? `, page ${source.pageNumber}` : ""
-                          }`
-                    }
-                    className={`mx-0.5 rounded px-1 text-xs font-medium ${tone}`}
-                  >
-                    {number}
-                  </Link>
-                </span>
-              );
-            })}
-          </span>
-        );
-      })}
-    </p>
+    <div className="space-y-3 text-sm leading-relaxed text-neutral-800 dark:text-neutral-200">
+      {blocks.map((block, index) =>
+        block.kind === "list" ? (
+          <ul key={index} className="list-disc space-y-1 pl-5">
+            {block.items.map((item, position) => (
+              <li key={position}>
+                {withCitations(item, byNumber, `${index}-${position}`)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p key={index} className="whitespace-pre-wrap">
+            {withCitations(block.text, byNumber, String(index))}
+          </p>
+        ),
+      )}
+    </div>
   );
 }
+
 
 function SourceList({ sources }: { sources: Source[] }) {
   if (sources.length === 0) return null;
