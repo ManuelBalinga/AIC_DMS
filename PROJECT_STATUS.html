@@ -217,7 +217,7 @@
 <h2>Overall progress</h2>
 
 <div class="stats">
-  <div class="stat"><div class="n">85 / 88</div><div class="l">Deliverables built</div></div>
+  <div class="stat"><div class="n">89 / 92</div><div class="l">Deliverables built</div></div>
   <div class="stat"><div class="n">13 / 14</div><div class="l">Acceptance criteria met</div></div>
   <div class="stat"><div class="n">5</div><div class="l">Verified against a live database</div></div>
   <div class="stat"><div class="n">4</div><div class="l">Open questions for Bishop</div></div>
@@ -225,15 +225,15 @@
 
 <div class="card">
   <div class="progress-shell" role="img" aria-label="79 of 82 deliverables built, 2 in progress, 1 waiting on Bishop">
-    <span style="width:96.59%;background:var(--built-dot)"></span>
-    <span style="width:2.27%;background:var(--progress-dot)"></span>
-    <span style="width:1.14%;background:var(--blocked-dot)"></span>
+    <span style="width:96.74%;background:var(--built-dot)"></span>
+    <span style="width:2.17%;background:var(--progress-dot)"></span>
+    <span style="width:1.09%;background:var(--blocked-dot)"></span>
   </div>
   <div class="progress-legend">
-    <span><b>85</b> Built</span>
+    <span><b>89</b> Built</span>
     <span><b>2</b> In progress</span>
     <span><b>1</b> Needs Bishop</span>
-    <span><b>88</b> total tracked deliverables</span>
+    <span><b>92</b> total tracked deliverables</span>
   </div>
   <p style="margin:12px 0 0; font-size:13.5px; color:var(--text-muted)">
     The built total is unchanged from 31 August, and three rows moved on 1 September.
@@ -613,6 +613,12 @@ text layer indexes to zero passages and reports as much.</p>
     <tr><td class="item">Fields you can see</td><td class="status"><span class="pill built">Built</span></td><td class="note">Inputs were underlines. Handsome, and the reason the sign-in screen read as though the password box were missing: nothing marked where to click until you clicked. They are bounded boxes now, on a border that clears 3:1 unaided so the boundary is visible in its own right rather than by implication.</td></tr>
     <tr><td class="item">Interaction that answers</td><td class="status"><span class="pill built">Built</span></td><td class="note">Rows lift on hover and reveal an affordance saying they open &mdash; drawn only where the pointer or the keyboard already is, so twenty rows are not twenty arrows competing with twenty titles. Controls take weight while held, the header stays put while the page scrolls, and the sheet arrives rather than appearing. Every one of these collapses under <code>prefers-reduced-motion</code> to the interface without the movement, never to a broken one.</td></tr>
     <tr><td class="item">Contrast measured, not assumed</td><td class="status"><span class="pill built">Built</span></td><td class="note"><code>npm run check:contrast</code> parses the palette out of <code>globals.css</code> rather than keeping a copy &mdash; a checker with its own copy passes forever after somebody edits the real one. 26 pairings across both themes, all clear. The tier that failed the previous review at 3.38:1 now measures 5.28:1 light and 5.49:1 dark.</td></tr>
+
+    <tr class="group-head"><td colspan="3">The library layout (chosen 3 Sep) <span style="font-weight:400;opacity:.7">&mdash; on <code>Claude-Dev</code> for review</span></td></tr>
+    <tr><td class="item">Documents as cards you can read</td><td class="status"><span class="pill built">Built</span></td><td class="note">Three directions were mocked and this one chosen. The quoted cost &mdash; rendering the first page of every file, meaning a background job, an image store and a second permission model &mdash; turned out not to exist: <code>document_chunks.content</code> already holds each document's extracted opening text under the policy that calls <code>can_read_document</code>, because it is what Ask reads. Each card shows <b>the document's own first words</b>, which needs no new backend and beats a thumbnail: a fee schedule is recognised by reading four words of it. Falls back through summary, opening text, the uploader's description, and finally a statement of why there is nothing &mdash; "still being read" and "could not be read" are different facts and only one is actionable.</td></tr>
+    <tr><td class="item">Navigation moved to a rail</td><td class="status"><span class="pill built">Built</span></td><td class="note">Across the whole shell, not just the register. The tab strip was already full at five sections with Teams unbuilt; a rail grows downward, which is the direction this product grows. Below <code>lg</code> it becomes a <code>&lt;details&gt;</code> disclosure &mdash; correct keyboard and screen-reader behaviour with no JavaScript shipped to do what the element does natively. Tags moved into it and appear only on the register.</td></tr>
+    <tr><td class="item">Three duplicate queries removed</td><td class="status"><span class="pill built">Built</span></td><td class="note">Fell out of the rearrangement rather than being hunted. Tags were fetched by both the layout and the dashboard, so the page asked twice for one answer. Folio numbers &mdash; one of the six faults &mdash; cost a <em>second</em> full <code>listVisibleDocuments</code> call on every filtered view, and are gone. And the card-preview query is skipped entirely by the rows view, which never draws it.</td></tr>
+    <tr><td class="item">Cards or rows</td><td class="status"><span class="pill built">Built</span></td><td class="note">Cards are the default because recognition is the point. Rows stay one click away, because the honest cost of a shelf is three documents per row instead of twelve, and somebody who knows exactly what they want should not have to scroll past thirty cards to reach it.</td></tr>
 
   </tbody>
 </table>

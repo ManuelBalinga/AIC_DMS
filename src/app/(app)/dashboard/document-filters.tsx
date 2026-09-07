@@ -5,8 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Input } from "@/components/ui";
 
-type TagCount = { tag: string; document_count: number };
-
 /**
  * Search box and tag filter for the document list.
  *
@@ -14,21 +12,19 @@ type TagCount = { tag: string; document_count: number };
  * be linked to a colleague, survives a refresh, and keeps the list itself a
  * server component that queries the database directly.
  *
- * The two filters are deliberately different objects: scope is a tab cut into
- * the top edge of the page, tags are marks written in the margin. They were
- * one undifferentiated row of pills before, which made a five-choice decision
- * out of what is really two much smaller ones.
+ * Tags are not here: they moved into the rail, where they sit beside the other
+ * ways of narrowing the register rather than forming a second row of pills
+ * under the first. Two rows of pills asked the reader to work out which row a
+ * given word belonged to before they could use either.
  */
 export function DocumentFilters({
-  tags,
-  activeTag,
   activeQuery,
   activeScope,
+  activeView,
 }: {
-  tags: TagCount[];
-  activeTag?: string;
   activeQuery?: string;
   activeScope?: string;
+  activeView?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -78,57 +74,62 @@ export function DocumentFilters({
           in a page edge says "these three are one choice". A track with the
           selected segment filled says it at a glance, and it is the control
           people already know from every settings screen they have used. */}
-      <div
-        className="inline-flex w-full max-w-full gap-1 overflow-x-auto rounded-control border border-line bg-surface-sunk p-1 sm:w-auto"
-        role="group"
-        aria-label="Filter by ownership"
-      >
-        {scopes.map((scope) => {
-          const isActive = (activeScope ?? undefined) === scope.key;
-          return (
-            <Link
-              key={scope.label}
-              href={withParam("scope", scope.key ?? null)}
-              aria-current={isActive ? "true" : undefined}
-              className={
-                isActive
-                  ? "flex-1 whitespace-nowrap rounded-[5px] bg-surface px-3.5 py-1.5 text-center text-[13px] font-semibold text-ink shadow-[0_1px_2px_rgba(0,0,0,0.08)] sm:flex-none"
-                  : "flex-1 whitespace-nowrap rounded-[5px] px-3.5 py-1.5 text-center text-[13px] text-ink-soft transition-colors hover:text-ink sm:flex-none"
-              }
-            >
-              {scope.label}
-            </Link>
-          );
-        })}
-      </div>
-
-      {tags.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.11em] text-ink-faint">
-            Tags
-          </span>
-          {tags.map((tag) => {
-            const isActive = activeTag === tag.tag;
+      <div className="flex flex-wrap items-center gap-3">
+        <div
+          className="inline-flex max-w-full gap-1 overflow-x-auto rounded-control border border-line bg-surface-sunk p-1"
+          role="group"
+          aria-label="Filter by ownership"
+        >
+          {scopes.map((scope) => {
+            const isActive = (activeScope ?? undefined) === scope.key;
             return (
               <Link
-                key={tag.tag}
-                href={withParam("tag", isActive ? null : tag.tag)}
+                key={scope.label}
+                href={withParam("scope", scope.key ?? null)}
                 aria-current={isActive ? "true" : undefined}
                 className={
                   isActive
-                    ? "inline-flex items-center rounded-full bg-accent px-3 py-1 text-[13px] font-medium text-accent-ink"
-                    : "inline-flex items-center rounded-full border border-line px-3 py-1 text-[13px] text-ink-soft transition-colors hover:border-control hover:text-ink"
+                    ? "flex-1 whitespace-nowrap rounded-[5px] bg-surface px-3.5 py-1.5 text-center text-[13px] font-semibold text-ink shadow-[0_1px_2px_rgba(0,0,0,0.08)] sm:flex-none"
+                    : "flex-1 whitespace-nowrap rounded-[5px] px-3.5 py-1.5 text-center text-[13px] text-ink-soft transition-colors hover:text-ink sm:flex-none"
                 }
               >
-                {tag.tag}
-                <span className="ml-1.5 text-[11px] tabular-nums opacity-60">
-                  {tag.document_count}
-                </span>
+                {scope.label}
               </Link>
             );
           })}
         </div>
-      ) : null}
+
+        {/* Cards are the default because recognising a document by its own words
+          is the point of this screen. Rows stay one click away, because at
+          forty documents a shelf is a lot of scrolling and somebody who knows
+          exactly what they are looking for wants the dense view. */}
+        <div
+          className="ml-auto inline-flex gap-1 rounded-control border border-line bg-surface-sunk p-1"
+          role="group"
+          aria-label="How to show documents"
+        >
+          {[
+            { key: null, label: "Cards" },
+            { key: "list", label: "Rows" },
+          ].map((option) => {
+            const isActive = (activeView ?? null) === option.key;
+            return (
+              <Link
+                key={option.label}
+                href={withParam("view", option.key)}
+                aria-current={isActive ? "true" : undefined}
+                className={
+                  isActive
+                    ? "rounded-[5px] bg-surface px-3 py-1.5 text-[13px] font-semibold text-ink shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+                    : "rounded-[5px] px-3 py-1.5 text-[13px] text-ink-soft transition-colors hover:text-ink"
+                }
+              >
+                {option.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

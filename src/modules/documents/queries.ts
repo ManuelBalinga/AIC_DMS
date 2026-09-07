@@ -109,3 +109,46 @@ export async function getDocumentStats(userId: string): Promise<DocumentStats> {
     ).length,
   };
 }
+
+/**
+ * The opening text of each document, for the cards on the register.
+ *
+ * A card that shows what is inside a document is the whole point of the grid,
+ * and the obvious way to get one — rendering the first page of every file to an
+ * image — is a background job, an image store, and a second set of permission
+ * rules to keep in step with the first. None of that is necessary here: the
+ * opening text is already extracted, already stored, and already covered by the
+ * same policy as its document, because `document_chunks` is what Ask reads.
+ *
+ * So this returns words rather than a picture. That is not a lesser substitute:
+ * a reader recognises "Industry Internship Course Outline" by its first
+ * sentence far faster than by a thumbnail of grey lines at 110 pixels tall.
+ *
+ * One query for the whole page. Twenty cards must not be twenty round trips,
+ * which is the same rule the unresolved-comment count already follows.
+ *
+ * No permission filter, for the usual reason: `document_chunks` carries a policy
+ * calling `can_read_document`, so a chunk belonging to a document this reader
+ * cannot open never reaches the application. Filtering again here would put the
+ * rule in two places and let them drift.
+ */
+export async function listDocumentPreviews(
+  documentIds: string[],
+): Promise<Map<string, string>> {
+  const previews = new Map<string, string>();
+  if (documentIds.length === 0) return previews;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("document_chunks")
+    .select("document_id, content")
+    .in("document_id", documentIds)
+    .eq("chunk_index", 0);
+
+  for (const row of data ?? []) {
+    const text = (row.content as string | null)?.replace(/\s+/g, " ").trim();
+    if (text) previews.set(row.document_id as string, text);
+  }
+
+  return previews;
+}

@@ -1090,3 +1090,73 @@ committing, and a clean rebuild confirms neither survives.
   and were **not** viewed in a browser, for want of a database to sign in to.
   They compile and they are the same components; that is not the same as
   having looked.
+
+---
+
+### 2026-09-03 — Manuel + Claude
+
+**Built direction B, "the library", on `Claude-Dev`.** Manuel was shown three
+directions as mocks and picked B: documents as cards you recognise by looking,
+behind a left rail.
+
+**The cost I quoted for B turned out not to exist.** I had written that cards
+mean rendering the first page of every file — a background job, an image store,
+and a second permission model to keep in step with the first. That was wrong,
+and checking before building is what caught it: `document_chunks.content`
+already holds each document's extracted opening text, already under the policy
+that calls `can_read_document`, because it is what Ask reads. So the card window
+shows **the document's own first words**, which needs no new backend at all and
+is better than a thumbnail — you recognise a fee schedule by reading four words
+of it faster than by squinting at grey lines. `listDocumentPreviews` is one
+query for the page, on the rule the comment counts already follow.
+
+The fallback ladder is summary, then opening text, then the uploader's
+description, then a statement of *why* there is nothing: "still being read" and
+"could not be read" are different facts and only one of them is actionable.
+
+**The rail replaced the tab strip across the whole shell,** which is the change
+Manuel will notice on every screen, not just the register. Below `lg` it becomes
+a `<details>` disclosure — a real toggle with correct keyboard and
+screen-reader behaviour and no JavaScript shipped to do what the element does
+natively. Tags moved into the rail and render only on `/dashboard`, decided in a
+client component because the layout is a server component and cannot read the
+path.
+
+**Three duplicate queries fell out of it.** Tags were being fetched by both the
+layout and the dashboard, so the page asked twice for one answer. Folio numbers
+are gone — they were one of the six faults, and computing them cost a *second*
+full `listVisibleDocuments` call on every filtered view. And the grid's preview
+query is skipped entirely in the rows view, which does not draw it.
+
+**Cards are the default; rows stayed behind a toggle.** B's real cost is that
+three per row instead of twelve is a lot of scrolling at forty documents, and
+somebody who knows exactly what they want should not have to scroll a shelf.
+
+**Four things I got wrong and only found by rendering it.**
+
+The preview text ran underneath the file-type mark, because I placed the mark
+absolutely and never reserved the corner it occupies. The hatched spreadsheet
+tile hatched the whole tile, so the three letters on top of it disappeared —
+it is a ruled grid at a lighter weight now. `initialsOf("You")` rendered an
+avatar reading **"YO"**, which looks like somebody's name; the avatar carries
+the owner's real initials now and the words beside it say who they are relative
+to the reader. And the header still printed the dot-joined fragment string this
+whole redesign exists to retire.
+
+**One process failure worth recording.** I grepped the build output for `error`
+with too narrow a pattern, concluded it had passed, started the server and
+screenshotted — and got Chrome's error page, which I nearly read as the app.
+The build had failed on the fixture file. **Check the server actually came up
+before trusting a screenshot**; `next start` exits 1 with no production build
+and the screenshot still succeeds.
+
+- Files: `src/modules/documents/queries.ts`, `src/app/(app)/layout.tsx`, `src/app/(app)/nav-links.tsx`, `src/app/(app)/dashboard/document-card.tsx` (new), `src/app/(app)/dashboard/page.tsx`, `src/app/(app)/dashboard/document-filters.tsx`, `.impeccable/review/library-desktop.png`
+- Checks: typecheck, lint, 189 tests, production build, 26/26 contrast pairings
+- Hosted changes: none
+- Status: **`Claude-Dev` only, still ahead of `main` and deliberately so.** The
+  card grid was verified through a throwaway `/design-preview` route with
+  fixture documents, since signing in needs a database this session cannot
+  reach; the route and its temporary `PUBLIC_ROUTES` entry are removed and a
+  clean rebuild confirms it. **The rows view, the mobile drawer, and every
+  screen other than the register were not viewed in a browser** — they compile,
+  which is not the same as having been looked at.
