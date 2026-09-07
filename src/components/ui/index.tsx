@@ -7,12 +7,20 @@ function cx(...values: Array<string | false | null | undefined>) {
 /* -------------------------------------------------------------------------- */
 /* Marks                                                                      */
 /*                                                                            */
-/* Drawn at one stroke weight, sized to sit on a line of text. A status here   */
-/* is a mark plus a word; colour is the third signal, never the only one, so   */
-/* the meaning survives a monochrome screen and a screen reader alike.         */
+/* Drawn at one stroke weight, sized to sit on a line of text. In a monochrome */
+/* interface a status has exactly two signals — this mark and a word — so the  */
+/* shape is doing real work rather than decorating a colour. That constraint   */
+/* is why the set stayed when the palette went.                                */
 /* -------------------------------------------------------------------------- */
 
-type MarkName = "seal" | "received" | "indexed" | "open" | "void";
+type MarkName =
+  | "seal"
+  | "received"
+  | "indexed"
+  | "open"
+  | "void"
+  | "check"
+  | "alert";
 
 function Mark({ name }: { name: MarkName }) {
   const paths: Record<MarkName, ReactNode> = {
@@ -43,6 +51,16 @@ function Mark({ name }: { name: MarkName }) {
         <path d="M2.2 3.2h7.6v4.6H6.1L3.7 9.6V7.8H2.2z" />
       </>
     ),
+    // It worked.
+    check: <path d="m2.4 6.3 2.4 2.3 4.8-5.2" />,
+    // It did not. A bare exclamation rather than a triangle: at 12px a triangle
+    // is three strokes competing for the same four pixels and reads as a blob.
+    alert: (
+      <>
+        <path d="M6 2.4v4.2" />
+        <path d="M6 9.2v.05" />
+      </>
+    ),
     // Struck through: withdrawn, and still on the record.
     void: (
       <>
@@ -68,60 +86,137 @@ function Mark({ name }: { name: MarkName }) {
   );
 }
 
+/** The affordance on a row that opens something. Revealed on hover or focus. */
+export function Chevron({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      className={cx("size-3.5 shrink-0", className)}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m4.5 2.5 4 3.5-4 3.5" />
+    </svg>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Buttons                                                                    */
+/*                                                                            */
+/* Without colour, hierarchy has to come from fill, border and weight. The     */
+/* primary is the only filled control on a screen; secondary is bounded;       */
+/* ghost is bare. Read together they rank without a hue between them.          */
 /* -------------------------------------------------------------------------- */
 
 type ButtonProps = ComponentPropsWithoutRef<"button"> & {
   variant?: "primary" | "secondary" | "ghost" | "danger";
+  size?: "md" | "sm";
 };
 
-export function Button({ variant = "primary", className, ...props }: ButtonProps) {
+export function Button({
+  variant = "primary",
+  size = "md",
+  className,
+  ...props
+}: ButtonProps) {
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-[2px] px-4 py-2 text-sm font-medium tracking-[-0.01em] transition-[background-color,color,box-shadow] duration-150 disabled:cursor-not-allowed disabled:opacity-45";
+    // `press` carries the transitions and the give on hold. min-h keeps every
+    // control at a comfortable target on a phone, which several were not.
+    "press inline-flex items-center justify-center gap-2 rounded-control font-medium tracking-[-0.01em] disabled:pointer-events-none disabled:opacity-45";
 
-  const variants = {
-    // Weight at rest: a struck bottom edge and a seat beneath it, so the
-    // primary action reads as stamped onto the page before it is touched. The
-    // stamp *motion* is not here — it belongs to committing a permission
-    // change, and lives on those controls alone.
-    primary:
-      "border-b-2 border-cloth-deep bg-cloth text-parchment shadow-[0_2px_0_rgba(22,41,31,0.55),0_3px_6px_rgba(36,31,20,0.22)] hover:bg-cloth-deep hover:text-page",
-    secondary:
-      "border border-rule-faint bg-page-raised text-ink hover:border-ink-faint hover:bg-page",
-    ghost: "text-ink-soft hover:bg-page-sunk hover:text-ink",
-    danger:
-      "border border-rule/40 bg-page-raised text-rule hover:bg-rule hover:text-page",
+  const sizes = {
+    md: "min-h-10 px-4 py-2 text-sm",
+    sm: "min-h-8 px-3 py-1.5 text-[13px]",
   } as const;
 
-  return <button className={cx(base, variants[variant], className)} {...props} />;
+  const variants = {
+    primary:
+      "bg-accent text-accent-ink shadow-[0_1px_2px_rgba(0,0,0,0.16)] hover:opacity-90",
+    secondary:
+      "border border-control bg-surface text-ink hover:bg-surface-sunk",
+    ghost: "text-ink-soft hover:bg-surface-sunk hover:text-ink",
+    // Monochrome leaves weight as the only signal, so danger takes a doubled
+    // border in the full ink where secondary takes a hairline in grey — a
+    // visible difference at rest, which is when the decision is made. It then
+    // inverts to a fill on hover, so the control arms itself under the pointer.
+    // The first attempt gave it secondary's border and differed on hover alone,
+    // which made "Remove" and "Cancel" the same button until you touched one.
+    danger:
+      "border-2 border-ink bg-surface font-semibold text-ink hover:bg-accent hover:text-accent-ink",
+  } as const;
+
+  return (
+    <button
+      className={cx(base, sizes[size], variants[variant], className)}
+      {...props}
+    />
+  );
 }
 
 /* -------------------------------------------------------------------------- */
-/* Fields are entry lines. A ledger is written on a rule, not inside a box, so */
-/* the underline carries the field and thickens where the pen is.              */
+/* Fields                                                                     */
+/*                                                                            */
+/* Bounded boxes rather than the underlines this replaced. An underline is     */
+/* handsome and it is also the reason the login screen read as though the      */
+/* password field were missing: nothing said where to click before you clicked.*/
+/* `border-control` clears 3:1 so the boundary is visible on its own.          */
 /* -------------------------------------------------------------------------- */
 
 const FIELD =
-  "w-full rounded-none border-0 border-b border-rule-faint bg-transparent px-0.5 pb-1.5 pt-1 text-sm text-ink transition-colors placeholder:text-ink-faint focus:border-rule focus:outline-none focus:ring-0";
+  "w-full min-h-10 rounded-field border border-control bg-surface px-3 py-2 text-sm text-ink transition-[border-color,box-shadow] duration-150 placeholder:text-ink-faint hover:border-ink-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50";
 
-export function Input({ className, ...props }: ComponentPropsWithoutRef<"input">) {
+export function Input({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<"input">) {
   return <input className={cx(FIELD, className)} {...props} />;
 }
 
-export function Textarea({ className, ...props }: ComponentPropsWithoutRef<"textarea">) {
-  return <textarea className={cx(FIELD, "resize-y", className)} {...props} />;
+export function Textarea({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<"textarea">) {
+  return (
+    <textarea
+      className={cx(FIELD, "resize-y leading-relaxed", className)}
+      {...props}
+    />
+  );
 }
 
-export function Select({ className, ...props }: ComponentPropsWithoutRef<"select">) {
-  return <select className={cx(FIELD, "pr-6", className)} {...props} />;
+export function Select({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<"select">) {
+  return (
+    <select
+      className={cx(FIELD, "cursor-pointer pr-8", className)}
+      {...props}
+    />
+  );
 }
 
-export function Label({ className, ...props }: ComponentPropsWithoutRef<"label">) {
+export function Label({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<"label">) {
   return (
     <label
-      className={cx(
-        "block text-[11px] font-semibold uppercase tracking-[0.09em] text-ink-soft",
-        className,
-      )}
+      className={cx("block text-[13px] font-medium text-ink-soft", className)}
+      {...props}
+    />
+  );
+}
+
+/** Guidance under a field. Reaches the field's own description, not just sighted readers. */
+export function Hint({ className, ...props }: ComponentPropsWithoutRef<"p">) {
+  return (
+    <p
+      className={cx("text-xs leading-relaxed text-ink-faint", className)}
       {...props}
     />
   );
@@ -139,7 +234,7 @@ export function Card({
   return (
     <div
       className={cx(
-        "rounded-[2px] border border-rule-faint bg-page shadow-[0_1px_3px_rgba(36,31,20,0.09)]",
+        "rounded-sheet border border-line bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
         className,
       )}
     >
@@ -155,14 +250,15 @@ export function Badge({
   tone?: "neutral" | "green" | "amber" | "blue" | "red";
   children: ReactNode;
 }) {
-  // Tone names are the call sites' vocabulary across the app and stay put; what
-  // each one means in the ledger is decided here, once.
+  // The call sites across the app speak in these tone names and keep doing so.
+  // What each means is decided here, once — now as a mark and a weight rather
+  // than a hue, which is the whole of the monochrome change at this level.
   const tones = {
-    blue: { className: "text-cloth", mark: "seal" },
+    blue: { className: "text-ink font-semibold", mark: "seal" },
     neutral: { className: "text-ink-soft", mark: "received" },
-    green: { className: "text-cloth-edge", mark: "indexed" },
-    amber: { className: "text-mark-open", mark: "open" },
-    red: { className: "text-mark-void", mark: "void" },
+    green: { className: "text-ink-soft", mark: "indexed" },
+    amber: { className: "text-ink font-semibold", mark: "open" },
+    red: { className: "text-ink font-semibold", mark: "void" },
   } as const satisfies Record<string, { className: string; mark: MarkName }>;
 
   const { className, mark } = tones[tone];
@@ -170,7 +266,7 @@ export function Badge({
   return (
     <span
       className={cx(
-        "inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.07em]",
+        "inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.06em]",
         className,
       )}
     >
@@ -187,19 +283,39 @@ export function Alert({
   tone: "error" | "success" | "warning";
   children: ReactNode;
 }) {
+  // Monochrome, so the three are told apart by their mark and by weight. An
+  // error also carries the heavier surface, because it is the one a reader must
+  // not skim past.
   const tones = {
-    error: "border-rule/45 bg-rule/[0.07] text-rule",
-    success: "border-cloth-edge/40 bg-cloth-edge/[0.07] text-cloth",
-    warning: "border-brass-deep/45 bg-brass/[0.10] text-mark-open",
+    error: {
+      className: "border-ink bg-surface-sunk text-ink font-medium",
+      mark: "alert" as MarkName,
+    },
+    success: {
+      className: "border-line bg-surface-sunk text-ink-soft",
+      mark: "check" as MarkName,
+    },
+    warning: {
+      className: "border-line-strong bg-surface-sunk text-ink",
+      mark: "open" as MarkName,
+    },
   } as const;
+
+  const { className, mark } = tones[tone];
 
   return (
     <p
-      className={cx("rounded-[2px] border px-3 py-2 text-sm", tones[tone])}
+      className={cx(
+        "flex items-start gap-2 rounded-field border px-3 py-2.5 text-sm leading-relaxed",
+        className,
+      )}
       // An error interrupts; a confirmation waits its turn.
       role={tone === "error" ? "alert" : "status"}
     >
-      {children}
+      <span className="mt-1">
+        <Mark name={mark} />
+      </span>
+      <span className="min-w-0">{children}</span>
     </p>
   );
 }
@@ -213,16 +329,17 @@ export function EmptyState({
   description: string;
   action?: ReactNode;
 }) {
-  // Draws no container of its own: it sits on the page sheet the app layout
-  // already provides, and a bordered box inside that sheet would be a card
-  // inside a card.
+  // Draws no ruling. The previous version painted ruled paper behind an empty
+  // list, so "nothing here" and "this failed to load" looked identical.
   return (
-    <div className="ledger-ruled border-y border-rule-faint px-6 py-16 text-center">
-      <p className="text-base font-semibold tracking-[-0.01em] text-ink">{title}</p>
-      <p className="mx-auto mt-1.5 max-w-[46ch] text-sm leading-relaxed text-ink-soft">
+    <div className="rounded-sheet border border-dashed border-line-strong px-6 py-16 text-center">
+      <p className="text-base font-semibold tracking-[-0.01em] text-ink">
+        {title}
+      </p>
+      <p className="mx-auto mt-2 max-w-[46ch] text-sm leading-relaxed text-ink-soft">
         {description}
       </p>
-      {action ? <div className="mt-5">{action}</div> : null}
+      {action ? <div className="mt-6">{action}</div> : null}
     </div>
   );
 }

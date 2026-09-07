@@ -1,83 +1,123 @@
 @import "tailwindcss";
 
 /*
- * The Registrar's Ledger.
+ * Monochrome.
  *
- * A bound program-office ledger: deep cloth binding around a ruled cream page.
- * Chrome (header, rails, dividers) is the cover; content sits on the page. That
- * split is the whole system, and it comes from the physical scene rather than a
- * light/dark preference — staff read this in Accra daylight, so the reading
- * field is paper, and the binding is what frames it.
+ * One neutral scale carries the whole interface: paper, ink, hairlines, and a
+ * single accent that is simply the ink at full strength. There is no hue to
+ * get wrong, which is the point — a document platform should look like the
+ * documents, and every earlier attempt at a "brand colour" here ended up
+ * competing with the content it was meant to frame.
  *
- * There is deliberately no second theme. A committed world renders one way.
+ * Two consequences follow, and both are deliberate:
+ *
+ *   - Colour can never be the only way something is said. A status is a drawn
+ *     mark plus a word; a destructive action is a word plus weight. That was
+ *     already the rule for accessibility, and going monochrome simply removes
+ *     the temptation to break it.
+ *   - Dark mode becomes almost free. The scale inverts and the relationships
+ *     hold, so both themes are the same design rather than two designs that
+ *     have to be maintained in parallel.
+ *
+ * Every text pair below was measured against WCAG 1.4.3 (4.5:1) and every
+ * control border against 1.4.11 (3:1), in both themes. The ratios are written
+ * beside the values so the next person changing one can see what it has to
+ * clear. The check itself is `npm run check:contrast`.
  */
 
 @theme {
-  /* Binding — chrome, rails, dividers, the header band. */
-  --color-cloth: #1e3a2f;
-  --color-cloth-deep: #16291f;
-  --color-cloth-edge: #2c5142;
+  /* Ground. `canvas` is behind everything; `surface` is what you read on. */
+  --color-canvas: #f1f1f3;
+  --color-surface: #ffffff;
+  --color-surface-sunk: #f6f6f8;
+  --color-surface-raised: #ffffff;
 
-  /* Page — every reading surface. */
-  --color-page: #f6f1e4;
-  --color-page-sunk: #efe8d6;
-  --color-page-raised: #fbf8ef;
+  /* Ink. Ratios are against `surface`. */
+  --color-ink: #111113; /* 18.86:1 */
+  --color-ink-soft: #57575e; /* 7.17:1 */
+  --color-ink-faint: #6b6b73; /* 5.28:1 — the tier the old palette failed */
 
-  /* Ink — text on the page, warm rather than a cold near-black. */
-  --color-ink: #241f14;
-  --color-ink-soft: #6b6047;
-  --color-ink-faint: #756a50;
+  /* Lines. `line` divides, `control` bounds something you can operate and so
+     has to clear 3:1 on its own. Using `line` on an input is the mistake this
+     split exists to prevent. */
+  --color-line: #e4e4e8;
+  --color-line-strong: #d2d2d8;
+  --color-control: #8a8a92; /* 3.43:1 on surface, 3.17:1 on sunk */
 
-  /* Parchment — text on the binding. */
-  --color-parchment: #e8dfc9;
-  --color-parchment-soft: #b9ad91;
-
-  /* Rule — the ruling ink of a real ledger page. Structure, never alarm. */
-  --color-rule: #8c3a31;
-  --color-rule-faint: #d9c9b4;
-
-  /* Brass — reserved. Headers and the current position, nothing else. */
-  --color-brass: #c9a227;
-  --color-brass-deep: #9a7a18;
-
-  /* Status marks. Each pairs with a drawn glyph; colour never carries a state
-     on its own, which is what the round of accessibility findings asked for. */
-  --color-mark-open: #8a6d1f;
-  --color-mark-void: #8c3a31;
+  /* Accent: the ink itself. Filled controls, the active tab, the focus ring. */
+  --color-accent: #111113;
+  --color-accent-ink: #ffffff; /* 18.86:1 on accent */
 
   --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
 
-  --radius-sheet: 2px;
+  /* Softer than the previous 2px. Rounded corners read as approachable, and
+     "comfortable to use" was the brief. */
+  --radius-control: 8px;
+  --radius-field: 7px;
+  --radius-sheet: 14px;
+}
+
+/*
+ * Dark is the same scale inverted. Only the values move — no rule below this
+ * point knows which theme it is in, which is what keeps the two in step.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-canvas: #0d0d0f;
+    --color-surface: #161619;
+    --color-surface-sunk: #1d1d21;
+    --color-surface-raised: #212126;
+
+    --color-ink: #f3f3f5; /* 16.29:1 */
+    --color-ink-soft: #a9a9b2; /* 7.74:1 */
+    --color-ink-faint: #8d8d97; /* 5.49:1 */
+
+    --color-line: #292930;
+    --color-line-strong: #35353d;
+    --color-control: #70707a; /* 3.69:1 on surface */
+
+    --color-accent: #f3f3f5;
+    --color-accent-ink: #111113; /* 17.02:1 on accent */
+  }
 }
 
 :root {
-  /* The binding is dark and the page is light, so neither "light" nor "dark"
-     describes it. Pinning the scheme keeps browser-drawn surfaces — scrollbars,
-     form controls, the caret — on the page rather than following the OS into a
-     grey that belongs to no design system. */
-  color-scheme: light;
+  /* Both themes are supported, so browser-drawn surfaces — scrollbars, the
+     caret, form controls — should follow the reader rather than be pinned. */
+  color-scheme: light dark;
 }
 
 body {
-  background: var(--color-page-sunk);
+  background: var(--color-canvas);
   color: var(--color-ink);
+  /* Figures line up in columns: sizes, dates, counts, folio numbers. */
   font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Browser surfaces. These ship with defaults that belong to nobody; a ledger
-   selects in its own ink. */
 ::selection {
-  background: color-mix(in srgb, var(--color-brass) 34%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
   color: var(--color-ink);
 }
 
-* {
-  caret-color: var(--color-rule);
+/*
+ * Focus. One ring, on the accent, at a real offset — visible against both the
+ * sheet and a filled control, which a hairline outline is not.
+ */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+a {
+  text-underline-offset: 3px;
+  text-decoration-thickness: from-font;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-rule-faint) transparent;
+  scrollbar-color: var(--color-line-strong) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -86,7 +126,7 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: var(--color-rule-faint);
+  background: var(--color-line-strong);
   border: 3px solid transparent;
   background-clip: content-box;
   border-radius: 99px;
@@ -101,55 +141,102 @@ body {
   background: transparent;
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-brass-deep);
-  outline-offset: 2px;
+/*
+ * Row.
+ *
+ * Replaces the previous ruled-paper background, which drew a hairline every
+ * 72px whether or not anything was written on it — so a register holding one
+ * document rendered fifteen empty lines beneath it and read as a page that had
+ * failed to load. A separator now belongs to a row, so an empty list is empty.
+ *
+ * `:last-child` keeps the list from ending on a rule, which would leave the
+ * same orphaned hairline the old approach produced in bulk.
+ */
+.row {
+  border-bottom: 1px solid var(--color-line);
 }
 
-a {
-  text-underline-offset: 3px;
-  text-decoration-thickness: from-font;
+.row:last-child {
+  border-bottom: 0;
 }
 
 /*
- * The ruled page. Real ledger stock is ruled at a fixed rhythm, so the rules
- * are drawn at a fixed line height rather than per row — content sits on the
- * ruling instead of the ruling being drawn around content.
+ * Press.
+ *
+ * The one authored motion, on anything that commits: the control takes weight
+ * for as long as it is held. Short enough to read as tactile rather than as
+ * lag, and it starts from the resting state so a reduced-motion reader loses
+ * only the give and keeps every control.
  */
-.ledger-ruled {
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0,
-    transparent calc(var(--rule-rhythm, 2.25rem) - 1px),
-    var(--color-rule-faint) calc(var(--rule-rhythm, 2.25rem) - 1px),
-    var(--color-rule-faint) var(--rule-rhythm, 2.25rem)
-  );
+.press {
+  transition:
+    transform 140ms cubic-bezier(0.2, 0, 0, 1),
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.press:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 /*
- * The one authored motion in the product: committing a record. Used by the
- * primary action and by anything that writes an entry, never scattered onto
- * ordinary hovers. Exponential ease-out from an already-visible default, so a
- * reduced-motion reader loses the flourish and keeps the entire interface.
+ * Reveal.
+ *
+ * A row's affordance — the chevron that says "this opens" — is drawn only when
+ * the row is hovered or focused, so twenty rows are not twenty arrows competing
+ * with twenty titles. Focus counts as well as hover, or the affordance would
+ * exist for pointers alone.
  */
-@keyframes ledger-stamp {
-  0% {
-    transform: translateY(-2px) scale(1.015);
+.reveal {
+  opacity: 0;
+  transform: translateX(-2px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.group:hover .reveal,
+.group:focus-visible .reveal,
+.group:focus-within .reveal {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/*
+ * Entrance.
+ *
+ * Content arrives rather than appearing, which makes a server-rendered page
+ * feel answered rather than merely replaced. Two frames of movement, no more —
+ * anything longer is a page you are waiting for.
+ */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
-  38% {
-    transform: translateY(1px) scale(0.985);
-  }
-  100% {
-    transform: translateY(0) scale(1);
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.stamp-commit:active:not(:disabled) {
-  animation: ledger-stamp 260ms cubic-bezier(0.16, 1, 0.3, 1);
+.rise {
+  animation: rise 220ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stamp-commit:active:not(:disabled) {
+  .press:active:not(:disabled) {
+    transform: none;
+  }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+
+  .rise {
     animation: none;
   }
 
@@ -157,5 +244,6 @@ a {
   *::before,
   *::after {
     transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

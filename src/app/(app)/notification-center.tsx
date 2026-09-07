@@ -10,7 +10,7 @@ export function NotificationCenter({
 }) {
   return (
     <details className="relative">
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-[2px] px-2.5 py-1.5 text-sm text-parchment transition-colors hover:bg-cloth-edge hover:text-page">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-control px-2.5 py-1.5 text-sm text-ink-soft transition-colors hover:bg-surface-sunk hover:text-accent-ink">
         <svg
           viewBox="0 0 16 16"
           className="size-4 shrink-0"
@@ -27,12 +27,12 @@ export function NotificationCenter({
         <span className="hidden sm:inline">Notifications</span>
         <span className="sr-only sm:hidden">Notifications</span>
         {count > 0 ? (
-          <span className="rounded-[2px] bg-brass px-1.5 py-px text-[11px] font-bold leading-tight text-cloth-deep">
+          <span className="rounded-control bg-accent px-1.5 py-px text-[11px] font-bold leading-tight text-ink">
             {count > 99 ? "99+" : count}
           </span>
         ) : null}
       </summary>
-      <div className="absolute right-0 z-40 mt-2 w-80 rounded-[2px] border border-rule-faint bg-page p-2 shadow-[0_6px_18px_rgba(36,31,20,0.22)]">
+      <div className="absolute right-0 z-40 mt-2 w-80 rounded-control border border-line bg-surface p-2 shadow-[0_6px_18px_rgba(36,31,20,0.22)]">
         {notifications.length === 0 ? (
           <p className="px-3 py-4 text-sm text-ink-soft">
             No unread mentions or replies.
@@ -45,7 +45,7 @@ export function NotificationCenter({
                   <input type="hidden" name="notification_id" value={notification.id} />
                   <button
                     type="submit"
-                    className="w-full rounded-[2px] px-3 py-2 text-left transition-colors hover:bg-brass/[0.09]"
+                    className="w-full rounded-control px-3 py-2 text-left transition-colors hover:bg-accent/[0.09]"
                   >
                     <span className="block text-sm font-medium text-ink">
                       {displayName(notification.actor)}

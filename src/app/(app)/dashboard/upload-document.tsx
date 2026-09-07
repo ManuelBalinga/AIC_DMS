@@ -223,13 +223,13 @@ export function UploadDocument({ userId }: { userId: string }) {
       {draggingOverPage ? <DropOverlay /> : null}
       {/* Ruled off rather than boxed: this opens inside the page sheet, and a
           bordered card here would be a card inside a card. */}
-      <div className="w-full border-y border-rule/30 bg-page-raised px-4 py-5">
+      <div className="w-full border-y border-line-strong/30 bg-surface px-4 py-5">
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <div
             onDragOver={(event) => event.preventDefault()}
             onDrop={onDropZone}
             onClick={() => inputRef.current?.click()}
-            className="cursor-pointer rounded-[2px] border border-dashed border-rule-faint bg-page-raised px-4 py-8 text-center transition-colors hover:border-rule hover:bg-brass/[0.05]"
+            className="cursor-pointer rounded-control border border-dashed border-line bg-surface px-4 py-8 text-center transition-colors hover:border-line-strong hover:bg-accent/[0.05]"
           >
             <p className="text-sm font-medium text-ink">
               Drop files here, or click to choose
@@ -254,7 +254,7 @@ export function UploadDocument({ userId }: { userId: string }) {
           </div>
 
           {queue.length > 0 ? (
-            <ul className="divide-y divide-rule-faint rounded-[2px] border border-rule-faint">
+            <ul className="divide-y divide-line rounded-control border border-line">
               {queue.map((item) => (
                 <li key={item.key} className="flex items-center justify-between gap-3 px-3 py-2">
                   <div className="min-w-0">
@@ -275,7 +275,7 @@ export function UploadDocument({ userId }: { userId: string }) {
                           if (item.status === "saved") void removeQueuedUpload(item.key);
                           setQueue((c) => c.filter((q) => q.key !== item.key));
                         }}
-                        className="text-xs text-ink-soft underline underline-offset-2 hover:text-rule"
+                        className="text-xs text-ink-soft underline underline-offset-2 hover:text-ink"
                       >
                         Remove
                       </button>
@@ -361,9 +361,9 @@ function StatusPill({ status }: { status: Status }) {
           : "Ready";
   const tone =
     status === "done"
-      ? "text-cloth-edge"
+      ? "text-ink-soft"
       : status === "saved"
-        ? "text-mark-open"
+        ? "text-ink"
         : "text-ink-soft";
   return <span className={`text-xs font-medium ${tone}`}>{label}</span>;
 }
@@ -371,10 +371,10 @@ function StatusPill({ status }: { status: Status }) {
 /** Shown while files are dragged anywhere over the page. */
 function DropOverlay() {
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-cloth/70">
-      <div className="rounded-[2px] border border-dashed border-brass px-8 py-6 text-center">
-        <p className="text-lg font-medium text-page">Drop to upload</p>
-        <p className="mt-1 text-sm text-parchment-soft">Several files at once is fine.</p>
+    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-accent/70">
+      <div className="rounded-control border border-dashed border-line px-8 py-6 text-center">
+        <p className="text-lg font-medium text-accent-ink">Drop to upload</p>
+        <p className="mt-1 text-sm text-ink-faint">Several files at once is fine.</p>
       </div>
     </div>
   );

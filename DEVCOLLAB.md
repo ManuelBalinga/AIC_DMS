@@ -1012,3 +1012,81 @@ comment rather than quietly presented as permanent.
 - Commits: `379baf2` (build), `8130250` (the eight fixes)
 - Hosted changes: none. A throwaway member account with viewer access to the one real document is used for authenticated captures and gets deleted at the end of the session; its credentials file is gitignored
 - Status: fixes applied, both viewports recaptured and validated, verdict pass in flight with the same reviewer. **Not deployed.** DESIGN.md still unwritten — the documenter runs after the verdict closes, and until it does `/impeccable live` cannot boot, because it requires DESIGN.md to exist
+
+---
+
+### 2026-09-03 — Manuel + Claude
+
+**Replaced the Registrar's Ledger palette with a monochrome system, on
+`Claude-Dev` only, for Manuel to look at before it goes anywhere near `main`.**
+
+Manuel asked for monochrome, for the interface to feel interactive, and for it
+to be more comfortable and easier to use. He also asked that this land on
+`Claude-Dev` alone so he can see it first, which is why `main` is untouched and
+the two branches are deliberately *not* level at the end of this entry.
+
+**What went.** The cloth/parchment/brass/ruling-ink palette, and with it the
+metaphor those token names carried. Keeping the names over grey values would
+have left a stylesheet that lied about itself, so the tokens were renamed to say
+what they are — `canvas`, `surface`, `ink`, `line`, `control`, `accent` — across
+eleven files.
+
+**What the monochrome bought.** Dark mode, almost free: one scale inverted, the
+relationships hold, and no rule below the token block knows which theme it is
+in. There is now a real dark theme where before the scheme was pinned to light.
+Verified by measuring the rendered pixel rather than trusting the media query —
+`#f1f1f3` and `#0d0d0f`, exactly the declared canvas in each.
+
+**Three UX defects fixed, only one of them cosmetic.**
+
+`.ledger-ruled` painted a hairline every 72px across the whole field whether or
+not anything was written on it, so the register holding one document rendered
+that document above fifteen empty rules. It read as a page that had failed to
+load. Separators now belong to rows, so an empty list is empty.
+
+Entry rows were pinned to a fixed height, which is what had previously clipped
+the size line mid-glyph once badges wrapped on a phone. They grow to their
+content now, and the earlier fix — matching two fixed heights to two rhythms —
+was deleted rather than adjusted, because the rhythm it was matching is gone.
+
+Fields were underlines. Handsome, and the reason the login screen read as though
+the password field were missing: nothing said where to click until you clicked.
+They are bounded boxes on `--color-control`, which clears 3:1 on its own.
+
+**Two things the mechanical token pass broke, caught by looking at it.** The
+login page mapped its dark full-bleed background to `bg-accent` and its logo to
+`stroke-ink` — both near-black, so the mark vanished into the panel. And sign
+out kept `hover:text-accent-ink`, which on a now-light header is white on pale
+grey. A find-and-replace across a palette cannot know that two tokens which were
+opposites have become neighbours. **Render it and look at it.**
+
+**One design finding I made and then had to fix.** With colour gone, `danger`
+and `secondary` rested identically and differed only on hover, so "Remove" and
+"Cancel" were the same button until you touched one. Danger now takes a doubled
+border in the full ink. The alert marks had the same fault: error and success
+were reusing document-status glyphs, so a failure was announced with a
+magnifying glass. There are now `check` and `alert` marks that mean what they
+show.
+
+**`npm run check:contrast` is new and parses `globals.css` rather than carrying
+its own copy of the palette** — a checker with a second copy passes forever
+after somebody edits the first one. 26 pairings, both themes, all clear. The
+tier that failed the last review, `ink-faint`, is now measured rather than
+assumed: 5.28:1 light, 5.49:1 dark.
+
+**Verification.** `next start` on a fixed port, killed with `fuser -k 4321/tcp`
+rather than a process-name pattern — the trap recorded in the previous entry.
+The register was captured through a throwaway `/design-preview` route with
+fixture data, since authenticating needs a database this session cannot reach;
+the route and its temporary `PUBLIC_ROUTES` entry were both removed before
+committing, and a clean rebuild confirms neither survives.
+
+- Files: `src/app/globals.css`, `src/components/ui/index.tsx`, `src/app/(app)/layout.tsx`, `src/app/(app)/nav-links.tsx`, `src/app/(app)/dashboard/page.tsx`, `src/app/(app)/dashboard/document-filters.tsx`, `src/app/(app)/dashboard/upload-document.tsx`, `src/app/(app)/documents/[id]/share-panel.tsx`, `src/app/(app)/notification-center.tsx`, `src/app/(app)/sign-out-button.tsx`, `src/app/login/page.tsx`, `src/app/login/login-form.tsx`, `scripts/check-contrast.mjs`, `.impeccable/review/monochrome-*.png`
+- Checks: typecheck, lint, 189 tests, production build, 26/26 contrast pairings
+- Hosted changes: none
+- Status: **`Claude-Dev` only, deliberately ahead of `main`.** Not deployed, and
+  not merged until Manuel has seen it. The authenticated screens beyond the
+  dashboard — Ask, Messages, the document page, People — inherit the new tokens
+  and were **not** viewed in a browser, for want of a database to sign in to.
+  They compile and they are the same components; that is not the same as
+  having looked.

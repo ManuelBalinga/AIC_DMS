@@ -22,7 +22,9 @@ export default async function AppLayout({
     listThreads(profile.id),
     listUnreadChatNotifications(),
   ]);
-  const participantThreads = threads.filter((thread) => thread.viewerIsParticipant);
+  const participantThreads = threads.filter(
+    (thread) => thread.viewerIsParticipant,
+  );
   const unread = participantThreads.reduce(
     (total, thread) => total + thread.unreadCount,
     0,
@@ -37,29 +39,31 @@ export default async function AppLayout({
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-cloth-deep">
+    <div className="flex min-h-screen flex-col bg-canvas">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-[2px] focus:bg-page focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-ink"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-accent focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-accent-ink"
       >
         Skip to content
       </a>
 
-      {/* The binding. One row once there is room for one; on a narrow screen
-          the identity and account controls hold the top and the section tabs
-          take their own scrolling row beneath, because a tab strip that runs
-          off the edge of its own band is worse than a tab strip that scrolls. */}
-      <header className="border-b-2 border-brass-deep/50 bg-cloth">
+      {/* The header stays put while the page scrolls. Navigation that leaves
+          the screen is navigation you scroll back up to find, and on a long
+          register that is most of the time somebody spends here. */}
+      <header className="sticky top-0 z-40 border-b border-line bg-surface/85 backdrop-blur-md">
         <div className="mx-auto w-full max-w-5xl px-4">
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 sm:flex-nowrap">
             <Link
               href="/dashboard"
-              className="flex shrink-0 items-center gap-2.5 py-3"
+              className="flex shrink-0 items-center gap-2.5 py-3.5"
               aria-label="AIC Documents, back to documents"
             >
+              {/* Drawn in the ink, like everything else. The mark carries the
+                  identity through its shape, which is the only signal a
+                  monochrome system leaves it. */}
               <svg
                 viewBox="0 0 24 24"
-                className="size-[22px] shrink-0"
+                className="size-[22px] shrink-0 text-ink"
                 fill="none"
                 aria-hidden="true"
               >
@@ -68,19 +72,20 @@ export default async function AppLayout({
                   y="2.5"
                   width="17"
                   height="19"
-                  rx="1"
-                  className="stroke-brass"
+                  rx="2.5"
+                  stroke="currentColor"
                   strokeWidth="1.5"
                 />
-                <path d="M7.5 2.5v19" className="stroke-brass" strokeWidth="1.5" />
+                <path d="M7.5 2.5v19" stroke="currentColor" strokeWidth="1.5" />
                 <path
                   d="M11 8h6M11 12h6M11 16h3.5"
-                  className="stroke-parchment-soft"
+                  stroke="currentColor"
                   strokeWidth="1.5"
                   strokeLinecap="round"
+                  opacity="0.45"
                 />
               </svg>
-              <span className="text-[15px] font-semibold tracking-[-0.015em] text-page">
+              <span className="text-[15px] font-semibold tracking-[-0.015em] text-ink">
                 AIC Documents
               </span>
             </Link>
@@ -98,7 +103,7 @@ export default async function AppLayout({
               />
               <Link
                 href="/account"
-                className="hidden max-w-[16ch] truncate px-2 text-sm text-parchment transition-colors hover:text-page lg:inline-block"
+                className="hidden max-w-[16ch] truncate rounded-control px-2.5 py-1.5 text-sm text-ink-soft transition-colors hover:bg-surface-sunk hover:text-ink lg:inline-block"
                 title={profile.email}
               >
                 {profile.full_name || profile.email}
@@ -109,22 +114,23 @@ export default async function AppLayout({
         </div>
       </header>
 
-      {/* The open page: one continuous sheet the whole app is written on. */}
-      {/* The sheet runs to the bottom of the window rather than stopping under
-          the last entry, because a ledger page that ends mid-screen reads as a
-          page that failed to load. */}
+      {/* One sheet, the whole app written on it. It runs to the bottom of the
+          window rather than stopping under the last entry, because a sheet that
+          ends mid-screen reads as a page that failed to load. */}
       <main
         id="main"
-        className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-3 py-6 sm:px-6 sm:py-8"
+        className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-3 py-5 sm:px-6 sm:py-8"
       >
-        <div className="flex flex-1 flex-col rounded-[2px] border border-rule-faint bg-page px-4 py-6 shadow-[0_1px_3px_rgba(36,31,20,0.09)] sm:px-8 sm:py-8">
+        <div className="rise flex flex-1 flex-col rounded-sheet border border-line bg-surface px-4 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] sm:px-8 sm:py-8">
           {children}
         </div>
       </main>
 
       <ChatRealtimeRefresh
         currentUserId={profile.id}
-        participantThreadIds={participantThreads.map((thread) => thread.id).join(",")}
+        participantThreadIds={participantThreads
+          .map((thread) => thread.id)
+          .join(",")}
       />
       <OfflineRuntime userId={profile.id} />
     </div>

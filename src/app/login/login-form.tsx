@@ -45,7 +45,7 @@ export function LoginForm({ next }: { next?: string }) {
               // Matched to the Label's size on purpose: a larger link in this
               // row makes the row taller than a bare label, which pushed the
               // password rule 16px further from its label than the email one.
-              className="shrink-0 whitespace-nowrap text-[11px] text-ink-soft underline underline-offset-2 transition-colors hover:text-rule"
+              className="shrink-0 whitespace-nowrap text-[11px] text-ink-soft underline underline-offset-2 transition-colors hover:text-ink"
             >
               Forgot password?
             </Link>

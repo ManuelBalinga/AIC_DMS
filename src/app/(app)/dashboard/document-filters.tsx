@@ -73,8 +73,16 @@ export function DocumentFilters({
         />
       </form>
 
-      {/* Tabs cut into the top edge of the page. */}
-      <div className="flex items-end gap-1 border-b border-rule/30">
+      {/* A segmented control rather than the cut-in tabs this replaces. The
+          tabs were handsome and they read as decoration: nothing about a notch
+          in a page edge says "these three are one choice". A track with the
+          selected segment filled says it at a glance, and it is the control
+          people already know from every settings screen they have used. */}
+      <div
+        className="inline-flex w-full max-w-full gap-1 overflow-x-auto rounded-control border border-line bg-surface-sunk p-1 sm:w-auto"
+        role="group"
+        aria-label="Filter by ownership"
+      >
         {scopes.map((scope) => {
           const isActive = (activeScope ?? undefined) === scope.key;
           return (
@@ -84,8 +92,8 @@ export function DocumentFilters({
               aria-current={isActive ? "true" : undefined}
               className={
                 isActive
-                  ? "-mb-px border border-b-page border-rule/30 border-t-2 border-t-brass bg-page px-3.5 py-2 text-[13px] font-semibold text-ink"
-                  : "-mb-px border border-transparent px-3.5 py-2 text-[13px] text-ink-soft transition-colors hover:text-ink"
+                  ? "flex-1 whitespace-nowrap rounded-[5px] bg-surface px-3.5 py-1.5 text-center text-[13px] font-semibold text-ink shadow-[0_1px_2px_rgba(0,0,0,0.08)] sm:flex-none"
+                  : "flex-1 whitespace-nowrap rounded-[5px] px-3.5 py-1.5 text-center text-[13px] text-ink-soft transition-colors hover:text-ink sm:flex-none"
               }
             >
               {scope.label}
@@ -108,12 +116,12 @@ export function DocumentFilters({
                 aria-current={isActive ? "true" : undefined}
                 className={
                   isActive
-                    ? "border-b-2 border-brass pb-0.5 text-[13px] font-semibold text-ink"
-                    : "border-b-2 border-transparent pb-0.5 text-[13px] text-ink-soft transition-colors hover:border-rule-faint hover:text-ink"
+                    ? "inline-flex items-center rounded-full bg-accent px-3 py-1 text-[13px] font-medium text-accent-ink"
+                    : "inline-flex items-center rounded-full border border-line px-3 py-1 text-[13px] text-ink-soft transition-colors hover:border-control hover:text-ink"
                 }
               >
                 {tag.tag}
-                <span className="ml-1.5 text-[11px] tabular-nums text-ink-faint">
+                <span className="ml-1.5 text-[11px] tabular-nums opacity-60">
                   {tag.document_count}
                 </span>
               </Link>
