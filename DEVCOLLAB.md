@@ -1259,3 +1259,80 @@ everything below it involves another person seeing something. The gate is
 - Artifact: "Before Anyone Signs In" — https://claude.ai/code/artifact/85004720-c524-4efe-93c7-b81e6b3fd2f1
 - Status: no code changed. Counts verified against the rows: 90 built, 2 in
   progress, 1 not started, 93 tracked.
+### 2026-09-08 — Manuel + Claude
+
+**Ran a real end-to-end browser pass, then wrote the OpenCode handoff.**
+
+Three skills, at Manuel's request: `webapp-testing` (anthropics),
+`test-driven-development` (obra/superpowers) and `playwright-generate-test`
+(github/awesome-copilot). The first two agree and the third assumes a Playwright
+MCP this session does not have, so the run followed webapp-testing's
+reconnaissance-then-assert pattern with TDD's rule that a check nobody watched
+fail proves nothing.
+
+Python Playwright, driving the installed Chrome rather than downloading a second
+browser. `pip` was missing from this machine and needed `ensurepip` first.
+
+**The upload bug is confirmed fixed through the real interface.** A file named
+"Board Notes 08 September.md" — spaces and all, the exact shape that produced
+"Could not save the document record" — uploaded and appeared. The permission
+boundary also holds in the browser: a second member, granted nothing, cannot see
+the owner's document. Zero console errors across every signed-in route.
+
+**Two findings I reported and then withdrew, both my own fault.** The first pass
+said sign-in was broken and the upload control missing. Neither was true.
+`networkidle` returns while the button still reads "Signing in…", because the
+Supabase round trip and the redirect after it are two separate waits — the
+screenshot showed a login form mid-submit and I read it as a failure. Separately,
+a **stale server from an earlier run was holding port 3100**, so the helper
+declared the port ready and Playwright talked to a half-dead process. Both are
+written into the handoff, because they will cost the next person the same hour
+otherwise.
+
+**Three real issues, all verified after the page settled**: `/offline` sets no
+page title at all; `/messages` uses `·` where every other title uses `|`; and
+`SignOutButton` renders twice, so the accessibility tree carries two identical
+"Sign out" controls. The third is written up with a check-before-changing note,
+since it is a non-issue if both are `display:none`-gated at their breakpoints.
+
+`Documentation/OPENCODE_HANDOFF.md` carries all of it plus the pending
+deliverables (90 of 93 built, 2 in progress, 1 on Bishop), paste-ready prompts,
+and an explicit instruction to update `PROJECT_STATUS.html` — counts and
+progress bar included, since those are derived from the rows and drift silently.
+
+- Files: `Documentation/OPENCODE_HANDOFF.md`, `e2e-recon.py`, `e2e-verify.py`, `e2e-accounts-tmp.mjs`, `.gitignore`, `DEVCOLLAB.md`
+- Hosted changes: two disposable accounts and one uploaded test document remain on the Supabase project; credentials are gitignored
+- Status: handoff written. The three issues are **found and documented, not fixed** — deliberately left for OpenCode
+
+### 2026-09-08 — Manuel + Claude
+
+**Corrected the OpenCode handoff: OpenCode runs on Manuel's own machine and
+account, not a separate collaborator's.**
+
+I had written it as though OpenCode were a third party like Timi — a fresh
+clone, its own credentials, its own environment. It is not. It is the same
+checkout, the same `.env.local`, the same Supabase project, the same Vercel
+login. Two things follow, and both are hazards rather than conveniences.
+
+**The shared checkout is the real risk.** Two Claude sessions were already
+working in this tree today, and almost every problem that cost time came from
+that rather than from the code: a push rejected because another session pushed
+mid-work, a `DEVCOLLAB.md` conflict while writing the handoff itself, an
+unpushed commit from another session nearly stranded, and a stale `next start`
+holding port 3100 that made a half-dead process look like a broken application
+for two rounds of debugging. A new §0 records all of it, including that
+`pkill -f "next start"` does not match `npx next start` — kill by port.
+
+**The credentials are real, which changes what the warnings mean.** Telling a
+separate collaborator "run `verify:rls` against a development target" is
+routine advice; on this machine `.env.local` points at the **live** project, so
+the same sentence needed to say so plainly. Same for the service-role key,
+which bypasses RLS entirely.
+
+Also corrected the setup instructions, which said to install Python and
+Playwright. They are installed — `pip` was missing and was bootstrapped with
+`ensurepip` earlier today — so following the old text would have been busywork.
+The install lines are kept, marked as being for a fresh machine.
+
+- Files: `Documentation/OPENCODE_HANDOFF.md`, `DEVCOLLAB.md`
+- Status: done

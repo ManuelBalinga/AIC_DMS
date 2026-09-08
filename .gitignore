@@ -68,3 +68,9 @@ next-env.d.ts
 
 # Throwaway capture credentials — transient, never committed.
 capture-account.json
+
+# Disposable end-to-end test credentials.
+e2e-accounts.json
+
+# Playwright end-to-end artefacts.
+.playwright/
