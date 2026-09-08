@@ -1223,3 +1223,39 @@ the status code, and four tests pin it.
   `onRequestError` is wired to the documented contract and compiles into
   `.next/server/instrumentation.js`, but I did not manage to make a page throw,
   so I have **not** watched it fire. Unverified, and said so
+
+---
+
+### 2026-09-08 — Manuel + Claude
+
+**Stopped tracking anything in the deliverables table as blocked on Bishop, and
+wrote the pre-flight checklist.**
+
+`Test with representative AIC documents` was the last row in §7 carrying
+**Needs Bishop**. Manuel's call, and the right one: waiting on somebody else
+made it look like a dependency when it is really just unstarted work, and a row
+that has sat blocked for three weeks stops being read at all. It is **Not
+started** now, with the note saying plainly that invented documents exercise
+chunking, retrieval and citation exactly as well — and are what the first
+testing round should use anyway while the privacy question is open.
+
+The pill vocabulary in the §7 legend keeps its **Needs Bishop** entry, because
+§8 and §9 still use it and removing the key would leave those unexplained. §9 is
+the honest record of what is genuinely open with the client and was left alone.
+
+**The checklist is an artifact rather than a document in the repo** because its
+whole purpose is being ticked: it declares the `artifact` capability and
+republishes itself on each change, with a `localStorage` fallback when the
+capability is absent and a read-only path when the viewer cannot write. It
+regenerates the page from its own authored script text with a fresh state
+literal spliced in, rather than serialising the live DOM.
+
+Its content is the grilling from earlier in the session turned into an ordered
+plan. The order is the argument: everything above the gate is recoverable,
+everything below it involves another person seeing something. The gate is
+`npm run verify:rls` against a real project, which has still never been run.
+
+- Files: `PROJECT_STATUS.html`, `DEVCOLLAB.md`
+- Artifact: "Before Anyone Signs In" — https://claude.ai/code/artifact/85004720-c524-4efe-93c7-b81e6b3fd2f1
+- Status: no code changed. Counts verified against the rows: 90 built, 2 in
+  progress, 1 not started, 93 tracked.
