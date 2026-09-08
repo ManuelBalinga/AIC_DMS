@@ -1303,3 +1303,36 @@ progress bar included, since those are derived from the rows and drift silently.
 - Files: `Documentation/OPENCODE_HANDOFF.md`, `e2e-recon.py`, `e2e-verify.py`, `e2e-accounts-tmp.mjs`, `.gitignore`, `DEVCOLLAB.md`
 - Hosted changes: two disposable accounts and one uploaded test document remain on the Supabase project; credentials are gitignored
 - Status: handoff written. The three issues are **found and documented, not fixed** — deliberately left for OpenCode
+
+### 2026-09-08 — Manuel + Claude
+
+**Corrected the OpenCode handoff: OpenCode runs on Manuel's own machine and
+account, not a separate collaborator's.**
+
+I had written it as though OpenCode were a third party like Timi — a fresh
+clone, its own credentials, its own environment. It is not. It is the same
+checkout, the same `.env.local`, the same Supabase project, the same Vercel
+login. Two things follow, and both are hazards rather than conveniences.
+
+**The shared checkout is the real risk.** Two Claude sessions were already
+working in this tree today, and almost every problem that cost time came from
+that rather than from the code: a push rejected because another session pushed
+mid-work, a `DEVCOLLAB.md` conflict while writing the handoff itself, an
+unpushed commit from another session nearly stranded, and a stale `next start`
+holding port 3100 that made a half-dead process look like a broken application
+for two rounds of debugging. A new §0 records all of it, including that
+`pkill -f "next start"` does not match `npx next start` — kill by port.
+
+**The credentials are real, which changes what the warnings mean.** Telling a
+separate collaborator "run `verify:rls` against a development target" is
+routine advice; on this machine `.env.local` points at the **live** project, so
+the same sentence needed to say so plainly. Same for the service-role key,
+which bypasses RLS entirely.
+
+Also corrected the setup instructions, which said to install Python and
+Playwright. They are installed — `pip` was missing and was bootstrapped with
+`ensurepip` earlier today — so following the old text would have been busywork.
+The install lines are kept, marked as being for a fresh machine.
+
+- Files: `Documentation/OPENCODE_HANDOFF.md`, `DEVCOLLAB.md`
+- Status: done

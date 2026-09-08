@@ -4,9 +4,64 @@ Everything needed to pick this up without the conversation that produced it.
 Findings are from an end-to-end browser run against the real application and
 the live Supabase project, not from reading code.
 
+**OpenCode runs on Manuel's own machine and account** — the same checkout, the
+same `.env.local`, the same Supabase project, the same Vercel login. That is
+convenient and it is also the main hazard here; see §0.
+
 **Read [`DEVCOLLAB.md`](../DEVCOLLAB.md) before you start, and append to it when
 you finish.** It is the shared log between Manuel + Claude and Timi + his
 assistant, and it is the only place either pair learns what the other did.
+
+---
+
+## 0. You are on Manuel's machine, in a shared checkout
+
+This is not a fresh clone. Other sessions — Claude here, and Timi's assistant on
+his own machine — commit to the same branch, and **two Claude sessions have been
+working in this very working tree**. Nearly every problem that cost time in the
+session that wrote this came from that, not from the code.
+
+**Before you start:**
+
+- `git pull` first, and again before you commit. The branch moves under you.
+  A push was rejected mid-session because another session had pushed while work
+  was in progress.
+- **Check `git status` before doing anything.** Uncommitted work from another
+  session may be sitting in the tree. Do not stash or discard it without
+  looking; on one occasion a genuine unpushed commit was nearly stranded.
+- **`DEVCOLLAB.md` will conflict.** Two assistants appending to one file is the
+  reliable way to produce one. The rule is in the file and it is not negotiable:
+  keep **both** entries, order them by date, never resolve by discarding
+  somebody's. That conflict happened while writing this handoff and was resolved
+  exactly that way.
+
+**Servers and ports:**
+
+- **Kill the port holder before starting a server.** A stale `next start` from
+  an earlier session was found holding port 3100, and because the helper script
+  reports "ready" as soon as the port accepts a connection, Playwright then
+  talked to a half-dead process and every page timed out. It reads exactly like
+  a broken application.
+  ```powershell
+  Get-NetTCPConnection -LocalPort 3100 -State Listen |
+    ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+  ```
+- `pkill -f "next start"` does **not** match `npx next start`. Kill by port, by
+  PID. Verifying a fix against a stale server produced a wrong "the fix did not
+  work" conclusion once already.
+
+**Credentials, since you have the real ones:**
+
+- `.env.local` is present and real. `SUPABASE_SERVICE_ROLE_KEY` in it **bypasses
+  RLS entirely**. Anything you run with it is unprotected by the permission
+  model this product is built on.
+- `npm run verify:rls` creates and deletes throwaway users **against whatever
+  `.env.local` points at**, which is currently the live project. It is safe as
+  written, but know that before you run it.
+- Disposable accounts and one uploaded test document are already on the live
+  project from this session. `e2e-accounts.json` holds the credentials and is
+  gitignored — do not commit it, and delete the accounts when you no longer
+  need them.
 
 ---
 
@@ -41,11 +96,19 @@ clean.** `Claude-Dev` and `main` are level at `dcb16ad`.
 
 Python Playwright, following the `anthropics/skills` `webapp-testing` skill.
 
-```bash
-python -m ensurepip --upgrade        # pip was missing on this machine
-python -m pip install playwright     # uses installed Chrome via channel="chrome"
+Python 3.14, `pip` and Playwright are **already installed on this machine** —
+`pip` was missing and was bootstrapped with `ensurepip` during that session, so
+the two install lines below are recorded for a fresh machine, not for this one.
+Playwright drives the installed Chrome through `channel="chrome"` rather than
+downloading a second browser.
 
-# Two disposable accounts, then the run:
+```bash
+# Already done on this machine; needed only on a new one:
+#   python -m ensurepip --upgrade
+#   python -m pip install playwright
+
+# e2e-accounts.json already exists with two live disposable accounts. Re-run
+# this only if you want fresh ones, and delete the old pair if you do.
 node e2e-accounts.mjs                # writes e2e-accounts.json (gitignored)
 python "<skill>/scripts/with_server.py" \
   --server "npx next start -p 3100" --port 3100 --timeout 120 \
@@ -220,9 +283,13 @@ This is a standing project convention, not a preference. From `AGENTS.md`:
 
 ## 8. Prompts you can paste
 
+Each assumes you have read §0 and pulled first. In a shared checkout that is not
+a formality: the branch moves under you, and every one of these ends in a commit.
+
 **To fix the three issues in §4:**
 
-> Read `Documentation/OPENCODE_HANDOFF.md` §4. Fix issues 4.1 and 4.2 directly.
+> Pull first — other sessions commit to this branch. Read
+> `Documentation/OPENCODE_HANDOFF.md` §0 and §4. Fix issues 4.1 and 4.2 directly.
 > For 4.3, first check how each `SignOutButton` in `src/app/(app)/layout.tsx` is
 > hidden at its breakpoint — if both are `display:none`-gated the issue does not
 > exist and you should say so rather than change code. Run `npm run typecheck`,
@@ -252,11 +319,13 @@ This is a standing project convention, not a preference. From `AGENTS.md`:
 
 ## 9. House rules
 
+- **Pull before you start and before you commit.** Shared checkout, shared
+  branch — see §0.
 - Branch: `Claude-Dev`. Merge to `main` when finished.
 - Never commit `.env.local` (gitignored, keep it that way). Never paste key
   values into chat.
 - `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS entirely. Treat it as a database
   password; never prefix it `NEXT_PUBLIC_`.
-- `npm run verify:rls` creates and deletes throwaway users — development target
-  only.
+- `npm run verify:rls` creates and deletes throwaway users, against whatever
+  `.env.local` points at. On this machine that is the **live** project.
 - Run `npm run lint`, `npm run typecheck` and `npm test` before every commit.
